@@ -1,0 +1,154 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { GameShell } from "@/components/game/shell";
+import { ScoreDisplay } from "@/components/game/score-display";
+import { EndGameScreen } from "@/components/game/end-game-screen";
+import { Button } from "@/components/ui/button";
+import { dealInitialState, applyAction, handValue, isBlackjack } from "@/lib/games/blackjack";
+import { blackjackToShell, type BlackjackSession } from "@/lib/games/blackjack-to-shell";
+import type { GameState } from "@/lib/games/types";
+
+const PLAYER_ID = "player-1";
+const PLAYER_NAME = "You";
+
+function blackjackHeadline(state: GameState): { headline: string; subline?: string } {
+  switch (state.status) {
+    case "player_bust":
+      return { headline: "Dealer Wins", subline: "You busted" };
+    case "dealer_bust":
+      return { headline: "You Win!", subline: "Dealer busted" };
+    case "player_win":
+      return {
+        headline: "You Win!",
+        subline: isBlackjack(state.playerHand.cards) ? "Blackjack!" : undefined,
+      };
+    case "dealer_win":
+      return { headline: "Dealer Wins" };
+    case "push":
+      return { headline: "Push — Tie" };
+    default:
+      return { headline: "" };
+  }
+}
+
+export default function BlackjackPage() {
+  const router = useRouter();
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [session, setSession] = useState<BlackjackSession>({ wins: 0, losses: 0, pushes: 0 });
+
+  const startGame = useCallback(() => {
+    setGameState(dealInitialState(`game-${Date.now()}`, PLAYER_ID));
+  }, []);
+
+  const hit = useCallback(() => {
+    if (!gameState) return;
+    const next = applyAction(gameState, { type: "HIT", playerId: PLAYER_ID });
+    setGameState(next);
+    if (next.turn === "over") recordResult(next.result);
+  }, [gameState]);
+
+  const stand = useCallback(() => {
+    if (!gameState) return;
+    const next = applyAction(gameState, { type: "STAND", playerId: PLAYER_ID });
+    setGameState(next);
+    recordResult(next.result);
+  }, [gameState]);
+
+  function recordResult(result: GameState["result"]) {
+    setSession((s) => ({
+      wins: s.wins + (result === "player_win" ? 1 : 0),
+      losses: s.losses + (result === "dealer_win" ? 1 : 0),
+      pushes: s.pushes + (result === "push" ? 1 : 0),
+    }));
+  }
+
+  const shellState = blackjackToShell(gameState, PLAYER_NAME, session);
+  const isPlayerTurn = gameState?.turn === "player";
+  const isOver = gameState?.turn === "over";
+  const playerValue = gameState ? handValue(gameState.playerHand.cards) : null;
+  const dealerVisible = gameState ? gameState.dealerHand.filter((c) => !c.hidden) : [];
+  const dealerValue = dealerVisible.length ? handValue(dealerVisible) : null;
+
+  const actionArea = (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        {playerValue !== null && (
+          <span>
+            Your hand: <span className="font-semibold text-foreground">{playerValue}</span>
+          </span>
+        )}
+        {dealerValue !== null && (
+          <span>
+            Dealer showing: <span className="font-semibold text-foreground">{dealerValue}</span>
+          </span>
+        )}
+      </div>
+      <ScoreDisplay
+        scores={[
+          { label: "Wins", value: session.wins },
+          { label: "Losses", value: session.losses },
+          { label: "Pushes", value: session.pushes },
+        ]}
+      />
+      <div className="flex gap-2 flex-wrap">
+        {!gameState ? (
+          <Button onClick={startGame} className="flex-1 sm:flex-none">
+            Deal
+          </Button>
+        ) : (
+          <>
+            <Button
+              onClick={hit}
+              disabled={!isPlayerTurn || isOver}
+              variant="default"
+              className="flex-1 sm:flex-none"
+            >
+              Hit
+            </Button>
+            <Button
+              onClick={stand}
+              disabled={!isPlayerTurn || isOver}
+              variant="outline"
+              className="flex-1 sm:flex-none"
+            >
+              Stand
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const endScreen =
+    isOver && gameState ? blackjackHeadline(gameState) : null;
+
+  return (
+    <div className="flex flex-col min-h-screen bg-zinc-900">
+      <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-white/10">
+        <h1 className="text-white font-semibold text-lg">Blackjack</h1>
+        <a href="/" className="text-sm text-white/60 hover:text-white">← Back</a>
+      </header>
+      <div className="flex-1 flex items-stretch p-4 md:p-8">
+        <div className="flex-1 max-w-2xl mx-auto">
+          <GameShell state={shellState} actionArea={actionArea} />
+        </div>
+      </div>
+
+      {endScreen && (
+        <EndGameScreen
+          headline={endScreen.headline}
+          subline={endScreen.subline}
+          sessionRows={[
+            { label: "Wins", value: session.wins },
+            { label: "Losses", value: session.losses },
+            { label: "Pushes", value: session.pushes },
+          ]}
+          onPlayAgain={startGame}
+          onChangeGame={() => router.push("/")}
+        />
+      )}
+    </div>
+  );
+}

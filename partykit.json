@@ -1,0 +1,5 @@
+{
+  "name": "card-games",
+  "main": "partykit/game-room.ts",
+  "port": 1999
+}
