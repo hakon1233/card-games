@@ -30,21 +30,40 @@ export interface YanivRoundResult {
   handTotals: Record<string, number>;
 }
 
+export interface YanivQuickDrawWindow {
+  /** Player who just discarded and hasn't drawn yet. */
+  discarderId: string;
+  /** Freshly discarded cards sitting on top of the pile. */
+  cards: Card[];
+  /** The top group that existed before the discard (for expire draw-from-discard path). */
+  topGroupBeforeDiscard: Card[];
+  /** Original draw intent: draw from discard pile? */
+  drawFromDiscard: boolean;
+  /** Which card within the top group the discarder wanted (for expire path). */
+  drawDiscardIndex: number | undefined;
+}
+
 export interface YanivGameState {
   gameId: string;
   status: YanivStatus;
   players: YanivPlayer[];
   deck: Card[];
   discardPile: Card[];
+  /** How many cards at the end of discardPile form the most-recently-discarded group. */
+  lastDiscardGroupCount: number;
   currentPlayerIndex: number;
   round: number;
   roundResult: YanivRoundResult | null;
   winnerId: string | null;
   settings: YanivSettings;
+  /** Present when a quick-draw window is open (player discarded but hasn't drawn yet). */
+  quickDrawWindow: YanivQuickDrawWindow | null;
 }
 
 export type YanivAction =
-  | { type: "DISCARD_AND_DRAW"; playerId: string; discardIndices: number[]; drawFromDiscard: boolean }
+  | { type: "DISCARD_AND_DRAW"; playerId: string; discardIndices: number[]; drawFromDiscard: boolean; drawDiscardIndex?: number }
+  | { type: "QUICK_DRAW_STEAL"; playerId: string }
+  | { type: "QUICK_DRAW_EXPIRE" }
   | { type: "CALL_YANIV"; playerId: string }
   | { type: "NEXT_ROUND"; playerId: string };
 
@@ -89,6 +108,37 @@ export function discardPileTop(state: YanivGameState): Card | null {
     : null;
 }
 
+/** Returns the cards that form the most-recently-discarded group (clickable for drawing). */
+export function getDiscardTopGroup(state: YanivGameState): Card[] {
+  const count = Math.min(state.lastDiscardGroupCount ?? 1, state.discardPile.length);
+  return state.discardPile.slice(-count);
+}
+
+/**
+ * Returns true if `card` can be added to `selected` and still potentially form a valid discard.
+ * Used to compute disabled state for hand cards during selection.
+ */
+export function canAddToSelection(selected: Card[], card: Card): boolean {
+  if (selected.length === 0) return true;
+
+  const combined = [...selected, card];
+  if (isValidDiscard(combined)) return true;
+
+  // Could still become a same-rank set
+  if (selected.every((c) => c.rank === selected[0].rank) && card.rank === selected[0].rank) return true;
+
+  // Could still extend a straight: all existing same suit, consecutive, and card extends by one
+  const allSameSuit = selected.every((c) => c.suit === selected[0].suit);
+  if (allSameSuit && card.suit === selected[0].suit) {
+    const indices = selected.map((c) => RANK_ORDER.indexOf(c.rank)).sort((a, b) => a - b);
+    const cardIdx = RANK_ORDER.indexOf(card.rank);
+    const isConsecutive = indices.every((v, i) => i === 0 || v === indices[i - 1] + 1);
+    if (isConsecutive && (cardIdx === indices[0] - 1 || cardIdx === indices[indices.length - 1] + 1)) return true;
+  }
+
+  return false;
+}
+
 export function dealGame(
   gameId: string,
   playerDefs: { id: string; name: string; isBot: boolean }[],
@@ -117,11 +167,13 @@ export function dealGame(
     players,
     deck: deckAfterDeal,
     discardPile: [startCard],
+    lastDiscardGroupCount: 1,
     currentPlayerIndex: 0,
     round: 1,
     roundResult: null,
     winnerId: null,
     settings,
+    quickDrawWindow: null,
   };
 }
 
@@ -202,15 +254,119 @@ export function startNextRound(state: YanivGameState): YanivGameState {
     players,
     deck: newDeck,
     discardPile: [startCard],
+    lastDiscardGroupCount: 1,
     currentPlayerIndex: nextFirst,
     round: state.round + 1,
     roundResult: null,
+    quickDrawWindow: null,
   };
+}
+
+function advanceToNextPlayer(players: YanivPlayer[], fromIdx: number): number {
+  const n = players.length;
+  let nextIdx = (fromIdx + 1) % n;
+  let skipped = 0;
+  while (players[nextIdx].eliminated && skipped < n) {
+    nextIdx = (nextIdx + 1) % n;
+    skipped++;
+  }
+  return nextIdx;
 }
 
 export function applyAction(state: YanivGameState, action: YanivAction): YanivGameState {
   if (action.type === "NEXT_ROUND") {
     return startNextRound(state);
+  }
+
+  if (action.type === "QUICK_DRAW_STEAL") {
+    if (!state.quickDrawWindow || state.status !== "in_progress") return state;
+    const win = state.quickDrawWindow;
+    const stealerIdx = state.players.findIndex((p) => p.id === action.playerId);
+    const discarderIdx = state.players.findIndex((p) => p.id === win.discarderId);
+    if (stealerIdx === -1 || discarderIdx === -1 || stealerIdx === discarderIdx) return state;
+    if (state.players[stealerIdx].eliminated) return state;
+
+    // Stealer takes the freshly discarded cards from the pile top
+    const pileWithoutStolen = state.discardPile.slice(0, -win.cards.length);
+
+    // Discarder is forced to draw from deck
+    let deck = [...state.deck];
+    let discardPile = pileWithoutStolen;
+    if (deck.length === 0) {
+      const top = discardPile[discardPile.length - 1];
+      deck = shuffle(discardPile.slice(0, -1));
+      discardPile = top ? [top] : [];
+    }
+    if (deck.length === 0) return state;
+    const drawnCard = deck[deck.length - 1];
+    deck = deck.slice(0, -1);
+
+    const updatedPlayers = state.players.map((p, i) => {
+      if (i === stealerIdx) return { ...p, hand: [...p.hand, ...win.cards] };
+      if (i === discarderIdx) return { ...p, hand: [...p.hand, drawnCard] };
+      return p;
+    });
+
+    const nextIdx = advanceToNextPlayer(state.players, discarderIdx);
+    return {
+      ...state,
+      players: updatedPlayers,
+      deck,
+      discardPile,
+      lastDiscardGroupCount: Math.max(1, discardPile.length > 0 ? 1 : 0),
+      currentPlayerIndex: nextIdx,
+      quickDrawWindow: null,
+    };
+  }
+
+  if (action.type === "QUICK_DRAW_EXPIRE") {
+    if (!state.quickDrawWindow || state.status !== "in_progress") return state;
+    const win = state.quickDrawWindow;
+    const discarderIdx = state.players.findIndex((p) => p.id === win.discarderId);
+    if (discarderIdx === -1) return state;
+
+    let deck = [...state.deck];
+    let discardPile = [...state.discardPile];
+    let drawnCard: Card;
+
+    if (win.drawFromDiscard && win.topGroupBeforeDiscard.length > 0) {
+      // Honour the discarder's original intent: take a card from the pre-discard top group
+      const idx = win.drawDiscardIndex ?? (win.topGroupBeforeDiscard.length - 1);
+      const pickedCard = win.topGroupBeforeDiscard[idx];
+      if (!pickedCard) return state;
+
+      // The fresh discards are now on top of the pile; the topGroupBeforeDiscard cards
+      // are underneath. Reconstruct: pile = base + remaining group + fresh discards
+      const pileBase = discardPile.slice(0, -(win.topGroupBeforeDiscard.length + win.cards.length));
+      const remainingGroup = win.topGroupBeforeDiscard.filter((_, i) => i !== idx);
+      discardPile = [...pileBase, ...remainingGroup, ...win.cards];
+      drawnCard = pickedCard;
+    } else {
+      // Draw from deck
+      if (deck.length === 0) {
+        const top = discardPile[discardPile.length - 1];
+        deck = shuffle(discardPile.slice(0, -1));
+        discardPile = top ? [top] : [];
+      }
+      if (deck.length === 0) return state;
+      drawnCard = deck[deck.length - 1];
+      deck = deck.slice(0, -1);
+    }
+
+    const updatedPlayers = state.players.map((p, i) =>
+      i === discarderIdx ? { ...p, hand: [...p.hand, drawnCard] } : p,
+    );
+
+    const nextIdx = advanceToNextPlayer(state.players, discarderIdx);
+    return {
+      ...state,
+      players: updatedPlayers,
+      deck,
+      discardPile,
+      lastDiscardGroupCount: win.cards.length,
+      currentPlayerIndex: nextIdx,
+      quickDrawWindow: null,
+    };
   }
 
   if (state.status !== "in_progress") return state;
@@ -224,7 +380,7 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
   }
 
   if (action.type === "DISCARD_AND_DRAW") {
-    const { discardIndices, drawFromDiscard } = action;
+    const { discardIndices, drawFromDiscard, drawDiscardIndex } = action;
     const player = state.players[playerIdx];
 
     if (discardIndices.length === 0) return state;
@@ -233,20 +389,43 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
     if (!isValidDiscard(discardedCards)) return state;
 
     const newHand = player.hand.filter((_, i) => !discardIndices.includes(i));
+    const topGroup = getDiscardTopGroup(state);
 
-    // Record old top before discard (the card the player might want to pick up)
-    const oldTop = discardPileTop(state);
+    // When quick-draw is enabled, open a 2-second window before the draw step
+    if (state.settings.quickDraw) {
+      const updatedPlayers = state.players.map((p, i) =>
+        i === playerIdx ? { ...p, hand: newHand } : p,
+      );
+      return {
+        ...state,
+        players: updatedPlayers,
+        discardPile: [...state.discardPile, ...discardedCards],
+        lastDiscardGroupCount: discardedCards.length,
+        quickDrawWindow: {
+          discarderId: action.playerId,
+          cards: discardedCards,
+          topGroupBeforeDiscard: topGroup,
+          drawFromDiscard,
+          drawDiscardIndex,
+        },
+      };
+    }
 
-    // Pile after discard: remove oldTop's slot if picking it up, else keep it
     let deck = [...state.deck];
     let discardPile: Card[];
     let drawnCard: Card;
 
-    if (drawFromDiscard && oldTop) {
-      // Give player the card that was on top before their discard;
-      // pile becomes: everything under oldTop, plus their new discards
-      discardPile = [...state.discardPile.slice(0, -1), ...discardedCards];
-      drawnCard = oldTop;
+    if (drawFromDiscard && topGroup.length > 0) {
+      // Default to last card in group (top visual card) when no index given
+      const idx = drawDiscardIndex ?? (topGroup.length - 1);
+      const pickedCard = topGroup[idx];
+      if (!pickedCard) return state;
+
+      // Rebuild pile: base (below group) + remaining group cards + new discards
+      const groupWithoutPicked = topGroup.filter((_, i) => i !== idx);
+      const pileBase = state.discardPile.slice(0, -state.lastDiscardGroupCount);
+      discardPile = [...pileBase, ...groupWithoutPicked, ...discardedCards];
+      drawnCard = pickedCard;
     } else {
       discardPile = [...state.discardPile, ...discardedCards];
 
@@ -266,20 +445,16 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
       i === playerIdx ? { ...p, hand: [...newHand, drawnCard] } : p,
     );
 
-    // Advance to next non-eliminated player
-    let nextIdx = (playerIdx + 1) % state.players.length;
-    let skipped = 0;
-    while (state.players[nextIdx].eliminated && skipped < state.players.length) {
-      nextIdx = (nextIdx + 1) % state.players.length;
-      skipped++;
-    }
+    const nextIdx = advanceToNextPlayer(state.players, playerIdx);
 
     return {
       ...state,
       players: updatedPlayers,
       deck,
       discardPile,
+      lastDiscardGroupCount: discardedCards.length,
       currentPlayerIndex: nextIdx,
+      quickDrawWindow: null,
     };
   }
 

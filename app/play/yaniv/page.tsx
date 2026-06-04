@@ -24,6 +24,7 @@ import type { ShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
 const SETTINGS_KEY = "yaniv-settings";
+const QUICK_DRAW_MS = 2000;
 const bot = new YanivBot();
 
 function buildPlayerDefs(numBots: number) {
@@ -64,6 +65,7 @@ function runBotTurns(state: YanivGameState): YanivGameState {
   let guard = 0;
   while (
     s.status === "in_progress" &&
+    !s.quickDrawWindow &&
     s.players[s.currentPlayerIndex]?.isBot &&
     guard < 20
   ) {
@@ -88,6 +90,10 @@ export default function YanivPage() {
   const [scoreLimit, setScoreLimit] = useState(DEFAULT_YANIV_SETTINGS.scoreLimit);
   const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
+  const gameStateRef = useRef<YanivGameState | null>(null);
+  gameStateRef.current = gameState;
+  const qdDiscarderKey = gameState?.quickDrawWindow?.discarderId ?? null;
 
   useEffect(() => {
     const saved = loadSettings();
@@ -109,6 +115,46 @@ export default function YanivPage() {
       return () => clearTimeout(timer);
     }
   }, [gameState]);
+
+  useEffect(() => {
+    if (!qdDiscarderKey) {
+      setQdTimeLeft(null);
+      return;
+    }
+    setQdTimeLeft(QUICK_DRAW_MS);
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, QUICK_DRAW_MS - elapsed);
+      setQdTimeLeft(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+        const s = gameStateRef.current;
+        if (s?.quickDrawWindow) {
+          dispatch(applyAction(s, { type: "QUICK_DRAW_EXPIRE" }));
+        }
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qdDiscarderKey]);
+
+  useEffect(() => {
+    if (!gameState?.quickDrawWindow) return;
+    const win = gameState.quickDrawWindow;
+    if (win.discarderId !== PLAYER_ID) return;
+    const stealingBot = gameState.players.find((p) => p.isBot && bot.shouldQuickDraw(gameState, p.id));
+    if (!stealingBot) return;
+    const botId = stealingBot.id;
+    const delay = 300 + Math.random() * 1300;
+    const timeout = setTimeout(() => {
+      const s = gameStateRef.current;
+      if (!s?.quickDrawWindow) return;
+      dispatch(applyAction(s, { type: "QUICK_DRAW_STEAL", playerId: botId }));
+    }, delay);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qdDiscarderKey]);
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
@@ -158,6 +204,11 @@ export default function YanivPage() {
         drawDiscardIndex,
       }),
     );
+  }
+
+  function stealFromDiscard() {
+    if (!gameState?.quickDrawWindow) return;
+    dispatch(applyAction(gameState, { type: "QUICK_DRAW_STEAL", playerId: PLAYER_ID }));
   }
 
   function nextRound() {
@@ -275,6 +326,7 @@ export default function YanivPage() {
   const bots = gameState.players.filter((p) => p.isBot);
   const isMyTurn =
     gameState.status === "in_progress" &&
+    !gameState.quickDrawWindow &&
     gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID;
   const playerTotal = handTotal(player.hand);
   const canYaniv = isMyTurn && canCallYaniv(player.hand, gameState.settings.yanivThreshold);
@@ -283,6 +335,11 @@ export default function YanivPage() {
   const topGroup = getDiscardTopGroup(gameState);
   const isRoundOver = gameState.status === "round_over";
   const isGameOver = gameState.status === "game_over";
+  const qdWindow = gameState.quickDrawWindow;
+  const qdActive = !!qdWindow;
+  const qdPlayerCanSteal = qdActive && !!qdWindow &&
+    gameState.players.find((p) => p.id === qdWindow.discarderId)?.isBot === true;
+  const qdProgress = qdTimeLeft !== null ? qdTimeLeft / QUICK_DRAW_MS : 0;
 
   // Which hand cards are disabled: during selection, cards incompatible with the combo are greyed out
   const cardDisabled = player.hand.map((card, i) => {
@@ -306,7 +363,7 @@ export default function YanivPage() {
       <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-2xl mx-auto w-full">
         {/* Bot hands */}
         {bots.map((b) => (
-          <BotSeat key={b.id} player={b} isActive={gameState.players[gameState.currentPlayerIndex]?.id === b.id} />
+          <BotSeat key={b.id} player={b} isActive={!qdActive && gameState.players[gameState.currentPlayerIndex]?.id === b.id} />
         ))}
 
         {/* Table center: draw deck + discard pile */}
@@ -316,13 +373,23 @@ export default function YanivPage() {
             <span className="text-muted-foreground text-xs tabular-nums">{gameState.deck.length} left</span>
           </div>
           <div className="flex flex-col items-center gap-1.5">
-            <DiscardPileGroup
-              group={topGroup}
-              canDraw={canDiscard}
-              onPickCard={(idx) => discardAndDraw(true, idx)}
-            />
+            {qdActive && qdWindow ? (
+              <QuickDrawPile
+                cards={qdWindow.cards}
+                progress={qdProgress}
+                timeLeftMs={qdTimeLeft ?? 0}
+                canSteal={!!qdPlayerCanSteal}
+                onSteal={stealFromDiscard}
+              />
+            ) : (
+              <DiscardPileGroup
+                group={topGroup}
+                canDraw={canDiscard}
+                onPickCard={(idx) => discardAndDraw(true, idx)}
+              />
+            )}
             <span className="text-muted-foreground text-xs">
-              {canDiscard && topGroup.length > 0 ? "← click to draw" : "discard"}
+              {qdActive ? "quick draw!" : canDiscard && topGroup.length > 0 ? "← click to draw" : "discard"}
             </span>
           </div>
         </div>
@@ -409,7 +476,14 @@ export default function YanivPage() {
           </div>
         )}
 
-        {!isMyTurn && gameState.status === "in_progress" && (
+        {qdActive && (
+          <p className="text-center text-sm font-medium text-amber-400 animate-pulse">
+            {qdPlayerCanSteal
+              ? "Steal the discard? Click the highlighted card!"
+              : "Quick-draw window — bot may steal…"}
+          </p>
+        )}
+        {!isMyTurn && !qdActive && gameState.status === "in_progress" && (
           <p className="text-muted-foreground text-sm text-center">Bot is thinking…</p>
         )}
       </div>
@@ -439,6 +513,87 @@ export default function YanivPage() {
           ]}
           onPlayAgain={startGame}
           onChangeGame={() => router.push("/")}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuickDrawPile({
+  cards,
+  progress,
+  timeLeftMs,
+  canSteal,
+  onSteal,
+}: {
+  cards: { suit: string; rank: string }[];
+  progress: number;
+  timeLeftMs: number;
+  canSteal: boolean;
+  onSteal: () => void;
+}) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - progress);
+
+  return (
+    <div className="relative flex items-center gap-1">
+      {cards.map((card, i) => (
+        <div
+          key={i}
+          className={`rounded-lg ring-2 ring-amber-400 shadow-lg shadow-amber-400/30 ${
+            canSteal ? "animate-pulse cursor-pointer" : ""
+          }`}
+          onClick={canSteal ? onSteal : undefined}
+          role={canSteal ? "button" : undefined}
+          aria-label={canSteal ? "Steal from discard pile" : undefined}
+        >
+          <PlayingCard card={toShellCard(card)} size="md" />
+        </div>
+      ))}
+      <svg
+        width={radius * 2 + 8}
+        height={radius * 2 + 8}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%) rotate(-90deg)",
+          pointerEvents: "none",
+        }}
+      >
+        <circle
+          cx={radius + 4}
+          cy={radius + 4}
+          r={radius}
+          fill="none"
+          stroke="rgba(251,191,36,0.2)"
+          strokeWidth="3"
+        />
+        <circle
+          cx={radius + 4}
+          cy={radius + 4}
+          r={radius}
+          fill="none"
+          stroke="rgb(251,191,36)"
+          strokeWidth="3"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.05s linear" }}
+        />
+      </svg>
+      <span
+        className="absolute text-[10px] font-bold text-amber-300 tabular-nums pointer-events-none"
+        style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
+      >
+        {(timeLeftMs / 1000).toFixed(1)}
+      </span>
+      {canSteal && (
+        <button
+          onClick={onSteal}
+          className="absolute inset-0 rounded-lg hover:bg-amber-400/10 transition-colors"
+          aria-label="Steal discarded cards"
         />
       )}
     </div>
