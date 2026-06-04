@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { GameShell } from "@/components/game/shell";
 import { ScoreDisplay } from "@/components/game/score-display";
 import { EndGameScreen } from "@/components/game/end-game-screen";
@@ -42,27 +43,27 @@ export default function BlackjackPage() {
     setGameState(dealInitialState(`game-${Date.now()}`, PLAYER_ID));
   }, []);
 
+  const recordResult = useCallback((result: GameState["result"]) => {
+    setSession((s) => ({
+      wins: s.wins + (result === "player_win" ? 1 : 0),
+      losses: s.losses + (result === "dealer_win" ? 1 : 0),
+      pushes: s.pushes + (result === "push" ? 1 : 0),
+    }));
+  }, []);
+
   const hit = useCallback(() => {
     if (!gameState) return;
     const next = applyAction(gameState, { type: "HIT", playerId: PLAYER_ID });
     setGameState(next);
     if (next.turn === "over") recordResult(next.result);
-  }, [gameState]);
+  }, [gameState, recordResult]);
 
   const stand = useCallback(() => {
     if (!gameState) return;
     const next = applyAction(gameState, { type: "STAND", playerId: PLAYER_ID });
     setGameState(next);
     recordResult(next.result);
-  }, [gameState]);
-
-  function recordResult(result: GameState["result"]) {
-    setSession((s) => ({
-      wins: s.wins + (result === "player_win" ? 1 : 0),
-      losses: s.losses + (result === "dealer_win" ? 1 : 0),
-      pushes: s.pushes + (result === "push" ? 1 : 0),
-    }));
-  }
+  }, [gameState, recordResult]);
 
   const shellState = blackjackToShell(gameState, PLAYER_NAME, session);
   const isPlayerTurn = gameState?.turn === "player";
@@ -128,11 +129,11 @@ export default function BlackjackPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
         <h1 className="text-foreground font-semibold text-lg">Blackjack</h1>
-        <a href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</a>
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
       </header>
       <div className="flex-1 flex items-stretch p-4 md:p-8">
         <div className="flex-1 max-w-2xl mx-auto">
-          <GameShell state={shellState} actionArea={actionArea} />
+          <GameShell state={shellState} gameType="blackjack" actionArea={actionArea} />
         </div>
       </div>
 

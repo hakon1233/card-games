@@ -7,10 +7,11 @@ import { TurnIndicator } from "./turn-indicator";
 
 interface GameShellProps {
   state: GameShellState;
+  gameType: string;
   actionArea?: ReactNode;
 }
 
-export function GameShell({ state, actionArea }: GameShellProps) {
+export function GameShell({ state, gameType, actionArea }: GameShellProps) {
   const selfSeat = state.seats.find((s) => s.isSelf);
   const opponentSeats = state.seats.filter((s) => !s.isSelf);
   const activePlayer = state.seats.find((s) => s.isActive);
@@ -25,7 +26,7 @@ export function GameShell({ state, actionArea }: GameShellProps) {
           <div className="flex flex-wrap gap-3 justify-center">
             {opponentSeats.map((seat) => (
               <div key={seat.id} className="bg-white/10 backdrop-blur-sm rounded-xl">
-                <PlayerSeat seat={seat} />
+                <PlayerSeat seat={seat} gameType={gameType} />
               </div>
             ))}
           </div>
@@ -46,7 +47,7 @@ export function GameShell({ state, actionArea }: GameShellProps) {
         {/* Self seat — bottom of table */}
         {selfSeat && (
           <div className="bg-white/10 backdrop-blur-sm rounded-xl">
-            <PlayerSeat seat={selfSeat} />
+            <PlayerSeat seat={selfSeat} gameType={gameType} />
           </div>
         )}
       </div>

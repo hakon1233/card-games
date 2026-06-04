@@ -2,8 +2,10 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EndGameScreen } from "@/components/game/end-game-screen";
+import { CardHand } from "@/components/game/card-hand";
 import { PlayingCard } from "@/components/game/card";
 import {
   dealGame,
@@ -115,7 +117,6 @@ export default function YanivPage() {
 
   const prevDeckLengthRef = useRef<number | null>(null);
   const gameStateRef = useRef<YanivGameState | null>(null);
-  gameStateRef.current = gameState;
   const badgeKeyRef = useRef(0);
   const badgeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -129,6 +130,10 @@ export default function YanivPage() {
   const qdWindowKey = gameState?.quickDrawWindow
     ? `${gameState.quickDrawWindow.discarderId}:${gameState.discardPile.length}`
     : null;
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   function showBadge(playerId: string, text: string, variant: ActionBadge["variant"]) {
     const key = ++badgeKeyRef.current;
@@ -179,11 +184,13 @@ export default function YanivPage() {
 
   useEffect(() => {
     const saved = loadSettings();
-    setNumBots(saved.numBots);
-    setYanivThreshold(saved.yanivThreshold);
-    setScoreLimit(saved.scoreLimit);
-    setQuickDraw(saved.quickDraw);
-    setSettingsLoaded(true);
+    queueMicrotask(() => {
+      setNumBots(saved.numBots);
+      setYanivThreshold(saved.yanivThreshold);
+      setScoreLimit(saved.scoreLimit);
+      setQuickDraw(saved.quickDraw);
+      setSettingsLoaded(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -200,10 +207,10 @@ export default function YanivPage() {
 
   useEffect(() => {
     if (!qdWindowKey) {
-      setQdTimeLeft(null);
+      queueMicrotask(() => setQdTimeLeft(null));
       return;
     }
-    setQdTimeLeft(QUICK_DRAW_MS);
+    queueMicrotask(() => setQdTimeLeft(QUICK_DRAW_MS));
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -296,7 +303,7 @@ export default function YanivPage() {
       <div className="flex flex-col min-h-screen bg-background">
         <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
           <h1 className="text-foreground font-semibold text-lg">Yaniv</h1>
-          <a href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</a>
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
         </header>
         <div className="flex-1 flex items-center justify-center px-4 py-8">
           <div className="w-full max-w-sm flex flex-col gap-6">
@@ -429,7 +436,7 @@ export default function YanivPage() {
       )}
       <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
         <h1 className="text-foreground font-semibold text-lg">Yaniv</h1>
-        <a href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</a>
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
       </header>
 
       <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full">
@@ -464,31 +471,24 @@ export default function YanivPage() {
               <span>Hand: {playerTotal}</span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {player.hand.map((card, i) => {
+          <CardHand
+            cards={player.hand.map((card) => toShellCard(card))}
+            gameType="yaniv"
+            selectedIndices={selected}
+            disabledIndices={cardDisabled.map((isDisabled, i) => (isDisabled ? i : -1)).filter((i) => i >= 0)}
+            onCardClick={(_, i) => toggleCard(i)}
+            cardClassName={(_, i) => {
               const isSelected = selected.includes(i);
               const isDisabled = cardDisabled[i];
-              return (
-                <button
-                  key={`${card.suit}-${card.rank}-${i}`}
-                  onClick={() => !isDisabled && toggleCard(i)}
-                  disabled={isDisabled}
-                  className={`rounded-lg transition-all outline-none ${
-                    isDisabled
-                      ? "opacity-35 cursor-not-allowed"
-                      : isSelected
-                      ? "-translate-y-3 ring-2 ring-primary cursor-pointer"
-                      : isMyTurn
-                      ? "hover:-translate-y-1 cursor-pointer"
-                      : "cursor-default"
-                  }`}
-                  aria-pressed={isSelected}
-                >
-                  <PlayingCard card={toShellCard(card)} size="md" />
-                </button>
-              );
-            })}
-          </div>
+              return isDisabled
+                ? "opacity-35 cursor-not-allowed"
+                : isSelected
+                  ? "-translate-y-3 ring-2 ring-primary cursor-pointer"
+                  : isMyTurn
+                    ? "hover:-translate-y-1 cursor-pointer"
+                    : "cursor-default";
+            }}
+          />
         </div>
 
         {/* Action buttons */}

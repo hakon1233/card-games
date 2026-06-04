@@ -186,7 +186,7 @@ export default function GamePage() {
       </header>
       <div className="flex-1 flex items-stretch p-4 md:p-8">
         <div className="flex-1 max-w-2xl mx-auto">
-          <GameShell state={shellState} actionArea={actionArea} />
+          <GameShell state={shellState} gameType="blackjack" actionArea={actionArea} />
         </div>
       </div>
 

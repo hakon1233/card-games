@@ -5,9 +5,10 @@ import { PlayerHand } from "./player-hand";
 
 interface PlayerSeatProps {
   seat: Seat;
+  gameType: string;
 }
 
-export function PlayerSeat({ seat }: PlayerSeatProps) {
+export function PlayerSeat({ seat, gameType }: PlayerSeatProps) {
   return (
     <div
       className={`
@@ -26,7 +27,7 @@ export function PlayerSeat({ seat }: PlayerSeatProps) {
           {seat.score.label}: <span className="font-semibold text-foreground">{seat.score.value}</span>
         </div>
       </div>
-      <PlayerHand cards={seat.hand} isSelf={seat.isSelf} />
+      <PlayerHand cards={seat.hand} isSelf={seat.isSelf} gameType={gameType} />
     </div>
   );
 }
