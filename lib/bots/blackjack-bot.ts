@@ -1,9 +1,6 @@
 import { handValue, cardValue } from "@/lib/games/blackjack";
-import type { Card, GameAction, GameState } from "@/lib/games/types";
-
-export interface BotPlayer {
-  getNextMove(state: GameState, hand: Card[]): GameAction;
-}
+import type { GameAction, GameState } from "@/lib/games/types";
+import type { BotPlayer } from "./types";
 
 /**
  * Basic strategy table: hit when hand total < threshold based on dealer upcard.
@@ -23,8 +20,9 @@ function shouldHit(playerTotal: number, dealerUpcard: number): boolean {
   return playerTotal < 17;
 }
 
-export class BlackjackBot implements BotPlayer {
-  getNextMove(state: GameState, hand: Card[]): GameAction {
+export class BlackjackBot implements BotPlayer<GameState, GameAction> {
+  getNextMove(state: GameState, playerId: string): GameAction {
+    const hand = state.playerHand.cards;
     const playerTotal = handValue(hand);
     const dealerUpcard = state.dealerHand.find((c) => !c.hidden);
     const dealerValue = dealerUpcard ? cardValue(dealerUpcard.rank) : 10;
@@ -32,7 +30,7 @@ export class BlackjackBot implements BotPlayer {
     const hit = shouldHit(playerTotal, dealerValue);
     return {
       type: hit ? "HIT" : "STAND",
-      playerId: state.playerHand.playerId,
+      playerId,
     };
   }
 }

@@ -1,6 +1,7 @@
 import type { Card, Suit } from "@/lib/games/types";
 import type { CrazyEightsState, CrazyEightsAction } from "@/lib/games/crazy-eights";
 import { isPlayable } from "@/lib/games/crazy-eights";
+import type { BotPlayer } from "./types";
 
 function mostCommonSuit(hand: Card[]): Suit {
   const counts: Record<Suit, number> = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
@@ -10,7 +11,7 @@ function mostCommonSuit(hand: Card[]): Suit {
   return (Object.entries(counts) as [Suit, number][]).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-export class CrazyEightsBot {
+export class CrazyEightsBot implements BotPlayer<CrazyEightsState, CrazyEightsAction> {
   getNextMove(state: CrazyEightsState, playerId: string): CrazyEightsAction {
     const playerIdx = state.players.findIndex((p) => p.id === playerId);
     const hand = state.players[playerIdx].hand;

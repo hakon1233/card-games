@@ -11,6 +11,7 @@ import {
   applyDealerTurn,
   applyAction,
 } from "@/lib/games/blackjack";
+import { BlackjackBot } from "@/lib/bots/blackjack-bot";
 import type { Card, GameState } from "@/lib/games/types";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -259,5 +260,16 @@ describe("applyAction", () => {
   it("is a no-op when game is over", () => {
     const state: GameState = { ...stateWith([card("5")], [card("K")]), turn: "over" };
     expect(applyAction(state, { type: "HIT", playerId: "p1" })).toBe(state);
+  });
+});
+
+describe("BlackjackBot", () => {
+  it("derives the player hand from state using the shared playerId signature", () => {
+    const bot = new BlackjackBot();
+    const state = stateWith([card("10"), card("7")], [card("K"), card("7")]);
+
+    const move = bot.getNextMove(state, "p1");
+
+    expect(move).toEqual({ type: "STAND", playerId: "p1" });
   });
 });

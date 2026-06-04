@@ -1,7 +1,8 @@
 import type { Card, Rank } from "@/lib/games/types";
 import type { GoFishAskAction, GoFishGameState, GoFishPlayer } from "@/lib/games/go-fish";
+import type { BotPlayer } from "./types";
 
-export class GoFishBot {
+export class GoFishBot implements BotPlayer<GoFishGameState, GoFishAskAction> {
   /**
    * Returns the next ASK action for the bot.
    * Strategy (medium difficulty):
