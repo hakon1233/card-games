@@ -1,5 +1,5 @@
-import type { Card, Suit } from "./types";
-import { buildDeck, shuffle } from "./blackjack";
+import type { BaseGameState, Card, Suit } from "./types";
+import { buildDeck, shuffle } from "./deck-utils";
 
 export type CrazyEightsStatus = "waiting" | "in_progress" | "round_over";
 
@@ -10,7 +10,8 @@ export interface CrazyEightsPlayer {
   roundWins: number;
 }
 
-export interface CrazyEightsState {
+export interface CrazyEightsState extends BaseGameState {
+  gameType?: "crazy_eights";
   gameId: string;
   status: CrazyEightsStatus;
   players: CrazyEightsPlayer[];
@@ -146,7 +147,7 @@ export function applyDrawCard(
   const playerIdx = state.players.findIndex((p) => p.id === playerId);
   if (playerIdx !== state.currentPlayerIndex) return state;
 
-  let s = state.deck.length === 0 ? reshuffleDiscardIntoDeck(state) : state;
+  const s = state.deck.length === 0 ? reshuffleDiscardIntoDeck(state) : state;
 
   if (s.deck.length === 0) {
     // Nothing to draw — skip turn

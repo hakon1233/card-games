@@ -1,7 +1,5 @@
-import type { Card, Rank, Suit } from "./types";
-
-const SUITS: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
-const RANKS: Rank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+import { buildDeck, RANKS, shuffle } from "./deck-utils";
+import type { BaseGameState, Card, Rank } from "./types";
 
 export interface GoFishPlayer {
   id: string;
@@ -38,7 +36,8 @@ export interface GoFishEvent {
   drew: Card | null;     // card drawn from deck (null if target gave cards or deck was empty)
 }
 
-export interface GoFishGameState {
+export interface GoFishGameState extends BaseGameState {
+  gameType?: "go_fish";
   gameId: string;
   status: GoFishStatus;
   players: GoFishPlayer[];
@@ -63,25 +62,6 @@ export type GoFishServerMessage =
   | { type: "STATE_UPDATE"; state: GoFishPublicState }
   | { type: "PLAYER_JOINED"; playerId: string; playerName: string }
   | { type: "GAME_OVER"; winners: string[] };
-
-function buildDeck(): Card[] {
-  const deck: Card[] = [];
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      deck.push({ suit, rank });
-    }
-  }
-  return deck;
-}
-
-export function shuffleDeck(deck: Card[]): Card[] {
-  const d = [...deck];
-  for (let i = d.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [d[i], d[j]] = [d[j], d[i]];
-  }
-  return d;
-}
 
 export function extractBooks(player: GoFishPlayer): GoFishPlayer {
   const counts = new Map<Rank, number>();
@@ -158,7 +138,7 @@ export function dealGoFish(
   playerDefs: { id: string; name: string; isBot: boolean }[]
 ): GoFishGameState {
   const handSize = playerDefs.length >= 4 ? 5 : 7;
-  const deck = shuffleDeck(buildDeck());
+  const deck = shuffle(buildDeck());
 
   const players: GoFishPlayer[] = playerDefs.map((p) => ({
     ...p,
@@ -205,7 +185,7 @@ export function applyAsk(
     hand: [...p.hand],
     books: [...p.books],
   }));
-  let deck = [...state.deck];
+  const deck = [...state.deck];
   let nextPlayerIndex: number;
   let outcome: AskOutcome;
   let transferCount: number;

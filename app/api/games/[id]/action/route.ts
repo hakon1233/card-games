@@ -1,19 +1,40 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { applyAction, dealInitialState } from "@/lib/games/blackjack";
-import type { GameAction, GameState } from "@/lib/games/types";
+import { applyAction as applyBlackjackAction } from "@/lib/games/blackjack";
+import {
+  applyAction as applyCrazyEightsAction,
+  type CrazyEightsAction,
+  type CrazyEightsState,
+} from "@/lib/games/crazy-eights";
+import { applyAsk, type GoFishAction, type GoFishGameState } from "@/lib/games/go-fish";
+import { getGame, setGame } from "@/lib/game-store";
+import type { BaseGameState, GameAction, GameState, StoredGameType } from "@/lib/games/types";
 
-const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
+function inferGameType(state: BaseGameState): StoredGameType {
+  if (state.gameType) return state.gameType;
+  if ("discardPile" in state) return "crazy_eights";
+  if ("players" in state && "lastEvent" in state) return "go_fish";
+  return "blackjack";
+}
 
-async function broadcastToPartykit(gameId: string, state: GameState) {
-  const url = `http://${PARTYKIT_HOST}/parties/main/${gameId}`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state }),
-  }).catch(() => {
-    // Non-fatal — real-time update fails gracefully; client re-fetches via API
-  });
+function isGameOver(state: BaseGameState, gameType: StoredGameType): boolean {
+  if (gameType === "blackjack") return (state as GameState).turn === "over";
+  return state.status === "over" || state.status === "round_over";
+}
+
+function applyStoredAction(
+  state: BaseGameState,
+  gameType: StoredGameType,
+  action: unknown,
+): BaseGameState {
+  if (gameType === "go_fish") {
+    return applyAsk(state as GoFishGameState, action as GoFishAction);
+  }
+
+  if (gameType === "crazy_eights") {
+    return applyCrazyEightsAction(state as CrazyEightsState, action as CrazyEightsAction);
+  }
+
+  return applyBlackjackAction(state as GameState, action as GameAction);
 }
 
 export async function POST(
@@ -21,67 +42,20 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: gameId } = await params;
-  const supabase = await createClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const action: GameAction = await request.json();
-
-  // Load current game state
-  const { data: game, error: fetchError } = await supabase
-    .from("games")
-    .select("state, status")
-    .eq("id", gameId)
-    .single();
-
-  if (fetchError || !game) {
+  const currentState = getGame(gameId);
+  if (!currentState) {
     return Response.json({ error: "Game not found" }, { status: 404 });
   }
 
-  if (game.status === "over") {
+  const gameType = inferGameType(currentState);
+  if (isGameOver(currentState, gameType)) {
     return Response.json({ error: "Game is already over" }, { status: 400 });
   }
 
-  const currentState = game.state as GameState;
-
-  if (currentState.turn === "over") {
-    return Response.json({ error: "No moves remaining" }, { status: 400 });
-  }
-
-  const nextState = applyAction(currentState, action);
-  const isOver = nextState.turn === "over";
-
-  // Persist updated state
-  const { error: updateError } = await supabase
-    .from("games")
-    .update({
-      state: nextState,
-      status: isOver ? "over" : "in_progress",
-      ended_at: isOver ? new Date().toISOString() : null,
-    })
-    .eq("id", gameId);
-
-  if (updateError) {
-    return Response.json({ error: "Failed to update game" }, { status: 500 });
-  }
-
-  // Log the move
-  await supabase.from("game_moves").insert({
-    game_id: gameId,
-    player_id: user.id,
-    move_type: action.type,
-    payload: action,
-  });
-
-  // Broadcast to Partykit (non-blocking)
-  await broadcastToPartykit(gameId, nextState);
+  const action = await request.json();
+  const nextState = applyStoredAction(currentState, gameType, action);
+  setGame(gameId, nextState);
 
   return Response.json({ state: nextState });
 }
@@ -91,17 +65,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: gameId } = await params;
-  const supabase = await createClient();
 
-  const { data: game, error } = await supabase
-    .from("games")
-    .select("state, status")
-    .eq("id", gameId)
-    .single();
-
-  if (error || !game) {
+  const state = getGame(gameId);
+  if (!state) {
     return Response.json({ error: "Game not found" }, { status: 404 });
   }
 
-  return Response.json({ state: game.state });
+  return Response.json({ state });
 }

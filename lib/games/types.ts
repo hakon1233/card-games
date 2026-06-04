@@ -20,6 +20,14 @@ export interface Card {
   hidden?: boolean;
 }
 
+export type StoredGameType = "blackjack" | "go_fish" | "crazy_eights";
+
+export interface BaseGameState {
+  gameId: string;
+  status: string;
+  gameType?: StoredGameType;
+}
+
 export type GameStatus =
   | "waiting"
   | "in_progress"
@@ -35,7 +43,8 @@ export interface PlayerHand {
   cards: Card[];
 }
 
-export interface GameState {
+export interface GameState extends BaseGameState {
+  gameType?: "blackjack";
   gameId: string;
   status: GameStatus;
   playerHand: PlayerHand;
