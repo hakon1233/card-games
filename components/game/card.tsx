@@ -16,6 +16,10 @@ interface CardProps {
   size?: "sm" | "md";
 }
 
+export function bottomCornerRankText(rank: string) {
+  return [...rank].reverse().join("");
+}
+
 export function PlayingCard({ card, size = "md" }: CardProps) {
   const isSmall = size === "sm";
 
@@ -52,7 +56,9 @@ export function PlayingCard({ card, size = "md" }: CardProps) {
       <span className={`text-center leading-none ${isSmall ? "text-base" : "text-xl"}`}>
         {symbol}
       </span>
-      <span className="font-bold leading-none self-end rotate-180">{card.rank}</span>
+      <span className="font-bold leading-none self-end rotate-180">
+        {bottomCornerRankText(card.rank)}
+      </span>
     </div>
   );
 }
