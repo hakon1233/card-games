@@ -34,7 +34,7 @@ export function TurnIndicator({
     <div
       className={`
         text-center text-sm font-medium py-1 rounded-md
-        ${isSelfTurn ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}
+        ${isSelfTurn ? "text-primary" : "text-muted-foreground"}
       `}
     >
       {isSelfTurn ? "Your turn" : `${activePlayerName}'s turn`}

@@ -125,10 +125,10 @@ export default function BlackjackPage() {
     isOver && gameState ? blackjackHeadline(gameState) : null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-900">
-      <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-white/10">
-        <h1 className="text-white font-semibold text-lg">Blackjack</h1>
-        <a href="/" className="text-sm text-white/60 hover:text-white">← Back</a>
+    <div className="flex flex-col min-h-screen bg-background">
+      <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
+        <h1 className="text-foreground font-semibold text-lg">Blackjack</h1>
+        <a href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</a>
       </header>
       <div className="flex-1 flex items-stretch p-4 md:p-8">
         <div className="flex-1 max-w-2xl mx-auto">

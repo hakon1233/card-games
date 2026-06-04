@@ -12,7 +12,7 @@ export function PlayerSeat({ seat }: PlayerSeatProps) {
     <div
       className={`
         flex flex-col gap-2 rounded-xl p-3
-        ${seat.isActive ? "ring-2 ring-emerald-500/60 bg-emerald-50/40 dark:bg-emerald-950/20" : ""}
+        ${seat.isActive ? "ring-2 ring-primary/50 bg-primary/[0.08]" : ""}
       `}
     >
       <div className="flex items-center gap-2">
