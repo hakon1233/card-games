@@ -707,9 +707,8 @@ function PlayerRing({
       >
         <div className="flex items-center gap-4">
           {/* Deck */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center">
             <DeckVisual count={deckCount} />
-            <span className="text-muted-foreground text-[10px] tabular-nums">{deckCount}</span>
           </div>
 
           {/* Discard / quick-draw */}
@@ -981,22 +980,38 @@ function DiscardPileGroup({
 function DeckVisual({ count }: { count: number }) {
   if (count === 0) {
     return (
-      <div className="w-10 h-14 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]">
+      <div
+        className="w-14 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]"
+        aria-label="empty draw deck"
+      >
         empty
       </div>
     );
   }
-  const layers = Math.min(count, 3);
+  const layers = Math.min(count, 5);
+  const topIndex = layers - 1;
+
   return (
-    <div className="relative w-10 h-14">
+    <div
+      className="relative w-16 h-16"
+      aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
+      role="img"
+    >
       {Array.from({ length: layers }, (_, i) => {
-        const isTop = i === layers - 1;
-        const offset = (layers - 1 - i) * 2;
+        const isTop = i === topIndex;
+        const depth = topIndex - i;
         return (
           <div
             key={i}
-            className="absolute rounded-lg border border-border/40 shadow bg-[#1a6b3c]"
-            style={{ width: 40, height: 56, top: -offset, left: offset, zIndex: i }}
+            className="absolute rounded-lg border border-emerald-100/25 bg-[#1a6b3c] shadow-md"
+            style={{
+              width: 40,
+              height: 56,
+              top: 4 + depth * 2,
+              left: 12 - depth * 3,
+              zIndex: i,
+              transform: `rotate(${depth * -2}deg)`,
+            }}
           >
             {isTop && (
               <div className="w-full h-full flex items-center justify-center rounded-lg">
