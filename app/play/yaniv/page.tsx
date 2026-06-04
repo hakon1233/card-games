@@ -18,6 +18,8 @@ import {
   type YanivGameState,
   type YanivPlayer,
   type YanivSettings,
+  type YanivAction,
+  type YanivQuickDrawWindow,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import type { ShellCard } from "@/lib/games/shell-types";
@@ -26,6 +28,8 @@ const PLAYER_ID = "player-1";
 const SETTINGS_KEY = "yaniv-settings";
 const QUICK_DRAW_MS = 2000;
 const bot = new YanivBot();
+
+type ActionBadge = { text: string; variant: "drew" | "yaniv" | "stolen"; key: number };
 
 function buildPlayerDefs(numBots: number) {
   const defs: { id: string; name: string; isBot: boolean }[] = [
@@ -60,7 +64,31 @@ function toShellCard(card: { suit: string; rank: string }, faceUp = true): Shell
   return { suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp };
 }
 
-function runBotTurns(state: YanivGameState): YanivGameState {
+function actionBadgeInfo(
+  action: YanivAction,
+): { playerId: string; text: string; variant: ActionBadge["variant"] } | null {
+  if (action.type === "CALL_YANIV") return { playerId: action.playerId, text: "YANIV!", variant: "yaniv" };
+  if (action.type === "QUICK_DRAW_STEAL") return { playerId: action.playerId, text: "Stolen!", variant: "stolen" };
+  if (action.type === "DISCARD_AND_DRAW") {
+    return {
+      playerId: action.playerId,
+      text: action.drawFromDiscard ? "Drew pile" : "Drew",
+      variant: "drew",
+    };
+  }
+  return null;
+}
+
+function getNextActiveIdx(players: YanivPlayer[], currentIdx: number): number {
+  const N = players.length;
+  for (let step = 1; step < N; step++) {
+    const idx = (currentIdx + step) % N;
+    if (!players[idx].eliminated) return idx;
+  }
+  return -1;
+}
+
+function runBotLoop(state: YanivGameState): YanivGameState {
   let s = state;
   let guard = 0;
   while (
@@ -69,8 +97,7 @@ function runBotTurns(state: YanivGameState): YanivGameState {
     s.players[s.currentPlayerIndex]?.isBot &&
     guard < 20
   ) {
-    const botId = s.players[s.currentPlayerIndex].id;
-    s = applyAction(s, bot.getNextMove(s, botId));
+    s = applyAction(s, bot.getNextMove(s, s.players[s.currentPlayerIndex].id));
     guard++;
   }
   return s;
@@ -83,7 +110,13 @@ export default function YanivPage() {
   const [roundsWon, setRoundsWon] = useState(0);
   const [roundsLost, setRoundsLost] = useState(0);
   const [reshuffled, setReshuffled] = useState(false);
+  const [actionBadges, setActionBadges] = useState<Record<string, ActionBadge>>({});
+
   const prevDeckLengthRef = useRef<number | null>(null);
+  const gameStateRef = useRef<YanivGameState | null>(null);
+  gameStateRef.current = gameState;
+  const badgeKeyRef = useRef(0);
+  const badgeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const [numBots, setNumBots] = useState(1);
   const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
@@ -91,9 +124,55 @@ export default function YanivPage() {
   const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
-  const gameStateRef = useRef<YanivGameState | null>(null);
-  gameStateRef.current = gameState;
+
   const qdDiscarderKey = gameState?.quickDrawWindow?.discarderId ?? null;
+
+  function showBadge(playerId: string, text: string, variant: ActionBadge["variant"]) {
+    const key = ++badgeKeyRef.current;
+    setActionBadges((prev) => ({ ...prev, [playerId]: { text, variant, key } }));
+    clearTimeout(badgeTimersRef.current[playerId]);
+    badgeTimersRef.current[playerId] = setTimeout(() => {
+      setActionBadges((prev) => {
+        const n = { ...prev };
+        delete n[playerId];
+        return n;
+      });
+    }, 2000);
+  }
+
+  function dispatch(state: YanivGameState, triggerAction?: YanivAction) {
+    if (triggerAction) {
+      const info = actionBadgeInfo(triggerAction);
+      if (info) showBadge(info.playerId, info.text, info.variant);
+    }
+
+    let s = state;
+    let guard = 0;
+    while (
+      s.status === "in_progress" &&
+      !s.quickDrawWindow &&
+      s.players[s.currentPlayerIndex]?.isBot &&
+      guard < 20
+    ) {
+      const botId = s.players[s.currentPlayerIndex].id;
+      const action = bot.getNextMove(s, botId);
+      const info = actionBadgeInfo(action);
+      if (info) showBadge(info.playerId, info.text, info.variant);
+      s = applyAction(s, action);
+      guard++;
+    }
+
+    setGameState(s);
+    setSelected([]);
+    if (s.status === "round_over" || s.status === "game_over") {
+      const result = s.roundResult;
+      if (result) {
+        const playerWon = result.callerId === PLAYER_ID && !result.assaf;
+        if (playerWon) setRoundsWon((n) => n + 1);
+        else setRoundsLost((n) => n + 1);
+      }
+    }
+  }
 
   useEffect(() => {
     const saved = loadSettings();
@@ -136,50 +215,70 @@ export default function YanivPage() {
       }
     }, 50);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qdDiscarderKey]);
 
   useEffect(() => {
     if (!gameState?.quickDrawWindow) return;
     const win = gameState.quickDrawWindow;
     if (win.discarderId !== PLAYER_ID) return;
-    const stealingBot = gameState.players.find((p) => p.isBot && bot.shouldQuickDraw(gameState, p.id));
+    const stealingBot = gameState.players.find(
+      (p) => p.isBot && bot.shouldQuickDraw(gameState, p.id),
+    );
     if (!stealingBot) return;
     const botId = stealingBot.id;
     const delay = 300 + Math.random() * 1300;
     const timeout = setTimeout(() => {
       const s = gameStateRef.current;
       if (!s?.quickDrawWindow) return;
-      dispatch(applyAction(s, { type: "QUICK_DRAW_STEAL", playerId: botId }));
+      const action = { type: "QUICK_DRAW_STEAL" as const, playerId: botId };
+      dispatch(applyAction(s, action), action);
     }, delay);
     return () => clearTimeout(timeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qdDiscarderKey]);
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
     saveSettings({ ...settings, numBots });
-    const state = runBotTurns(
-      dealGame(`game-${Date.now()}`, buildPlayerDefs(numBots), settings),
-    );
-    setGameState(state);
+    const initial = dealGame(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
+    setGameState(runBotLoop(initial));
     setSelected([]);
     setRoundsWon(0);
     setRoundsLost(0);
+    setActionBadges({});
   }, [numBots, yanivThreshold, scoreLimit, quickDraw]);
 
-  function dispatch(state: YanivGameState) {
-    const next = runBotTurns(state);
-    setGameState(next);
+  function callYaniv() {
+    if (!gameState) return;
+    const action = { type: "CALL_YANIV" as const, playerId: PLAYER_ID };
+    dispatch(applyAction(gameState, action), action);
+  }
+
+  function discardAndDraw(drawFromDiscard: boolean, drawDiscardIndex?: number) {
+    if (!gameState || selected.length === 0) return;
+    const action = {
+      type: "DISCARD_AND_DRAW" as const,
+      playerId: PLAYER_ID,
+      discardIndices: selected,
+      drawFromDiscard,
+      drawDiscardIndex,
+    };
+    dispatch(applyAction(gameState, action), action);
+  }
+
+  function stealFromDiscard() {
+    if (!gameState?.quickDrawWindow) return;
+    const action = { type: "QUICK_DRAW_STEAL" as const, playerId: PLAYER_ID };
+    dispatch(applyAction(gameState, action), action);
+  }
+
+  function nextRound() {
+    if (!gameState) return;
+    const s = runBotLoop(applyAction(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
+    setGameState(s);
     setSelected([]);
-    if (next.status === "round_over" || next.status === "game_over") {
-      const result = next.roundResult;
-      if (result) {
-        const playerWon = result.callerId === PLAYER_ID && !result.assaf;
-        if (playerWon) setRoundsWon((n) => n + 1);
-        else setRoundsLost((n) => n + 1);
-      }
-    }
+    setActionBadges({});
   }
 
   function toggleCard(idx: number) {
@@ -188,37 +287,7 @@ export default function YanivPage() {
     );
   }
 
-  function callYaniv() {
-    if (!gameState) return;
-    dispatch(applyAction(gameState, { type: "CALL_YANIV", playerId: PLAYER_ID }));
-  }
-
-  function discardAndDraw(drawFromDiscard: boolean, drawDiscardIndex?: number) {
-    if (!gameState || selected.length === 0) return;
-    dispatch(
-      applyAction(gameState, {
-        type: "DISCARD_AND_DRAW",
-        playerId: PLAYER_ID,
-        discardIndices: selected,
-        drawFromDiscard,
-        drawDiscardIndex,
-      }),
-    );
-  }
-
-  function stealFromDiscard() {
-    if (!gameState?.quickDrawWindow) return;
-    dispatch(applyAction(gameState, { type: "QUICK_DRAW_STEAL", playerId: PLAYER_ID }));
-  }
-
-  function nextRound() {
-    if (!gameState) return;
-    const next = applyAction(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID });
-    const withBots = runBotTurns(next);
-    setGameState(withBots);
-    setSelected([]);
-  }
-
+  // ── Settings screen ──────────────────────────────────────────────────────
   if (!gameState) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -230,7 +299,6 @@ export default function YanivPage() {
           <div className="w-full max-w-sm flex flex-col gap-6">
             <h2 className="text-foreground text-xl font-semibold text-center">Game Settings</h2>
 
-            {/* Number of bots */}
             <SettingRow label="Number of Bots">
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -249,7 +317,6 @@ export default function YanivPage() {
               </div>
             </SettingRow>
 
-            {/* Yaniv threshold */}
             <SettingRow label="Yaniv Call Threshold">
               <div className="flex gap-2">
                 {[5, 6, 7, 8, 9, 10].map((n) => (
@@ -269,7 +336,6 @@ export default function YanivPage() {
               <p className="text-muted-foreground text-xs mt-1">Maximum hand total to call Yaniv</p>
             </SettingRow>
 
-            {/* Score limit */}
             <SettingRow label="Elimination Score">
               <div className="flex gap-2">
                 {[100, 150, 200, 300].map((n) => (
@@ -289,7 +355,6 @@ export default function YanivPage() {
               <p className="text-muted-foreground text-xs mt-1">Score at which a player is eliminated</p>
             </SettingRow>
 
-            {/* Quick draw */}
             <SettingRow label="Quick Draw">
               <button
                 onClick={() => setQuickDraw((v) => !v)}
@@ -322,8 +387,8 @@ export default function YanivPage() {
     );
   }
 
+  // ── Game screen ──────────────────────────────────────────────────────────
   const player = gameState.players.find((p) => p.id === PLAYER_ID)!;
-  const bots = gameState.players.filter((p) => p.isBot);
   const isMyTurn =
     gameState.status === "in_progress" &&
     !gameState.quickDrawWindow &&
@@ -337,16 +402,19 @@ export default function YanivPage() {
   const isGameOver = gameState.status === "game_over";
   const qdWindow = gameState.quickDrawWindow;
   const qdActive = !!qdWindow;
-  const qdPlayerCanSteal = qdActive && !!qdWindow &&
+  const qdPlayerCanSteal =
+    qdActive &&
+    !!qdWindow &&
     gameState.players.find((p) => p.id === qdWindow.discarderId)?.isBot === true;
   const qdProgress = qdTimeLeft !== null ? qdTimeLeft / QUICK_DRAW_MS : 0;
 
-  // Which hand cards are disabled: during selection, cards incompatible with the combo are greyed out
   const cardDisabled = player.hand.map((card, i) => {
     if (!isMyTurn) return true;
-    if (selected.includes(i)) return false; // selected cards always deselectable
+    if (selected.includes(i)) return false;
     return !canAddToSelection(selectedCards, card);
   });
+
+  const nextPlayerIdx = getNextActiveIdx(gameState.players, gameState.currentPlayerIndex);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -360,41 +428,27 @@ export default function YanivPage() {
         <a href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</a>
       </header>
 
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-2xl mx-auto w-full">
-        {/* Bot hands */}
-        {bots.map((b) => (
-          <BotSeat key={b.id} player={b} isActive={!qdActive && gameState.players[gameState.currentPlayerIndex]?.id === b.id} />
-        ))}
+      <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full">
+        {/* Circular player ring */}
+        <PlayerRing
+          players={gameState.players}
+          humanId={PLAYER_ID}
+          currentPlayerIndex={gameState.currentPlayerIndex}
+          nextPlayerIndex={nextPlayerIdx}
+          actionBadges={actionBadges}
+          qdActive={qdActive}
+          qdWindow={qdWindow}
+          qdProgress={qdProgress}
+          qdTimeLeft={qdTimeLeft ?? 0}
+          qdPlayerCanSteal={qdPlayerCanSteal}
+          deckCount={gameState.deck.length}
+          discardTopGroup={topGroup}
+          canDrawFromDiscard={canDiscard}
+          onPickDiscardCard={(idx) => discardAndDraw(true, idx)}
+          onSteal={stealFromDiscard}
+        />
 
-        {/* Table center: draw deck + discard pile */}
-        <div className="flex items-center gap-10 justify-center py-3">
-          <div className="flex flex-col items-center gap-1.5">
-            <DeckVisual count={gameState.deck.length} />
-            <span className="text-muted-foreground text-xs tabular-nums">{gameState.deck.length} left</span>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            {qdActive && qdWindow ? (
-              <QuickDrawPile
-                cards={qdWindow.cards}
-                progress={qdProgress}
-                timeLeftMs={qdTimeLeft ?? 0}
-                canSteal={!!qdPlayerCanSteal}
-                onSteal={stealFromDiscard}
-              />
-            ) : (
-              <DiscardPileGroup
-                group={topGroup}
-                canDraw={canDiscard}
-                onPickCard={(idx) => discardAndDraw(true, idx)}
-              />
-            )}
-            <span className="text-muted-foreground text-xs">
-              {qdActive ? "quick draw!" : canDiscard && topGroup.length > 0 ? "← click to draw" : "discard"}
-            </span>
-          </div>
-        </div>
-
-        {/* Player hand */}
+        {/* Human player hand */}
         <div className="bg-muted/40 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-foreground text-sm font-medium">
@@ -433,11 +487,14 @@ export default function YanivPage() {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Action buttons */}
         {isMyTurn && (
           <div className="flex flex-col gap-2">
             {canYaniv && (
-              <Button onClick={callYaniv} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
+              <Button
+                onClick={callYaniv}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+              >
                 Call Yaniv! (hand = {playerTotal})
               </Button>
             )}
@@ -457,7 +514,7 @@ export default function YanivPage() {
                 className="flex-1"
                 variant="default"
               >
-                Discard & Draw from Deck
+                Discard &amp; Draw from Deck
               </Button>
               <Button
                 onClick={() => discardAndDraw(true)}
@@ -465,7 +522,10 @@ export default function YanivPage() {
                 className="flex-1"
                 variant="outline"
               >
-                Discard & Take {topGroup.length > 0 ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}` : "pile"}
+                Discard &amp; Take{" "}
+                {topGroup.length > 0
+                  ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
+                  : "pile"}
               </Button>
             </div>
             {selected.length === 0 && !canYaniv && (
@@ -488,7 +548,6 @@ export default function YanivPage() {
         )}
       </div>
 
-      {/* Round over overlay */}
       {isRoundOver && gameState.roundResult && (
         <RoundEndOverlay
           state={gameState}
@@ -498,7 +557,6 @@ export default function YanivPage() {
         />
       )}
 
-      {/* Game over overlay */}
       {isGameOver && (
         <EndGameScreen
           headline={gameState.winnerId === PLAYER_ID ? "You Win!" : "Bot Wins"}
@@ -518,6 +576,282 @@ export default function YanivPage() {
     </div>
   );
 }
+
+// ── PlayerRing ────────────────────────────────────────────────────────────
+
+interface PlayerRingProps {
+  players: YanivPlayer[];
+  humanId: string;
+  currentPlayerIndex: number;
+  nextPlayerIndex: number;
+  actionBadges: Record<string, ActionBadge>;
+  qdActive: boolean;
+  qdWindow: YanivQuickDrawWindow | null;
+  qdProgress: number;
+  qdTimeLeft: number;
+  qdPlayerCanSteal: boolean;
+  deckCount: number;
+  discardTopGroup: { suit: string; rank: string }[];
+  canDrawFromDiscard: boolean;
+  onPickDiscardCard: (idx: number) => void;
+  onSteal: () => void;
+}
+
+function PlayerRing({
+  players,
+  humanId,
+  currentPlayerIndex,
+  nextPlayerIndex,
+  actionBadges,
+  qdActive,
+  qdWindow,
+  qdProgress,
+  qdTimeLeft,
+  qdPlayerCanSteal,
+  deckCount,
+  discardTopGroup,
+  canDrawFromDiscard,
+  onPickDiscardCard,
+  onSteal,
+}: PlayerRingProps) {
+  const N = players.length;
+  const humanIdx = players.findIndex((p) => p.id === humanId);
+
+  // Compute seat positions as percentages of container.
+  // Human fixed at bottom (angle = π/2 in screen coords = down).
+  // Each subsequent player offset clockwise.
+  const RING_R_PCT = 38; // radius as % of container
+  const seats = players.map((player, i) => {
+    const offset = (i - humanIdx + N) % N;
+    const angle = Math.PI / 2 + offset * ((2 * Math.PI) / N);
+    const xPct = 50 + RING_R_PCT * Math.cos(angle);
+    const yPct = 50 + RING_R_PCT * Math.sin(angle);
+    const isActive = i === currentPlayerIndex;
+    const isNext = i === nextPlayerIndex && !isActive;
+    return { player, xPct, yPct, isActive, isNext, angle };
+  });
+
+  // Small clockwise arc indicator: from ~350° to ~50° (short arc at top-right)
+  // In SVG viewBox 0 0 100 100, center (50,50), radius 38
+  const arcR = RING_R_PCT;
+  const arcStart = { x: 50 + arcR * Math.cos(-0.3), y: 50 + arcR * Math.sin(-0.3) };
+  const arcEnd = { x: 50 + arcR * Math.cos(0.6), y: 50 + arcR * Math.sin(0.6) };
+
+  return (
+    <div className="relative w-full" style={{ maxWidth: 500, margin: "0 auto", aspectRatio: "1 / 1" }}>
+      {/* SVG ring guide */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <marker
+            id="ring-arrow"
+            markerWidth="3"
+            markerHeight="3"
+            refX="2.5"
+            refY="1.5"
+            orient="auto"
+          >
+            <path d="M0,0 L0,3 L3,1.5 z" fill="currentColor" opacity="0.25" />
+          </marker>
+        </defs>
+        {/* Dashed ring */}
+        <circle
+          cx="50"
+          cy="50"
+          r={arcR}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.4"
+          strokeDasharray="2 2"
+          opacity="0.15"
+        />
+        {/* Clockwise direction arc with arrowhead */}
+        <path
+          d={`M ${arcStart.x.toFixed(2)},${arcStart.y.toFixed(2)} A ${arcR},${arcR} 0 0,1 ${arcEnd.x.toFixed(2)},${arcEnd.y.toFixed(2)}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.6"
+          opacity="0.25"
+          markerEnd="url(#ring-arrow)"
+        />
+      </svg>
+
+      {/* Player seat nodes */}
+      {seats.map(({ player, xPct, yPct, isActive, isNext }) => (
+        <PlayerSeatNode
+          key={player.id}
+          player={player}
+          isHuman={player.id === humanId}
+          isActive={isActive}
+          isNext={isNext}
+          badge={actionBadges[player.id]}
+          style={{
+            position: "absolute",
+            left: `calc(${xPct}% - 36px)`,
+            top: `calc(${yPct}% - 40px)`,
+          }}
+        />
+      ))}
+
+      {/* Center: deck + discard */}
+      <div
+        className="absolute flex flex-col items-center gap-2"
+        style={{
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
+      >
+        <div className="flex items-center gap-4">
+          {/* Deck */}
+          <div className="flex flex-col items-center gap-1">
+            <DeckVisual count={deckCount} />
+            <span className="text-muted-foreground text-[10px] tabular-nums">{deckCount}</span>
+          </div>
+
+          {/* Discard / quick-draw */}
+          <div className="flex flex-col items-center gap-1">
+            {qdActive && qdWindow ? (
+              <QuickDrawPile
+                cards={qdWindow.cards}
+                progress={qdProgress}
+                timeLeftMs={qdTimeLeft}
+                canSteal={qdPlayerCanSteal}
+                onSteal={onSteal}
+              />
+            ) : (
+              <DiscardPileGroup
+                group={discardTopGroup}
+                canDraw={canDrawFromDiscard}
+                onPickCard={onPickDiscardCard}
+              />
+            )}
+            <span className="text-muted-foreground text-[10px]">
+              {qdActive ? "quick draw!" : canDrawFromDiscard && discardTopGroup.length > 0 ? "← draw" : "discard"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PlayerSeatNode ────────────────────────────────────────────────────────
+
+function PlayerSeatNode({
+  player,
+  isHuman,
+  isActive,
+  isNext,
+  badge,
+  style,
+}: {
+  player: YanivPlayer;
+  isHuman: boolean;
+  isActive: boolean;
+  isNext: boolean;
+  badge?: ActionBadge;
+  style?: React.CSSProperties;
+}) {
+  const initials = player.name.slice(0, 2).toUpperCase();
+
+  return (
+    <div
+      className="flex flex-col items-center gap-0.5 select-none"
+      style={{ width: 72, ...style }}
+    >
+      {/* Avatar */}
+      <div className="relative">
+        <div
+          className={`
+            w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
+            transition-all duration-300
+            ${
+              isActive
+                ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+                : isNext
+                ? "bg-muted text-foreground ring-1 ring-primary/40"
+                : player.eliminated
+                ? "bg-muted/30 text-muted-foreground/40"
+                : "bg-muted text-muted-foreground"
+            }
+          `}
+          style={
+            isActive
+              ? { animation: "seat-glow-pulse 1.5s ease-in-out infinite" }
+              : undefined
+          }
+        >
+          {initials}
+        </div>
+
+        {/* Action badge */}
+        {badge && (
+          <div
+            key={badge.key}
+            className="absolute pointer-events-none"
+            style={{
+              bottom: "calc(100% + 2px)",
+              left: "50%",
+              animation: "badge-slide-up 2s ease-out forwards",
+            }}
+          >
+            <span
+              className={`
+                text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap
+                ${
+                  badge.variant === "yaniv"
+                    ? "bg-amber-500 text-white"
+                    : badge.variant === "stolen"
+                    ? "bg-destructive text-white"
+                    : "bg-primary/90 text-primary-foreground"
+                }
+              `}
+            >
+              {badge.text}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Name */}
+      <span
+        className={`text-[10px] font-medium text-center leading-tight max-w-[72px] truncate ${
+          isActive ? "text-primary" : player.eliminated ? "text-muted-foreground/40 line-through" : "text-foreground"
+        }`}
+      >
+        {player.name}
+      </span>
+
+      {/* Status label */}
+      {isActive && (
+        <span className="text-[9px] text-primary font-semibold">↑ turn</span>
+      )}
+      {!isActive && isNext && (
+        <span className="text-[9px] text-muted-foreground">next</span>
+      )}
+      {!isActive && !isNext && isHuman && (
+        <span className="text-[9px] text-muted-foreground/60">you</span>
+      )}
+
+      {/* Score + card count */}
+      <div
+        className={`flex gap-1 text-[9px] tabular-nums ${
+          player.eliminated ? "text-muted-foreground/40" : "text-muted-foreground"
+        }`}
+      >
+        <span>{player.score}pt</span>
+        <span>·</span>
+        <span>{player.hand.length}🃏</span>
+      </div>
+    </div>
+  );
+}
+
+// ── QuickDrawPile ─────────────────────────────────────────────────────────
 
 function QuickDrawPile({
   cards,
@@ -548,7 +882,7 @@ function QuickDrawPile({
           role={canSteal ? "button" : undefined}
           aria-label={canSteal ? "Steal from discard pile" : undefined}
         >
-          <PlayingCard card={toShellCard(card)} size="md" />
+          <PlayingCard card={toShellCard(card)} size="sm" />
         </div>
       ))}
       <svg
@@ -600,6 +934,8 @@ function QuickDrawPile({
   );
 }
 
+// ── DiscardPileGroup ──────────────────────────────────────────────────────
+
 function DiscardPileGroup({
   group,
   canDraw,
@@ -611,41 +947,48 @@ function DiscardPileGroup({
 }) {
   if (group.length === 0) {
     return (
-      <div className="w-14 h-20 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-xs">
+      <div className="w-10 h-14 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]">
         empty
       </div>
     );
   }
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5">
       {group.map((card, i) => (
         <button
           key={i}
           onClick={() => canDraw && onPickCard(i)}
           disabled={!canDraw}
           className={`rounded-lg transition-all outline-none ${
-            canDraw ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring" : "cursor-default"
+            canDraw
+              ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              : "cursor-default"
           }`}
           aria-label={canDraw ? `Draw ${card.rank} of ${card.suit}` : undefined}
         >
-          <PlayingCard card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }} size="md" />
+          <PlayingCard
+            card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }}
+            size="sm"
+          />
         </button>
       ))}
     </div>
   );
 }
 
+// ── DeckVisual ────────────────────────────────────────────────────────────
+
 function DeckVisual({ count }: { count: number }) {
   if (count === 0) {
     return (
-      <div className="w-14 h-20 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-xs">
+      <div className="w-10 h-14 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]">
         empty
       </div>
     );
   }
   const layers = Math.min(count, 3);
   return (
-    <div className="relative w-14 h-20">
+    <div className="relative w-10 h-14">
       {Array.from({ length: layers }, (_, i) => {
         const isTop = i === layers - 1;
         const offset = (layers - 1 - i) * 2;
@@ -653,7 +996,7 @@ function DeckVisual({ count }: { count: number }) {
           <div
             key={i}
             className="absolute rounded-lg border border-border/40 shadow bg-[#1a6b3c]"
-            style={{ width: 56, height: 80, top: -offset, left: offset, zIndex: i }}
+            style={{ width: 40, height: 56, top: -offset, left: offset, zIndex: i }}
           >
             {isTop && (
               <div className="w-full h-full flex items-center justify-center rounded-lg">
@@ -667,6 +1010,8 @@ function DeckVisual({ count }: { count: number }) {
   );
 }
 
+// ── SettingRow ────────────────────────────────────────────────────────────
+
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -676,29 +1021,7 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function BotSeat({ player, isActive }: { player: YanivPlayer; isActive: boolean }) {
-  return (
-    <div
-      className={`rounded-xl p-3 transition-colors ${
-        isActive ? "bg-primary/10 ring-2 ring-primary/30" : "bg-muted/30"
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-foreground text-sm font-medium">{player.name}</span>
-        {isActive && <span className="text-primary text-xs">thinking…</span>}
-        <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground ml-auto">
-          <span>Score: {player.score}</span>
-          <span>Hand: —</span>
-        </div>
-      </div>
-      <div className="flex gap-1.5 flex-wrap">
-        {player.hand.map((_, i) => (
-          <PlayingCard key={i} card={{ suit: "spades", rank: "A", faceUp: false }} size="sm" />
-        ))}
-      </div>
-    </div>
-  );
-}
+// ── RoundEndOverlay ───────────────────────────────────────────────────────
 
 function RoundEndOverlay({
   state,
@@ -731,13 +1054,10 @@ function RoundEndOverlay({
           <p className="text-sm text-muted-foreground mt-1">Round {state.round} complete</p>
         </div>
 
-        {/* All hands */}
         <div className="space-y-2">
           {state.players.filter((p) => !p.eliminated).map((p) => (
             <div key={p.id} className="flex items-start gap-3">
-              <div className="w-14 text-sm text-muted-foreground shrink-0">
-                {p.name}
-              </div>
+              <div className="w-14 text-sm text-muted-foreground shrink-0">{p.name}</div>
               <div className="flex flex-wrap gap-1">
                 {p.hand.map((c, i) => (
                   <PlayingCard key={i} card={toShellCard(c)} size="sm" />
@@ -750,7 +1070,6 @@ function RoundEndOverlay({
           ))}
         </div>
 
-        {/* Updated scores */}
         <div className="border-t border-border pt-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 text-center">
             Scores after round {state.round}
@@ -758,13 +1077,9 @@ function RoundEndOverlay({
           <div className="flex justify-center gap-8">
             {state.players.map((p) => (
               <div key={p.id} className="flex flex-col items-center">
-                <span className="text-2xl font-bold tabular-nums text-foreground">
-                  {p.score}
-                </span>
+                <span className="text-2xl font-bold tabular-nums text-foreground">{p.score}</span>
                 <span className="text-xs text-muted-foreground">{p.name}</span>
-                {p.eliminated && (
-                  <span className="text-xs text-destructive">eliminated</span>
-                )}
+                {p.eliminated && <span className="text-xs text-destructive">eliminated</span>}
               </div>
             ))}
           </div>
@@ -786,6 +1101,8 @@ function RoundEndOverlay({
     </div>
   );
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 
 const SUIT_SYMBOLS: Record<string, string> = {
   hearts: "♥",
