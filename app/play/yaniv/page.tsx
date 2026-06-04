@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { EndGameScreen } from "@/components/game/end-game-screen";
@@ -13,15 +13,46 @@ import {
   yanivCardValue,
   isValidDiscard,
   discardPileTop,
+  DEFAULT_YANIV_SETTINGS,
   type YanivGameState,
   type YanivPlayer,
+  type YanivSettings,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import type { ShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
-const BOT_ID = "bot-1";
+const SETTINGS_KEY = "yaniv-settings";
 const bot = new YanivBot();
+
+function buildPlayerDefs(numBots: number) {
+  const defs: { id: string; name: string; isBot: boolean }[] = [
+    { id: PLAYER_ID, name: "You", isBot: false },
+  ];
+  for (let i = 1; i <= numBots; i++) {
+    defs.push({ id: `bot-${i}`, name: `Bot ${i}`, isBot: true });
+  }
+  return defs;
+}
+
+function loadSettings(): YanivSettings & { numBots: number } {
+  if (typeof window === "undefined") return { ...DEFAULT_YANIV_SETTINGS, numBots: 1 };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return { ...DEFAULT_YANIV_SETTINGS, numBots: 1, ...JSON.parse(raw) };
+  } catch {
+    // ignore
+  }
+  return { ...DEFAULT_YANIV_SETTINGS, numBots: 1 };
+}
+
+function saveSettings(s: YanivSettings & { numBots: number }) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    // ignore
+  }
+}
 
 function toShellCard(card: { suit: string; rank: string }, faceUp = true): ShellCard {
   return { suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp };
@@ -42,25 +73,53 @@ function runBotTurns(state: YanivGameState): YanivGameState {
   return s;
 }
 
-function newGame(): YanivGameState {
-  return dealGame(`game-${Date.now()}`, [
-    { id: PLAYER_ID, name: "You", isBot: false },
-    { id: BOT_ID, name: "Bot", isBot: true },
-  ]);
-}
-
 export default function YanivPage() {
   const router = useRouter();
   const [gameState, setGameState] = useState<YanivGameState | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [roundsWon, setRoundsWon] = useState(0);
   const [roundsLost, setRoundsLost] = useState(0);
+  const [reshuffled, setReshuffled] = useState(false);
+  const prevDeckLengthRef = useRef<number | null>(null);
+
+  const [numBots, setNumBots] = useState(1);
+  const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
+  const [scoreLimit, setScoreLimit] = useState(DEFAULT_YANIV_SETTINGS.scoreLimit);
+  const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadSettings();
+    setNumBots(saved.numBots);
+    setYanivThreshold(saved.yanivThreshold);
+    setScoreLimit(saved.scoreLimit);
+    setQuickDraw(saved.quickDraw);
+    setSettingsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!gameState) return;
+    const curr = gameState.deck.length;
+    const prev = prevDeckLengthRef.current;
+    prevDeckLengthRef.current = curr;
+    if (prev !== null && prev === 0 && curr > 0) {
+      setReshuffled(true);
+      const timer = setTimeout(() => setReshuffled(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState]);
 
   const startGame = useCallback(() => {
-    const state = runBotTurns(newGame());
+    const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
+    saveSettings({ ...settings, numBots });
+    const state = runBotTurns(
+      dealGame(`game-${Date.now()}`, buildPlayerDefs(numBots), settings),
+    );
     setGameState(state);
     setSelected([]);
-  }, []);
+    setRoundsWon(0);
+    setRoundsLost(0);
+  }, [numBots, yanivThreshold, scoreLimit, quickDraw]);
 
   function dispatch(state: YanivGameState) {
     const next = runBotTurns(state);
@@ -114,12 +173,96 @@ export default function YanivPage() {
           <h1 className="text-white font-semibold text-lg">Yaniv</h1>
           <a href="/" className="text-sm text-white/60 hover:text-white">← Back</a>
         </header>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-white/70 mb-6 max-w-xs">
-              Discard cards and call Yaniv when your hand totals 7 or less.
-            </p>
-            <Button onClick={startGame} size="lg">Deal</Button>
+        <div className="flex-1 flex items-center justify-center px-4 py-8">
+          <div className="w-full max-w-sm flex flex-col gap-6">
+            <h2 className="text-white text-xl font-semibold text-center">Game Settings</h2>
+
+            {/* Number of bots */}
+            <SettingRow label="Number of Bots">
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setNumBots(n)}
+                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                      numBots === n
+                        ? "bg-emerald-500 text-white"
+                        : "bg-white/10 text-white/70 hover:bg-white/20"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </SettingRow>
+
+            {/* Yaniv threshold */}
+            <SettingRow label="Yaniv Call Threshold">
+              <div className="flex gap-2">
+                {[5, 6, 7, 8, 9, 10].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setYanivThreshold(n)}
+                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                      yanivThreshold === n
+                        ? "bg-emerald-500 text-white"
+                        : "bg-white/10 text-white/70 hover:bg-white/20"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-white/40 text-xs mt-1">Maximum hand total to call Yaniv</p>
+            </SettingRow>
+
+            {/* Score limit */}
+            <SettingRow label="Elimination Score">
+              <div className="flex gap-2">
+                {[100, 150, 200, 300].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setScoreLimit(n)}
+                    className={`px-3 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                      scoreLimit === n
+                        ? "bg-emerald-500 text-white"
+                        : "bg-white/10 text-white/70 hover:bg-white/20"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-white/40 text-xs mt-1">Score at which a player is eliminated</p>
+            </SettingRow>
+
+            {/* Quick draw */}
+            <SettingRow label="Quick Draw">
+              <button
+                onClick={() => setQuickDraw((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  quickDraw ? "bg-emerald-500" : "bg-white/20"
+                }`}
+                role="switch"
+                aria-checked={quickDraw}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    quickDraw ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <p className="text-white/40 text-xs mt-1">2-second window to pick up discarded cards</p>
+            </SettingRow>
+
+            <Button
+              onClick={startGame}
+              disabled={!settingsLoaded}
+              size="lg"
+              className="w-full h-12 text-base font-bold mt-2"
+            >
+              Start Game
+            </Button>
           </div>
         </div>
       </div>
@@ -132,7 +275,7 @@ export default function YanivPage() {
     gameState.status === "in_progress" &&
     gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID;
   const playerTotal = handTotal(player.hand);
-  const canYaniv = isMyTurn && canCallYaniv(player.hand);
+  const canYaniv = isMyTurn && canCallYaniv(player.hand, gameState.settings.yanivThreshold);
   const selectedCards = selected.map((i) => player.hand[i]).filter(Boolean);
   const canDiscard = isMyTurn && isValidDiscard(selectedCards);
   const topCard = discardPileTop(gameState);
@@ -272,6 +415,15 @@ export default function YanivPage() {
           onChangeGame={() => router.push("/")}
         />
       )}
+    </div>
+  );
+}
+
+function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-white/80 text-sm font-medium">{label}</label>
+      {children}
     </div>
   );
 }
