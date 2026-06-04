@@ -22,6 +22,7 @@ import {
   type YanivQuickDrawWindow,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
+import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
 import type { ShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
@@ -125,7 +126,9 @@ export default function YanivPage() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
 
-  const qdDiscarderKey = gameState?.quickDrawWindow?.discarderId ?? null;
+  const qdWindowKey = gameState?.quickDrawWindow
+    ? `${gameState.quickDrawWindow.discarderId}:${gameState.discardPile.length}`
+    : null;
 
   function showBadge(playerId: string, text: string, variant: ActionBadge["variant"]) {
     const key = ++badgeKeyRef.current;
@@ -196,7 +199,7 @@ export default function YanivPage() {
   }, [gameState]);
 
   useEffect(() => {
-    if (!qdDiscarderKey) {
+    if (!qdWindowKey) {
       setQdTimeLeft(null);
       return;
     }
@@ -216,7 +219,7 @@ export default function YanivPage() {
     }, 50);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qdDiscarderKey]);
+  }, [qdWindowKey]);
 
   useEffect(() => {
     if (!gameState?.quickDrawWindow) return;
@@ -236,7 +239,7 @@ export default function YanivPage() {
     }, delay);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qdDiscarderKey]);
+  }, [qdWindowKey]);
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
@@ -406,7 +409,8 @@ export default function YanivPage() {
     qdActive &&
     !!qdWindow &&
     gameState.players.find((p) => p.id === qdWindow.discarderId)?.isBot === true;
-  const qdProgress = qdTimeLeft !== null ? qdTimeLeft / QUICK_DRAW_MS : 0;
+  const qdTimerLabel = formatQuickDrawTime(qdTimeLeft ?? QUICK_DRAW_MS);
+  const qdProgress = Math.max(0, Math.min(1, (qdTimeLeft ?? QUICK_DRAW_MS) / QUICK_DRAW_MS));
 
   const cardDisabled = player.hand.map((card, i) => {
     if (!isMyTurn) return true;
@@ -537,11 +541,20 @@ export default function YanivPage() {
         )}
 
         {qdActive && (
-          <p className="text-center text-sm font-medium text-amber-400 animate-pulse">
-            {qdPlayerCanSteal
-              ? "Steal the discard? Click the highlighted card!"
-              : "Quick-draw window — bot may steal…"}
-          </p>
+          <div className="flex items-center justify-center gap-2 text-sm font-medium text-amber-400">
+            <span className="animate-pulse">
+              {qdPlayerCanSteal
+                ? "Steal the discard? Click the highlighted card!"
+                : "Quick-draw window — bot may steal…"}
+            </span>
+            <span
+              className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-300"
+              role="timer"
+              aria-live="polite"
+            >
+              {qdTimerLabel}
+            </span>
+          </div>
         )}
         {!isMyTurn && !qdActive && gameState.status === "in_progress" && (
           <p className="text-muted-foreground text-sm text-center">Bot is thinking…</p>
@@ -920,7 +933,7 @@ function QuickDrawPile({
         className="absolute text-[10px] font-bold text-amber-300 tabular-nums pointer-events-none"
         style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
       >
-        {(timeLeftMs / 1000).toFixed(1)}
+        {formatQuickDrawTime(timeLeftMs)}
       </span>
       {canSteal && (
         <button
