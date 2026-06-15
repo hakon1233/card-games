@@ -13,7 +13,7 @@ import {
   canCallYaniv,
   handTotal,
   yanivCardValue,
-  isValidDiscard,
+  describeSelection,
   getDiscardTopGroup,
   canAddToSelection,
   DEFAULT_YANIV_SETTINGS,
@@ -22,6 +22,7 @@ import {
   type YanivSettings,
   type YanivAction,
   type YanivQuickDrawWindow,
+  type SelectionDescription,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
@@ -406,7 +407,8 @@ export default function YanivPage() {
   const playerTotal = handTotal(player.hand);
   const canYaniv = isMyTurn && canCallYaniv(player.hand, gameState.settings.yanivThreshold);
   const selectedCards = selected.map((i) => player.hand[i]).filter(Boolean);
-  const canDiscard = isMyTurn && isValidDiscard(selectedCards);
+  const selection = describeSelection(selectedCards);
+  const canDiscard = isMyTurn && selection.valid;
   const topGroup = getDiscardTopGroup(gameState);
   const isRoundOver = gameState.status === "round_over";
   const isGameOver = gameState.status === "game_over";
@@ -483,7 +485,7 @@ export default function YanivPage() {
               return isDisabled
                 ? "opacity-35 cursor-not-allowed"
                 : isSelected
-                  ? "-translate-y-3 ring-2 ring-primary cursor-pointer"
+                  ? "-translate-y-4 card-selected-glow cursor-pointer"
                   : isMyTurn
                     ? "hover:-translate-y-1 cursor-pointer"
                     : "cursor-default";
@@ -503,13 +505,7 @@ export default function YanivPage() {
               </Button>
             )}
             {selected.length > 0 && (
-              <div className="text-muted-foreground text-xs text-center">
-                Selected: {selectedCards.map((c) => `${c.rank}${suitSymbol(c.suit)}`).join(", ")}
-                {" "}({selectedCards.reduce((s, c) => s + yanivCardValue(c.rank), 0)} pts)
-                {!isValidDiscard(selectedCards) && (
-                  <span className="text-destructive ml-1">— not a valid combo</span>
-                )}
-              </div>
+              <SelectionSummary cards={selectedCards} selection={selection} />
             )}
             <div className="flex gap-2">
               <Button
@@ -1125,6 +1121,63 @@ function RoundEndOverlay({
             Change Game
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SelectionSummary ──────────────────────────────────────────────────────
+// Running, pre-commit feedback: what's selected, the combo name, its point
+// value, and whether it's a legal discard — shown live before the player commits.
+
+function SelectionSummary({
+  cards,
+  selection,
+}: {
+  cards: { suit: string; rank: string }[];
+  selection: SelectionDescription;
+}) {
+  const legal = selection.valid;
+
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 transition-colors ${
+        legal
+          ? "border-primary/50 bg-primary/10"
+          : "border-destructive/50 bg-destructive/10"
+      }`}
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {cards.map((c, i) => (
+            <span
+              key={i}
+              className={`inline-flex items-center rounded-md bg-card border border-border px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
+                c.suit === "hearts" || c.suit === "diamonds"
+                  ? "text-red-500"
+                  : "text-foreground"
+              }`}
+            >
+              {c.rank}
+              {suitSymbol(c.suit)}
+            </span>
+          ))}
+        </div>
+        <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
+          {selection.points} pts
+        </span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium">
+        <span aria-hidden className={legal ? "text-primary" : "text-destructive"}>
+          {legal ? "✓" : "✗"}
+        </span>
+        <span className={legal ? "text-foreground" : "text-destructive"}>
+          {legal ? selection.label : "Not a legal discard"}
+        </span>
+        {legal && (
+          <span className="text-muted-foreground">— ready to discard</span>
+        )}
       </div>
     </div>
   );

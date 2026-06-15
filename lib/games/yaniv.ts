@@ -102,6 +102,57 @@ export function isValidDiscard(cards: Card[]): boolean {
   return true;
 }
 
+export type SelectionKind = "empty" | "single" | "pair" | "set" | "run" | "invalid";
+
+export interface SelectionDescription {
+  /** Whether the current selection is a legal discard. */
+  valid: boolean;
+  kind: SelectionKind;
+  /** Human-readable combo name, e.g. "Pair of 7s", "Run of 3 (5–7)". */
+  label: string;
+  /** Total Yaniv points of the selected cards. */
+  points: number;
+  count: number;
+}
+
+/**
+ * Describe a card selection for live, pre-commit UI feedback: names the combo,
+ * reports its point value, and states whether it is a legal discard. Pure —
+ * safe to call on every render as the player builds a selection.
+ */
+export function describeSelection(cards: Card[]): SelectionDescription {
+  const points = cards.reduce((sum, c) => sum + yanivCardValue(c.rank), 0);
+  const count = cards.length;
+
+  if (count === 0) {
+    return { valid: false, kind: "empty", label: "No cards selected", points: 0, count: 0 };
+  }
+
+  if (!isValidDiscard(cards)) {
+    return { valid: false, kind: "invalid", label: "Not a legal discard", points, count };
+  }
+
+  if (count === 1) {
+    return { valid: true, kind: "single", label: `Single ${cards[0].rank}`, points, count };
+  }
+
+  const allSameRank = cards.every((c) => c.rank === cards[0].rank);
+  if (allSameRank) {
+    if (count === 2) {
+      return { valid: true, kind: "pair", label: `Pair of ${cards[0].rank}s`, points, count };
+    }
+    return { valid: true, kind: "set", label: `Set of ${count} ${cards[0].rank}s`, points, count };
+  }
+
+  // Same-suit straight (isValidDiscard already guaranteed legality).
+  const sorted = [...cards].sort(
+    (a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank),
+  );
+  const low = sorted[0].rank;
+  const high = sorted[sorted.length - 1].rank;
+  return { valid: true, kind: "run", label: `Run of ${count} (${low}–${high})`, points, count };
+}
+
 export function discardPileTop(state: YanivGameState): Card | null {
   return state.discardPile.length > 0
     ? state.discardPile[state.discardPile.length - 1]

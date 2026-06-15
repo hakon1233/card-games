@@ -6,6 +6,7 @@ import {
   canCallYaniv,
   isValidDiscard,
   yanivCardValue,
+  describeSelection,
 } from "../games/yaniv";
 import { YanivBot } from "../bots/yaniv-bot";
 
@@ -32,6 +33,66 @@ describe("handTotal / canCallYaniv", () => {
     expect(canCallYaniv([{ suit: "hearts", rank: "A" }, { suit: "clubs", rank: "6" }])).toBe(true);
     expect(canCallYaniv([{ suit: "hearts", rank: "8" }])).toBe(false);
     expect(canCallYaniv([{ suit: "hearts", rank: "7" }])).toBe(true);
+  });
+});
+
+describe("describeSelection (live combo feedback)", () => {
+  it("reports empty selection as not-legal", () => {
+    const d = describeSelection([]);
+    expect(d.valid).toBe(false);
+    expect(d.kind).toBe("empty");
+    expect(d.points).toBe(0);
+  });
+
+  it("names a single card and counts its points", () => {
+    const d = describeSelection([{ suit: "spades", rank: "9" }]);
+    expect(d.valid).toBe(true);
+    expect(d.kind).toBe("single");
+    expect(d.label).toBe("Single 9");
+    expect(d.points).toBe(9);
+  });
+
+  it("names a pair", () => {
+    const d = describeSelection([
+      { suit: "hearts", rank: "7" },
+      { suit: "clubs", rank: "7" },
+    ]);
+    expect(d.valid).toBe(true);
+    expect(d.kind).toBe("pair");
+    expect(d.label).toBe("Pair of 7s");
+    expect(d.points).toBe(14);
+  });
+
+  it("names a set of three", () => {
+    const d = describeSelection([
+      { suit: "hearts", rank: "4" },
+      { suit: "clubs", rank: "4" },
+      { suit: "diamonds", rank: "4" },
+    ]);
+    expect(d.kind).toBe("set");
+    expect(d.label).toBe("Set of 3 4s");
+  });
+
+  it("names a run with its low–high range regardless of input order", () => {
+    const d = describeSelection([
+      { suit: "hearts", rank: "7" },
+      { suit: "hearts", rank: "5" },
+      { suit: "hearts", rank: "6" },
+    ]);
+    expect(d.valid).toBe(true);
+    expect(d.kind).toBe("run");
+    expect(d.label).toBe("Run of 3 (5–7)");
+    expect(d.points).toBe(18);
+  });
+
+  it("marks an illegal selection invalid but still totals its points", () => {
+    const d = describeSelection([
+      { suit: "hearts", rank: "K" },
+      { suit: "clubs", rank: "Q" },
+    ]);
+    expect(d.valid).toBe(false);
+    expect(d.kind).toBe("invalid");
+    expect(d.points).toBe(20);
   });
 });
 

@@ -140,3 +140,11 @@
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 40%, transparent); }
   50%       { box-shadow: 0 0 12px 4px color-mix(in oklab, var(--primary) 30%, transparent); }
 }
+
+/* Selected discard card: lifted + glowing in the reserved selection hue (primary). */
+.card-selected-glow {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 6px 16px -2px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 0 18px 2px color-mix(in oklab, var(--primary) 35%, transparent);
+}
