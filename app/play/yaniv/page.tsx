@@ -714,32 +714,54 @@ function PlayerRing({
           transform: "translate(-50%, -50%)",
         }}
       >
-        <div className="flex items-center gap-4">
-          {/* Deck */}
-          <div className="flex items-center justify-center">
-            <DeckVisual count={deckCount} />
+        <div className="flex items-end gap-6">
+          {/* Draw pile — face-down green stack you draw a blind card from. */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center justify-center min-h-[80px]">
+              <DeckVisual count={deckCount} />
+            </div>
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Draw
+              </span>
+              <span className="text-[9px] text-muted-foreground/70 tabular-nums">
+                {deckCount} left
+              </span>
+            </div>
           </div>
 
-          {/* Discard / quick-draw */}
-          <div className="flex flex-col items-center gap-1">
-            {qdActive && qdWindow ? (
-              <QuickDrawPile
-                cards={qdWindow.cards}
-                progress={qdProgress}
-                timeLeftMs={qdTimeLeft}
-                canSteal={qdPlayerCanSteal}
-                onSteal={onSteal}
-              />
-            ) : (
-              <DiscardPileGroup
-                group={discardTopGroup}
-                canDraw={canDrawFromDiscard}
-                onPickCard={onPickDiscardCard}
-              />
-            )}
-            <span className="text-muted-foreground text-[10px]">
-              {qdActive ? "quick draw!" : canDrawFromDiscard && discardTopGroup.length > 0 ? "← draw" : "discard"}
-            </span>
+          {/* Discard pile — face-up; its top card is a key decision input, so it is
+              rendered large and clearly distinct from the draw pile. */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center justify-center min-h-[80px]">
+              {qdActive && qdWindow ? (
+                <QuickDrawPile
+                  cards={qdWindow.cards}
+                  progress={qdProgress}
+                  timeLeftMs={qdTimeLeft}
+                  canSteal={qdPlayerCanSteal}
+                  onSteal={onSteal}
+                />
+              ) : (
+                <DiscardPileGroup
+                  group={discardTopGroup}
+                  canDraw={canDrawFromDiscard}
+                  onPickCard={onPickDiscardCard}
+                />
+              )}
+            </div>
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {qdActive ? "Quick draw!" : "Discard"}
+              </span>
+              <span className="text-[9px] text-muted-foreground/70">
+                {qdActive
+                  ? "tap to steal"
+                  : canDrawFromDiscard && discardTopGroup.length > 0
+                  ? "← tap to draw"
+                  : " "}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -796,6 +818,20 @@ function PlayerSeatNode({
           {initials}
         </div>
 
+        {/* Numeric card-count badge — how many cards an opponent holds is a core Yaniv
+            decision input, so it gets an explicit number rather than a fan to eyeball. */}
+        {!player.eliminated && (
+          <div
+            className="absolute -bottom-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full
+              bg-foreground text-background text-[11px] font-bold leading-none
+              flex items-center justify-center ring-2 ring-background tabular-nums shadow-sm"
+            aria-label={`${player.hand.length} card${player.hand.length === 1 ? "" : "s"} in hand`}
+            title={`${player.hand.length} cards in hand`}
+          >
+            {player.hand.length}
+          </div>
+        )}
+
         {/* Action badge */}
         {badge && (
           <div
@@ -845,15 +881,14 @@ function PlayerSeatNode({
         <span className="text-[9px] text-muted-foreground/60">you</span>
       )}
 
-      {/* Score + card count */}
+      {/* Running score — the live card-count now lives in the badge on the avatar. */}
       <div
         className={`flex gap-1 text-[9px] tabular-nums ${
           player.eliminated ? "text-muted-foreground/40" : "text-muted-foreground"
         }`}
       >
-        <span>{player.score}pt</span>
-        <span>·</span>
-        <span>{player.hand.length}🃏</span>
+        <span>{player.score} pts</span>
+        {player.eliminated && <span className="text-destructive/70">· out</span>}
       </div>
     </div>
   );
@@ -955,31 +990,47 @@ function DiscardPileGroup({
 }) {
   if (group.length === 0) {
     return (
-      <div className="w-10 h-14 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]">
+      <div className="w-20 h-28 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[10px]">
         empty
       </div>
     );
   }
+  // A single discarded card gets the full large treatment (the key decision input);
+  // a discarded set/run shows each card a notch smaller so the row still fits.
+  const cardSize = group.length === 1 ? "lg" : "md";
   return (
-    <div className="flex gap-0.5">
-      {group.map((card, i) => (
-        <button
-          key={i}
-          onClick={() => canDraw && onPickCard(i)}
-          disabled={!canDraw}
-          className={`rounded-lg transition-all outline-none ${
-            canDraw
-              ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              : "cursor-default"
-          }`}
-          aria-label={canDraw ? `Draw ${card.rank} of ${card.suit}` : undefined}
-        >
-          <PlayingCard
-            card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }}
-            size="sm"
-          />
-        </button>
-      ))}
+    <div className="relative">
+      {/* Offset backing cards convey that this is a stack of past discards. */}
+      <div
+        className="absolute rounded-lg bg-muted-foreground/15 border border-border"
+        style={{ inset: 0, transform: "translate(5px, 5px)" }}
+        aria-hidden
+      />
+      <div
+        className="absolute rounded-lg bg-muted-foreground/10 border border-border"
+        style={{ inset: 0, transform: "translate(2.5px, 2.5px)" }}
+        aria-hidden
+      />
+      <div className="relative flex gap-0.5">
+        {group.map((card, i) => (
+          <button
+            key={i}
+            onClick={() => canDraw && onPickCard(i)}
+            disabled={!canDraw}
+            className={`rounded-lg transition-all outline-none ${
+              canDraw
+                ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                : "cursor-default"
+            }`}
+            aria-label={canDraw ? `Draw ${card.rank} of ${card.suit}` : `Top discard: ${card.rank} of ${card.suit}`}
+          >
+            <PlayingCard
+              card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }}
+              size={cardSize}
+            />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -990,7 +1041,7 @@ function DeckVisual({ count }: { count: number }) {
   if (count === 0) {
     return (
       <div
-        className="w-14 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[9px]"
+        className="w-20 h-28 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground/50 text-[10px]"
         aria-label="empty draw deck"
       >
         empty
@@ -1000,9 +1051,11 @@ function DeckVisual({ count }: { count: number }) {
   const layers = Math.min(count, 5);
   const topIndex = layers - 1;
 
+  // Sized to roughly match the large discard card so the two piles read as a pair,
+  // while the green face-down backs keep the draw pile unmistakably distinct.
   return (
     <div
-      className="relative w-16 h-16"
+      className="relative w-20 h-28"
       aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
       role="img"
     >
@@ -1014,10 +1067,10 @@ function DeckVisual({ count }: { count: number }) {
             key={i}
             className="absolute rounded-lg border border-emerald-100/25 bg-[#1a6b3c] shadow-md"
             style={{
-              width: 40,
-              height: 56,
-              top: 4 + depth * 2,
-              left: 12 - depth * 3,
+              width: 64,
+              height: 90,
+              top: 6 + depth * 3,
+              left: 8 - depth * 4,
               zIndex: i,
               transform: `rotate(${depth * -2}deg)`,
             }}
