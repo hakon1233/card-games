@@ -18,14 +18,14 @@ export function GameShell({ state, gameType, actionArea }: GameShellProps) {
   const isSelfTurn = !!selfSeat?.isActive;
 
   return (
-    <div className="flex flex-col min-h-full w-full bg-[#0f5132] rounded-2xl overflow-hidden">
+    <div className="pip-table-surface pip-table-rail flex flex-col min-h-full w-full rounded-2xl overflow-hidden">
       {/* Felt table area */}
       <div className="flex flex-col flex-1 gap-4 p-4 md:p-6">
         {/* Opponent seats — top of table */}
         {opponentSeats.length > 0 && (
           <div className="flex flex-wrap gap-3 justify-center">
             {opponentSeats.map((seat) => (
-              <div key={seat.id} className="bg-white/10 backdrop-blur-sm rounded-xl">
+              <div key={seat.id} className="pip-seat-panel rounded-xl">
                 <PlayerSeat seat={seat} gameType={gameType} />
               </div>
             ))}
@@ -46,7 +46,7 @@ export function GameShell({ state, gameType, actionArea }: GameShellProps) {
 
         {/* Self seat — bottom of table */}
         {selfSeat && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl">
+          <div className="pip-seat-panel rounded-xl">
             <PlayerSeat seat={selfSeat} gameType={gameType} />
           </div>
         )}

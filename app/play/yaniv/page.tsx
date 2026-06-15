@@ -492,7 +492,7 @@ export default function YanivPage() {
   const turnSecondsLeft = turnTimerActive ? Math.ceil((turnTimeLeft ?? 0) / 1000) : null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="dark flex flex-col min-h-screen bg-[var(--pip-table)] text-foreground">
       {reshuffled && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-5 py-2 rounded-full shadow-xl font-medium text-sm pointer-events-none">
           Reshuffled!
@@ -500,7 +500,7 @@ export default function YanivPage() {
       )}
       <BrandHeader title="Yaniv" tone="red" backLabel="Back" />
 
-      <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full pip-table-surface pip-table-rail rounded-3xl">
         {/* Circular player ring */}
         <PlayerRing
           players={gameState.players}
@@ -524,7 +524,7 @@ export default function YanivPage() {
         />
 
         {/* Human player hand */}
-        <div className="bg-muted/40 rounded-xl p-3">
+        <div className="pip-seat-panel rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-foreground text-sm font-medium">
               {player.name}
@@ -1213,7 +1213,7 @@ function DeckVisual({ count }: { count: number }) {
         return (
           <div
             key={i}
-            className="absolute rounded-lg border border-emerald-100/25 bg-[#1a6b3c] shadow-md"
+            className="pip-card-back absolute rounded-lg shadow-md"
             style={{
               width: 64,
               height: 90,
