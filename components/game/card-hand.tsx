@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   ALL_SORT_STRATEGIES,
@@ -11,7 +11,41 @@ import {
   type SortStrategy,
 } from "@/lib/games/card-sorting";
 import type { ShellCard } from "@/lib/games/shell-types";
-import { PlayingCard } from "./card";
+import { CARD_DIMENSIONS, PlayingCard } from "./card";
+
+// Gap between cards when the hand is roomy enough not to overlap.
+const HAND_GAP = 8;
+// Vertical headroom (px) reserved so selected/hovered cards can lift without
+// being clipped or shifting layout. Must cover the largest -translate-y used.
+const LIFT_HEADROOM = 14;
+
+/**
+ * Measure the live pixel width of an element. Drives the overlap math so the
+ * hand always fits the available width while keeping every corner index
+ * visible (GAM-42).
+ */
+function useMeasuredWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+}
 
 interface CardHandProps {
   cards: ShellCard[];
@@ -49,6 +83,25 @@ export function CardHand({
     () => sortCardsWithOriginalIndices(cards, currentSort, gameType),
     [cards, currentSort, gameType],
   );
+
+  const [handRef, handWidth] = useMeasuredWidth<HTMLDivElement>();
+  const dims = CARD_DIMENSIONS[size];
+
+  // How far apart consecutive cards sit (the "stride"). When the hand is
+  // roomy this is card width + gap; when it compresses, cards slide left over
+  // one another but never past the corner index — the stride floor is
+  // `cornerWidth`, so the rank+suit of every card stays visible. If the hand
+  // still can't fit at that floor, the row scrolls horizontally rather than
+  // clipping any index.
+  const count = sortedCards.length;
+  const naturalStride = dims.width + HAND_GAP;
+  let stride = naturalStride;
+  if (handWidth > 0 && count > 1) {
+    const fitStride = (handWidth - dims.width) / (count - 1);
+    stride = Math.min(naturalStride, Math.max(dims.cornerWidth, fitStride));
+  }
+  // Negative margin pulls each card (after the first) left onto its neighbour.
+  const overlapMargin = Math.round(stride - dims.width);
 
   function applySort(nextSort: SortStrategy) {
     if (!sortStrategy) setPreferredSort(nextSort);
@@ -103,19 +156,33 @@ export function CardHand({
           )}
         </div>
       )}
-      <div className="flex flex-wrap items-end gap-2">
-        {sortedCards.map(({ card, originalIndex }) => {
+      <div
+        ref={handRef}
+        className="flex items-end overflow-x-auto overflow-y-hidden"
+        style={{ paddingTop: LIFT_HEADROOM }}
+      >
+        {sortedCards.map(({ card, originalIndex }, i) => {
           const isSelected = selectedIndices.includes(originalIndex);
           const isDisabled = disabledIndices.includes(originalIndex);
           const className = cardClassName?.(card, originalIndex) ?? "";
 
+          // Later cards paint over earlier ones (DOM order), so each card's
+          // left corner index stays exposed. A selected card lifts above the
+          // overlap so its full face is readable.
+          const wrapperStyle = {
+            marginLeft: i === 0 ? 0 : overlapMargin,
+            zIndex: isSelected ? count + 1 : undefined,
+          };
+
           if (!onCardClick) {
             return (
-              <PlayingCard
+              <div
                 key={`${card.suit}-${card.rank}-${originalIndex}`}
-                card={card}
-                size={size}
-              />
+                className="relative shrink-0 hover:z-50"
+                style={wrapperStyle}
+              >
+                <PlayingCard card={card} size={size} />
+              </div>
             );
           }
 
@@ -125,7 +192,8 @@ export function CardHand({
               type="button"
               onClick={() => !isDisabled && onCardClick(card, originalIndex)}
               disabled={isDisabled}
-              className={`rounded-lg transition-all outline-none ${className}`}
+              className={`relative shrink-0 rounded-lg transition-all outline-none hover:z-50 focus-visible:z-50 ${className}`}
+              style={wrapperStyle}
               aria-pressed={isSelected}
             >
               <PlayingCard card={card} size={size} />
