@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { BrandHeader } from "@/components/brand-logo";
 import PartySocket from "partysocket";
 import { GameShell } from "@/components/game/shell";
 import { EndGameScreen } from "@/components/game/end-game-screen";
@@ -178,12 +178,7 @@ export default function GamePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-900">
-      <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-white/10">
-        <h1 className="text-white font-semibold text-lg">Blackjack</h1>
-        <Link href="/" className="text-sm text-white/60 hover:text-white">
-          ← Back
-        </Link>
-      </header>
+      <BrandHeader title="Blackjack" tone="red" backLabel="Back" />
       <div className="flex-1 flex items-stretch p-4 md:p-8">
         <div className="flex-1 max-w-2xl mx-auto">
           <GameShell state={shellState} gameType="blackjack" actionArea={actionArea} />

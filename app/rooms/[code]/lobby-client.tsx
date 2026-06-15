@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PartySocket from "partysocket";
+import { BrandLogo } from "@/components/brand-logo";
 
 const GAME_LABELS: Record<string, string> = {
   crazy_eights: "Crazy Eights",
@@ -89,8 +90,8 @@ export function LobbyClient({ code, userId, displayName, hostId, partyHost }: Pr
   return (
     <div className="w-full max-w-md">
       <div className="mb-6 text-center">
-        <p className="text-4xl mb-3">🃏</p>
-        <h1 className="text-2xl font-bold text-foreground">{gameLabel} — Lobby</h1>
+        <BrandLogo className="mb-4 justify-center" imageClassName="h-16 max-w-[230px]" />
+        <h1 className="font-heading text-2xl font-bold text-foreground">{gameLabel} Lobby</h1>
         <p className="text-sm text-muted-foreground mt-1">Room code: <span className="font-mono font-medium">{code}</span></p>
       </div>
 

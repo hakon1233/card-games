@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 460" width="360" height="460">
+  <g transform="translate(80 8)"><g>
+  
+  <circle cx="100" cy="100" r="90" fill="none" stroke="#C9A24B" stroke-width="3"/>
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#C9A24B" stroke-width="1.5"/>
+  <circle cx="186.0" cy="100.0" r="1.7" fill="#E7C06A"/><circle cx="183.1" cy="122.3" r="1.7" fill="#E7C06A"/><circle cx="174.5" cy="143.0" r="1.7" fill="#E7C06A"/><circle cx="160.8" cy="160.8" r="1.7" fill="#E7C06A"/><circle cx="143.0" cy="174.5" r="1.7" fill="#E7C06A"/><circle cx="122.3" cy="183.1" r="1.7" fill="#E7C06A"/><circle cx="100.0" cy="186.0" r="1.7" fill="#E7C06A"/><circle cx="77.7" cy="183.1" r="1.7" fill="#E7C06A"/><circle cx="57.0" cy="174.5" r="1.7" fill="#E7C06A"/><circle cx="39.2" cy="160.8" r="1.7" fill="#E7C06A"/><circle cx="25.5" cy="143.0" r="1.7" fill="#E7C06A"/><circle cx="16.9" cy="122.3" r="1.7" fill="#E7C06A"/><circle cx="14.0" cy="100.0" r="1.7" fill="#E7C06A"/><circle cx="16.9" cy="77.7" r="1.7" fill="#E7C06A"/><circle cx="25.5" cy="57.0" r="1.7" fill="#E7C06A"/><circle cx="39.2" cy="39.2" r="1.7" fill="#E7C06A"/><circle cx="57.0" cy="25.5" r="1.7" fill="#E7C06A"/><circle cx="77.7" cy="16.9" r="1.7" fill="#E7C06A"/><circle cx="100.0" cy="14.0" r="1.7" fill="#E7C06A"/><circle cx="122.3" cy="16.9" r="1.7" fill="#E7C06A"/><circle cx="143.0" cy="25.5" r="1.7" fill="#E7C06A"/><circle cx="160.8" cy="39.2" r="1.7" fill="#E7C06A"/><circle cx="174.5" cy="57.0" r="1.7" fill="#E7C06A"/><circle cx="183.1" cy="77.7" r="1.7" fill="#E7C06A"/>
+  <path d="M100 36 L150 52 C150 96 132 132 100 150 C68 132 50 96 50 52 Z" fill="#7A1F1B" stroke="#C9A24B" stroke-width="2.5"/>
+  <g transform="translate(100 92) scale(0.9) translate(-50 -50)"><path d="M50 14 C32 36 22 47 22 60 C22 71 30 78 40 78 C46 78 49 75 50 71 C51 75 54 78 60 78 C70 78 78 71 78 60 C78 47 68 36 50 14 Z M50 66 C50 75 47 83 40 90 L60 90 C53 83 50 75 50 66 Z" fill="#E7C06A"/></g>
+  <rect x="62" y="150" width="76" height="20" rx="3" fill="#C9A24B"/>
+  <text x="100" y="164" text-anchor="middle" font-family="Copperplate" font-size="10" letter-spacing="2" fill="#7A1F1B">PIP</text>
+  <g transform="translate(100 30)"><path d="M0 -9 L2.6 -2.8 L9 -2.8 L3.9 1.2 L5.9 8 L0 4 L-5.9 8 L-3.9 1.2 L-9 -2.8 L-2.6 -2.8 Z" fill="#E7C06A"/></g>
+</g></g>
+  <g transform="translate(-252 200)">
+    <g transform="translate(250 24)">
+      <g fill="none" stroke="#C9A24B" stroke-width="2">
+        <line x1="86" y1="14" x2="150" y2="14"/><line x1="214" y1="14" x2="278" y2="14"/>
+      </g>
+      <rect x="178" y="9.5" width="9" height="9" transform="rotate(45 182.5 14)" fill="#C9A24B"/>
+      <text x="182" y="40" text-anchor="middle" font-family='"Copperplate","Copperplate Gothic Light","Didot",serif' font-size="13"
+            letter-spacing="3.5" fill="#E7C06A">EST. MMXXVI</text>
+      <text x="182" y="150" text-anchor="middle" font-family='"Didot","Bodoni 72","Playfair Display","Times New Roman",serif' font-size="118"
+            fill="#F3E9D2">Pip</text>
+      <text x="182" y="184" text-anchor="middle" font-family='"Copperplate","Copperplate Gothic Light","Didot",serif' font-size="13"
+            letter-spacing="5.5" fill="#F3E9D2">PLAYING &amp; CARD CO.</text>
+      <g fill="none" stroke="#C9A24B" stroke-width="2">
+        <line x1="86" y1="206" x2="150" y2="206"/><line x1="214" y1="206" x2="278" y2="206"/>
+      </g>
+      <rect x="178" y="201.5" width="9" height="9" transform="rotate(45 182.5 206)" fill="#C9A24B"/>
+    </g></g>
+</svg>

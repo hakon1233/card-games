@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 import { GoogleButton } from "@/components/auth/google-button";
 
@@ -13,7 +14,8 @@ export default async function SignUpPage({
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-foreground">
+          <BrandLogo className="mb-5 justify-center" imageClassName="h-16 max-w-[230px]" />
+          <h1 className="font-heading text-2xl font-bold text-foreground">
             {invite ? "Sign up to join the game" : "Create an account"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">

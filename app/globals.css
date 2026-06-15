@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--pip-font-body);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-heading: var(--pip-font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,39 +49,51 @@
 }
 
 :root {
-  /* Anthropic warm palette — off-white cream backgrounds, charcoal text, terracotta primary */
-  --background: oklch(0.960 0.016 85);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(0.978 0.010 85);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(0.978 0.010 85);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.545 0.195 30);
-  --primary-foreground: oklch(0.985 0.005 85);
-  --secondary: oklch(0.940 0.012 82);
-  --secondary-foreground: oklch(0.145 0 0);
-  --muted: oklch(0.940 0.012 82);
-  --muted-foreground: oklch(0.520 0.018 55);
-  --accent: oklch(0.930 0.018 82);
-  --accent-foreground: oklch(0.145 0 0);
+  --pip-tin-red: #7A1F1B;
+  --pip-tin-red-hi: #8E2622;
+  --pip-tin-red-lo: #5F1714;
+  --pip-cream: #F3E9D2;
+  --pip-cream-hi: #F7F0DD;
+  --pip-gold: #C9A24B;
+  --pip-gold-light: #E7C06A;
+  --pip-gold-dark: #9C6A2F;
+  --pip-ink: #1C1714;
+  --pip-font-display: var(--font-pip-display), "Didot", "Bodoni 72", "Times New Roman", serif;
+  --pip-font-body: var(--font-pip-body), Georgia, "Times New Roman", serif;
+  --pip-font-eyebrow: "Copperplate", "Copperplate Gothic Light", "Didot", serif;
+
+  --background: #F3E9D2;
+  --foreground: #1C1714;
+  --card: #F7F0DD;
+  --card-foreground: #1C1714;
+  --popover: #F7F0DD;
+  --popover-foreground: #1C1714;
+  --primary: #7A1F1B;
+  --primary-foreground: #F3E9D2;
+  --secondary: color-mix(in oklab, var(--pip-cream) 82%, white);
+  --secondary-foreground: #1C1714;
+  --muted: color-mix(in oklab, var(--pip-cream) 82%, white);
+  --muted-foreground: color-mix(in oklab, var(--pip-ink) 64%, var(--pip-gold-dark));
+  --accent: color-mix(in oklab, var(--pip-gold) 22%, var(--pip-cream-hi));
+  --accent-foreground: #1C1714;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.895 0.012 82);
-  --input: oklch(0.895 0.012 82);
-  --ring: oklch(0.545 0.195 30);
-  --chart-1: oklch(0.545 0.195 30);
-  --chart-2: oklch(0.620 0.167 57);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: color-mix(in oklab, var(--pip-gold) 32%, var(--pip-ink) 8%);
+  --input: color-mix(in oklab, var(--pip-gold) 28%, var(--pip-cream-hi));
+  --ring: #C9A24B;
+  --chart-1: #7A1F1B;
+  --chart-2: #C9A24B;
+  --chart-3: #9C6A2F;
+  --chart-4: #5F1714;
+  --chart-5: #1C1714;
   --radius: 0.625rem;
-  --sidebar: oklch(0.940 0.012 82);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.545 0.195 30);
-  --sidebar-primary-foreground: oklch(0.985 0.005 85);
-  --sidebar-accent: oklch(0.920 0.018 82);
-  --sidebar-accent-foreground: oklch(0.145 0 0);
-  --sidebar-border: oklch(0.895 0.012 82);
-  --sidebar-ring: oklch(0.545 0.195 30);
+  --sidebar: #F7F0DD;
+  --sidebar-foreground: #1C1714;
+  --sidebar-primary: #7A1F1B;
+  --sidebar-primary-foreground: #F3E9D2;
+  --sidebar-accent: color-mix(in oklab, var(--pip-gold) 22%, var(--pip-cream-hi));
+  --sidebar-accent-foreground: #1C1714;
+  --sidebar-border: var(--border);
+  --sidebar-ring: #C9A24B;
 }
 
 .dark {
@@ -128,6 +140,13 @@
   html {
     @apply font-sans;
   }
+}
+
+.pip-eyebrow {
+  font-family: var(--pip-font-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--pip-gold-dark);
 }
 
 @keyframes badge-slide-up {

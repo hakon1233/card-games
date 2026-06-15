@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { CardHand } from "@/components/game/card-hand";
@@ -359,13 +359,13 @@ export default function YanivPage() {
   if (!gameState) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
-        <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
-          <h1 className="text-foreground font-semibold text-lg">Yaniv</h1>
-          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
-        </header>
+        <BrandHeader title="Yaniv" backLabel="Back" />
         <div className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-sm flex flex-col gap-6">
-            <h2 className="text-foreground text-xl font-semibold text-center">Game Settings</h2>
+          <div className="w-full max-w-sm flex flex-col gap-6 rounded-lg border border-border bg-card/70 p-5 shadow-sm">
+            <div className="text-center">
+              <p className="pip-eyebrow text-xs">Yaniv table</p>
+              <h2 className="mt-2 font-heading text-2xl font-bold text-foreground">Game Settings</h2>
+            </div>
 
             <SettingRow label="Number of Bots">
               <div className="flex gap-2">
@@ -498,10 +498,7 @@ export default function YanivPage() {
           Reshuffled!
         </div>
       )}
-      <header className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-border">
-        <h1 className="text-foreground font-semibold text-lg">Yaniv</h1>
-        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back</Link>
-      </header>
+      <BrandHeader title="Yaniv" tone="red" backLabel="Back" />
 
       <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full">
         {/* Circular player ring */}

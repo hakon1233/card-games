@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function GoFishPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="text-center">
-        <h1 className="mb-2 text-3xl font-bold text-foreground">Go Fish</h1>
+        <BrandLogo className="mb-5 justify-center" imageClassName="h-16 max-w-[240px]" />
+        <h1 className="mb-2 font-heading text-3xl font-bold text-foreground">Go Fish</h1>
         <p className="mb-8 text-muted-foreground">Game coming soon…</p>
         <Link
           href="/"

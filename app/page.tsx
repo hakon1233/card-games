@@ -1,4 +1,5 @@
 import { GameCard } from "@/components/game-card";
+import { BrandLogo } from "@/components/brand-logo";
 
 const GAMES = [
   {
@@ -31,10 +32,9 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-        <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Card Games
-          </h1>
+        <div className="mb-12 flex flex-col items-center text-center">
+          <BrandLogo imageClassName="h-24 max-w-[290px] sm:h-28 sm:max-w-[340px]" />
+          <p className="pip-eyebrow mt-5 text-xs">Playing & Card Co.</p>
           <p className="mt-3 text-lg text-muted-foreground">
             Pick a game and play against a bot
           </p>

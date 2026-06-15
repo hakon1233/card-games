@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 
 const GAMES = [
   { type: "crazy_eights" as const, name: "Crazy Eights", emoji: "🎴", desc: "Match the card or change the suit" },
@@ -40,7 +41,8 @@ export default function CreateRoomPage() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Create a Room</h1>
+          <BrandLogo className="mb-5 justify-center" imageClassName="h-16 max-w-[230px]" />
+          <h1 className="font-heading text-2xl font-bold text-foreground">Create a Room</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Pick a game and invite your friends
           </p>
