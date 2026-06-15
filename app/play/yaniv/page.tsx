@@ -31,6 +31,11 @@ import type { ShellCard } from "@/lib/games/shell-types";
 const PLAYER_ID = "player-1";
 const SETTINGS_KEY = "yaniv-settings";
 const QUICK_DRAW_MS = 2000;
+// Soft per-turn clock (playtest default). Drives the co-located countdown ring
+// on the active player's avatar so "how long do they have" is answerable at a
+// glance. On expiry the human auto-plays a safe default so the game never stalls.
+const TURN_SECONDS = 20;
+const TURN_MS = TURN_SECONDS * 1000;
 const bot = new YanivBot();
 
 type ActionBadge = { text: string; variant: "drew" | "yaniv" | "stolen"; key: number };
@@ -127,6 +132,7 @@ export default function YanivPage() {
   const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
+  const [turnTimeLeft, setTurnTimeLeft] = useState<number | null>(null);
 
   const qdWindowKey = gameState?.quickDrawWindow
     ? `${gameState.quickDrawWindow.discarderId}:${gameState.discardPile.length}`
@@ -248,6 +254,57 @@ export default function YanivPage() {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qdWindowKey]);
+
+  // ── Per-turn countdown clock ───────────────────────────────────────────────
+  // Runs only while the human is the active player (bots resolve synchronously,
+  // so they never "sit" on a turn). Resets whenever the active turn changes.
+  const turnKey =
+    gameState &&
+    gameState.status === "in_progress" &&
+    !gameState.quickDrawWindow &&
+    gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID
+      ? `${gameState.round}:${gameState.currentPlayerIndex}`
+      : null;
+
+  const autoPlayTurnTimeout = useCallback(() => {
+    const s = gameStateRef.current;
+    if (!s || s.status !== "in_progress" || s.quickDrawWindow) return;
+    if (s.players[s.currentPlayerIndex]?.id !== PLAYER_ID) return;
+    const human = s.players.find((p) => p.id === PLAYER_ID);
+    if (!human || human.hand.length === 0) return;
+    // Safe default: drop the single highest-value card and draw from the deck.
+    let hi = 0;
+    for (let i = 1; i < human.hand.length; i++) {
+      if (yanivCardValue(human.hand[i].rank) > yanivCardValue(human.hand[hi].rank)) hi = i;
+    }
+    const action = {
+      type: "DISCARD_AND_DRAW" as const,
+      playerId: PLAYER_ID,
+      discardIndices: [hi],
+      drawFromDiscard: false,
+    };
+    dispatch(applyAction(s, action), action);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!turnKey) {
+      queueMicrotask(() => setTurnTimeLeft(null));
+      return;
+    }
+    queueMicrotask(() => setTurnTimeLeft(TURN_MS));
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, TURN_MS - (Date.now() - startTime));
+      setTurnTimeLeft(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+        autoPlayTurnTimeout();
+      }
+    }, 100);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnKey]);
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
@@ -428,6 +485,11 @@ export default function YanivPage() {
   });
 
   const nextPlayerIdx = getNextActiveIdx(gameState.players, gameState.currentPlayerIndex);
+  const turnTimerActive = turnTimeLeft !== null;
+  const turnProgress = turnTimerActive
+    ? Math.max(0, Math.min(1, (turnTimeLeft ?? 0) / TURN_MS))
+    : 1;
+  const turnSecondsLeft = turnTimerActive ? Math.ceil((turnTimeLeft ?? 0) / 1000) : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -448,6 +510,9 @@ export default function YanivPage() {
           humanId={PLAYER_ID}
           currentPlayerIndex={gameState.currentPlayerIndex}
           nextPlayerIndex={nextPlayerIdx}
+          turnTimerActive={turnTimerActive}
+          turnProgress={turnProgress}
+          turnSecondsLeft={turnSecondsLeft}
           actionBadges={actionBadges}
           qdActive={qdActive}
           qdWindow={qdWindow}
@@ -593,6 +658,9 @@ interface PlayerRingProps {
   humanId: string;
   currentPlayerIndex: number;
   nextPlayerIndex: number;
+  turnTimerActive: boolean;
+  turnProgress: number;
+  turnSecondsLeft: number | null;
   actionBadges: Record<string, ActionBadge>;
   qdActive: boolean;
   qdWindow: YanivQuickDrawWindow | null;
@@ -611,6 +679,9 @@ function PlayerRing({
   humanId,
   currentPlayerIndex,
   nextPlayerIndex,
+  turnTimerActive,
+  turnProgress,
+  turnSecondsLeft,
   actionBadges,
   qdActive,
   qdWindow,
@@ -696,6 +767,9 @@ function PlayerRing({
           isHuman={player.id === humanId}
           isActive={isActive}
           isNext={isNext}
+          showTurnRing={isActive && turnTimerActive}
+          turnProgress={turnProgress}
+          turnSecondsLeft={turnSecondsLeft}
           badge={actionBadges[player.id]}
           style={{
             position: "absolute",
@@ -776,6 +850,9 @@ function PlayerSeatNode({
   isHuman,
   isActive,
   isNext,
+  showTurnRing,
+  turnProgress,
+  turnSecondsLeft,
   badge,
   style,
 }: {
@@ -783,18 +860,34 @@ function PlayerSeatNode({
   isHuman: boolean;
   isActive: boolean;
   isNext: boolean;
+  showTurnRing?: boolean;
+  turnProgress?: number;
+  turnSecondsLeft?: number | null;
   badge?: ActionBadge;
   style?: React.CSSProperties;
 }) {
   const initials = player.name.slice(0, 2).toUpperCase();
 
+  // Inactive (and not eliminated) seats are visibly dimmed so the active player
+  // is unmistakable at any player count. The active seat scales up slightly.
+  const seatOpacity = isActive ? 1 : player.eliminated ? 0.3 : 0.45;
+
   return (
     <div
-      className="flex flex-col items-center gap-0.5 select-none"
-      style={{ width: 72, ...style }}
+      className="flex flex-col items-center gap-0.5 select-none transition-all duration-300"
+      style={{
+        width: 72,
+        ...style,
+        opacity: seatOpacity,
+        transform: `${(style?.transform as string) ?? ""} scale(${isActive ? 1.08 : 1})`.trim(),
+      }}
     >
       {/* Avatar */}
-      <div className="relative">
+      <div className="relative flex items-center justify-center">
+        {/* Co-located turn countdown ring (time remaining this turn) */}
+        {showTurnRing && (
+          <TurnCountdownRing progress={turnProgress ?? 1} />
+        )}
         <div
           className={`
             w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
@@ -872,7 +965,14 @@ function PlayerSeatNode({
 
       {/* Status label */}
       {isActive && (
-        <span className="text-[9px] text-primary font-semibold">↑ turn</span>
+        <span
+          className="text-[9px] text-primary font-semibold tabular-nums"
+          role={showTurnRing ? "timer" : undefined}
+          aria-live={showTurnRing ? "off" : undefined}
+        >
+          ↑ turn
+          {showTurnRing && turnSecondsLeft != null ? ` · ${turnSecondsLeft}s` : ""}
+        </span>
       )}
       {!isActive && isNext && (
         <span className="text-[9px] text-muted-foreground">next</span>
@@ -891,6 +991,57 @@ function PlayerSeatNode({
         {player.eliminated && <span className="text-destructive/70">· out</span>}
       </div>
     </div>
+  );
+}
+
+// ── TurnCountdownRing ─────────────────────────────────────────────────────
+// Thin ring co-located around the active avatar, depleting over the turn.
+// Colour shifts turn-hue → amber → red as time runs low (colour as information).
+function TurnCountdownRing({ progress }: { progress: number }) {
+  const size = 52;
+  const stroke = 3;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - Math.max(0, Math.min(1, progress)));
+  const color =
+    progress > 0.5
+      ? "var(--primary)"
+      : progress > 0.25
+      ? "rgb(245 158 11)" // amber-500
+      : "rgb(239 68 68)"; // red-500
+  return (
+    <svg
+      width={size}
+      height={size}
+      className="absolute pointer-events-none"
+      style={{
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%) rotate(-90deg)",
+      }}
+      aria-hidden="true"
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="color-mix(in oklab, var(--primary) 18%, transparent)"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 0.1s linear, stroke 0.3s linear" }}
+      />
+    </svg>
   );
 }
 
