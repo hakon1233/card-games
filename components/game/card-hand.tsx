@@ -47,46 +47,6 @@ function useMeasuredWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
-// Pixel geometry matching the Tailwind size classes in card.tsx.
-// cornerWidth = left-corner strip that must always stay visible when cards overlap.
-const CARD_DIMENSIONS = {
-  sm: { width: 40, height: 56, cornerWidth: 17 },
-  md: { width: 56, height: 80, cornerWidth: 23 },
-} as const;
-
-// Gap between cards when the hand is roomy enough not to overlap.
-const HAND_GAP = 8;
-// Vertical headroom (px) reserved so selected/hovered cards can lift without
-// being clipped or shifting layout. Must cover the largest -translate-y used.
-const LIFT_HEADROOM = 14;
-
-/**
- * Measure the live pixel width of an element. Drives the overlap math so the
- * hand always fits the available width while keeping every corner index
- * visible (GAM-42).
- */
-function useMeasuredWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(el.clientWidth);
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) setWidth(entry.contentRect.width);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, width] as const;
-}
 
 interface CardHandProps {
   cards: ShellCard[];
