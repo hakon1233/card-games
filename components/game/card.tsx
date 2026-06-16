@@ -52,7 +52,7 @@ interface CardProps {
 }
 
 export function bottomCornerRankText(rank: string) {
-  return [...rank].reverse().join("");
+  return rank;
 }
 
 export function PlayingCard({ card, size = "md" }: CardProps) {
