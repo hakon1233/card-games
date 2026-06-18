@@ -238,9 +238,12 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     if (!p.eliminated) handTotals[p.id] = handTotal(p.hand);
   });
 
-  const assaf = state.players.some(
-    (p) => p.id !== callerId && !p.eliminated && handTotal(p.hand) <= callerTotal,
+  const assafWinnerIds = new Set(
+    state.players
+      .filter((p) => p.id !== callerId && !p.eliminated && handTotal(p.hand) <= callerTotal)
+      .map((p) => p.id),
   );
+  const assaf = assafWinnerIds.size > 0;
 
   const updatedPlayers = state.players.map((p) => {
     if (p.eliminated) return p;
@@ -248,6 +251,8 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     let delta: number;
     if (p.id === callerId) {
       delta = assaf ? 30 : 0;
+    } else if (assafWinnerIds.has(p.id)) {
+      delta = 0;
     } else {
       delta = handTotal(p.hand);
     }

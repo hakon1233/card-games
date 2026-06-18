@@ -163,6 +163,44 @@ describe("dealGame", () => {
 });
 
 describe("Yaniv scoring", () => {
+  it("awards 0 to an opponent who beats the Yaniv caller", () => {
+    const state = dealGame("assaf-scoring", [
+      { id: "caller", name: "Caller", isBot: false },
+      { id: "winner", name: "Winner", isBot: true },
+      { id: "other", name: "Other", isBot: true },
+    ]);
+
+    const scored = applyAction({
+      ...state,
+      currentPlayerIndex: 0,
+      players: [
+        {
+          ...state.players[0],
+          id: "caller",
+          hand: [{ suit: "hearts", rank: "7" }],
+          score: 10,
+        },
+        {
+          ...state.players[1],
+          id: "winner",
+          hand: [{ suit: "clubs", rank: "6" }],
+          score: 20,
+        },
+        {
+          ...state.players[2],
+          id: "other",
+          hand: [{ suit: "diamonds", rank: "9" }],
+          score: 30,
+        },
+      ],
+    }, { type: "CALL_YANIV", playerId: "caller" });
+
+    expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.players.find((p) => p.id === "winner")?.score).toBe(20);
+    expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
+  });
+
   it("caller wins round: scores 0, loser adds hand total", () => {
     const state = dealGame("g2", [
       { id: "p1", name: "P1", isBot: false },
