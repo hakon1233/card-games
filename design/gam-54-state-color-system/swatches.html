@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GAM-54 — State Color System swatches</title>
+<style>
+  :root {
+    --pip-table: #1E1512;
+    --pip-gold: #C9A24B;
+    --pip-cream-hi: #F7F0DD;
+    --primary: #7A1F1B;
+    --muted-foreground: #9a8e7e;
+
+    --state-turn: var(--pip-gold);
+    --state-select: var(--pip-cream-hi);
+    --state-legal: #36B37E;
+    --state-warn: #E8A53C;
+    --state-alert: #E0533B;
+    --state-idle: var(--muted-foreground);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px;
+    background: radial-gradient(125% 95% at 50% 36%, #2a1d18, var(--pip-table) 70%);
+    color: var(--pip-cream-hi);
+    font: 15px/1.5 Georgia, "Times New Roman", serif;
+    min-height: 100vh;
+  }
+  h1 { font-family: "Didot","Bodoni 72",serif; font-weight: 500; letter-spacing: .01em; }
+  .eyebrow { font-family: Copperplate, serif; text-transform: uppercase; letter-spacing: .3em;
+             font-size: 11px; color: var(--pip-gold); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 18px; margin-top: 28px; }
+  .swatch { border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden; background: rgba(0,0,0,.18); }
+  .chip { height: 88px; display: flex; align-items: flex-end; padding: 10px 12px; font-size: 12px; color: #1E1512; font-weight: 700; }
+  .meta { padding: 10px 12px 14px; }
+  .meta b { display:block; font-family: Copperplate, serif; letter-spacing: .12em; font-size: 12px; text-transform: uppercase; }
+  .meta small { color: #b8ab98; }
+  .demo { margin-top: 44px; display:flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; }
+  .card { width: 64px; height: 92px; border-radius: 8px; background: var(--pip-cream-hi); color:#1E1512;
+          display:flex; align-items:flex-start; justify-content:flex-start; padding:6px 8px; font-weight:700; }
+  .card.sel { transform: translateY(-16px);
+    box-shadow: 0 0 0 2px var(--state-select), 0 6px 16px -2px color-mix(in oklab, var(--state-select) 55%, transparent),
+                0 0 18px 2px color-mix(in oklab, var(--state-select) 38%, transparent); }
+  .seat { width: 120px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,.25); text-align:center; }
+  .seat.turn { box-shadow: 0 0 0 2px var(--state-turn), 0 0 16px 4px color-mix(in oklab, var(--state-turn) 40%, transparent); }
+  .seat.idle { opacity: .45; }
+  .summary { margin-top: 8px; padding: 8px 12px; border-radius: 999px; font-size: 13px; display:inline-block; }
+  .summary.legal { border:1px solid var(--state-legal); color: var(--state-legal); background: color-mix(in oklab, var(--state-legal) 12%, transparent); }
+  .summary.illegal { border:1px solid var(--state-alert); color: var(--state-alert); background: color-mix(in oklab, var(--state-alert) 12%, transparent); }
+  .ramp { margin-top: 8px; display:flex; gap:0; border-radius: 999px; overflow:hidden; width: 320px; }
+  .ramp span { flex:1; padding:8px 0; text-align:center; font-size:11px; color:#1E1512; font-weight:700; }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Court &amp; Tin · Yaniv</p>
+  <h1>State color system <span style="opacity:.5">— GAM-54</span></h1>
+  <p style="max-width:60ch;color:#cabfaf;">Each hue answers exactly one game question and is never used for decoration. See <code>state-colors.md</code>.</p>
+
+  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:var(--state-turn)">#C9A24B</div><div class="meta"><b>Turn</b><small>whose turn · active seat</small></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--state-select);color:#1E1512">#F7F0DD</div><div class="meta"><b>Selection</b><small>cards you picked up</small></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--state-legal)">#36B37E</div><div class="meta"><b>Legal</b><small>valid move · within threshold</small></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--state-warn)">#E8A53C</div><div class="meta"><b>Warn</b><small>time running low</small></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--state-alert)">#E0533B</div><div class="meta"><b>Alert</b><small>illegal · out of time</small></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--state-idle)">muted</div><div class="meta"><b>Idle</b><small>inactive · eliminated (no hue)</small></div></div>
+  </div>
+
+  <div class="demo">
+    <div>
+      <div style="display:flex;gap:12px">
+        <div class="card sel">A♠</div><div class="card sel">A♥</div>
+      </div>
+      <div class="summary legal">✓ Pair of aces — legal discard</div>
+    </div>
+    <div>
+      <div style="display:flex;gap:12px">
+        <div class="card sel">3♣</div><div class="card sel">9♦</div>
+      </div>
+      <div class="summary illegal">✗ Not a set or run — illegal</div>
+    </div>
+    <div style="display:flex;gap:14px">
+      <div class="seat turn"><b>You</b><br><small>— your turn</small></div>
+      <div class="seat idle"><b>Mira</b><br><small>out</small></div>
+    </div>
+  </div>
+
+  <p class="eyebrow" style="margin-top:40px">Turn-timer ramp · one channel escalating</p>
+  <div class="ramp">
+    <span style="background:var(--state-turn)">calm &gt;50%</span>
+    <span style="background:var(--state-warn)">hurry ≤50%</span>
+    <span style="background:var(--state-alert)">now ≤25%</span>
+  </div>
+</body>
+</html>

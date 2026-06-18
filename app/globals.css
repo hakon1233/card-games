@@ -95,6 +95,25 @@
   --sidebar-accent-foreground: #1C1714;
   --sidebar-border: var(--border);
   --sidebar-ring: #C9A24B;
+
+  /* ====================================================================
+     STATE COLOR SYSTEM — GAM-54  (color as a strict information system)
+     --------------------------------------------------------------------
+     Each channel below has ONE fixed hue and ONE meaning. These signal
+     hues are reserved: they must NEVER be used for decoration. Whenever
+     a player sees one, it is the table answering a game question (whose
+     turn? is this legal? what did I pick? am I out of time?). Conforms
+     to Court & Tin (GAM-39). Spec + reuse-ban rules:
+     design/gam-54-state-color-system/state-colors.md
+     ==================================================================== */
+  --state-turn:        var(--pip-gold);    /* WHO  — active seat / your turn       (#C9A24B) */
+  --state-turn-glow:   color-mix(in oklab, var(--pip-gold) 40%, transparent);
+  --state-select:      var(--pip-cream-hi);/* WHAT — cards you have picked up       (#F7F0DD) */
+  --state-select-glow: color-mix(in oklab, var(--pip-cream-hi) 38%, transparent);
+  --state-legal:       #36B37E;            /* GO   — a valid move / within threshold         */
+  --state-warn:        #E8A53C;            /* SLOW — caution, time running low               */
+  --state-alert:       #E0533B;            /* STOP — illegal move / danger / out of time     */
+  --state-idle:        var(--muted-foreground); /* OFF — inactive / eliminated (no hue)       */
 }
 
 .dark {
@@ -143,6 +162,33 @@
   }
 }
 
+html[data-animation-speed="fast"] *,
+html[data-animation-speed="fast"] *::before,
+html[data-animation-speed="fast"] *::after {
+  transition-duration: 75ms !important;
+  animation-duration: 450ms !important;
+}
+
+html[data-animation-speed="reduced"] *,
+html[data-animation-speed="reduced"] *::before,
+html[data-animation-speed="reduced"] *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 1ms !important;
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-animation-speed]) *,
+  html:not([data-animation-speed]) *::before,
+  html:not([data-animation-speed]) *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 .pip-eyebrow {
   font-family: var(--pip-font-eyebrow);
   text-transform: uppercase;
@@ -156,15 +202,90 @@
   100% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
 }
 
+/* Active seat pulse — TURN channel (gold). See GAM-54 state color system. */
 @keyframes seat-glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 40%, transparent); }
-  50%       { box-shadow: 0 0 12px 4px color-mix(in oklab, var(--primary) 30%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--state-turn) 40%, transparent); }
+  50%       { box-shadow: 0 0 12px 4px var(--state-turn-glow); }
 }
 
-/* Selected discard card: lifted + glowing in the reserved selection hue (primary). */
+@keyframes score-delta-pop {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.92); }
+  55%  { opacity: 1; transform: translateY(-2px) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Selected discard card: lifted + glowing in the reserved SELECTION hue (cream).
+   Selection is neutral to legality — it says only "you are holding this". GAM-54. */
 .card-selected-glow {
   box-shadow:
-    0 0 0 2px var(--primary),
-    0 6px 16px -2px color-mix(in oklab, var(--primary) 55%, transparent),
-    0 0 18px 2px color-mix(in oklab, var(--primary) 35%, transparent);
+    0 0 0 2px var(--state-select),
+    0 6px 16px -2px color-mix(in oklab, var(--state-select) 55%, transparent),
+    0 0 18px 2px var(--state-select-glow);
 }
+
+.yaniv-table-shell {
+  max-width: 42rem;
+}
+
+.yaniv-player-ring {
+  max-width: 500px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+}
+
+.yaniv-bottom-zone {
+  width: 100%;
+}
+
+@media (orientation: portrait) and (max-width: 720px) {
+  .yaniv-table-shell {
+    min-height: calc(100svh - 64px);
+  }
+
+  .yaniv-player-ring {
+    max-width: min(100%, 430px);
+  }
+
+  .yaniv-bottom-zone {
+    position: sticky;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 5;
+    margin-top: auto;
+  }
+}
+
+@media (min-width: 720px) and (min-aspect-ratio: 4/3) {
+  .yaniv-table-shell {
+    max-width: 64rem;
+  }
+
+  .yaniv-player-ring {
+    max-width: 760px;
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* ── Suit colour channels — GAM-55 colorblind accessibility ───────────────── */
+/* Suits must be readable without relying on red/black alone. The suit glyph
+   (♥♦♣♠) is the always-on shape channel; these rules add the colour channel.
+   All four hues are AA-contrast on the white card face. */
+:root {
+  --pip-suit-red: #C81E1E;
+  --pip-suit-black: #1C1714;
+  --pip-suit-blue: #1D4ED8;
+  --pip-suit-green: #15803D;
+}
+
+/* Default two-color deck: classic red & black. */
+.pip-suit-hearts,
+.pip-suit-diamonds { color: var(--pip-suit-red); }
+.pip-suit-clubs,
+.pip-suit-spades { color: var(--pip-suit-black); }
+
+/* Four-color accessibility deck (opt-in): each suit gets its own hue so suits
+   are distinguishable by colour as well as shape. Standard colorblind-friendly
+   mapping — hearts red, diamonds blue, clubs green, spades black. */
+html[data-card-deck="four-color"] .pip-suit-hearts   { color: var(--pip-suit-red); }
+html[data-card-deck="four-color"] .pip-suit-diamonds { color: var(--pip-suit-blue); }
+html[data-card-deck="four-color"] .pip-suit-clubs    { color: var(--pip-suit-green); }
+html[data-card-deck="four-color"] .pip-suit-spades   { color: var(--pip-suit-black); }
