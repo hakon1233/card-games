@@ -26,6 +26,7 @@ import {
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
+import { getTurnClockKey } from "@/lib/games/turn-clock";
 import type { ShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
@@ -258,13 +259,7 @@ export default function YanivPage() {
   // ── Per-turn countdown clock ───────────────────────────────────────────────
   // Runs only while the human is the active player (bots resolve synchronously,
   // so they never "sit" on a turn). Resets whenever the active turn changes.
-  const turnKey =
-    gameState &&
-    gameState.status === "in_progress" &&
-    !gameState.quickDrawWindow &&
-    gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID
-      ? `${gameState.round}:${gameState.currentPlayerIndex}`
-      : null;
+  const turnKey = getTurnClockKey(gameState, PLAYER_ID);
 
   const autoPlayTurnTimeout = useCallback(() => {
     const s = gameStateRef.current;
