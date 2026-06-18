@@ -381,8 +381,8 @@ export default function YanivPage() {
             </SettingRow>
 
             <SettingRow label="Yaniv Call Threshold">
-              <div className="flex gap-2">
-                {[5, 6, 7, 8, 9, 10].map((n) => (
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 13 }, (_, i) => i + 3).map((n) => (
                   <button
                     key={n}
                     onClick={() => setYanivThreshold(n)}
@@ -635,6 +635,10 @@ export default function YanivPage() {
             { label: "Rounds Won", value: roundsWon },
             { label: "Rounds Lost", value: roundsLost },
           ]}
+          finalScoreRows={gameState.players.map((p) => ({
+            label: p.eliminated ? `${p.name} (eliminated)` : p.name,
+            value: p.score,
+          }))}
           onPlayAgain={startGame}
           onChangeGame={() => router.push("/")}
         />

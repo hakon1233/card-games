@@ -36,6 +36,44 @@ describe("handTotal / canCallYaniv", () => {
   });
 });
 
+describe("YanivBot threshold settings", () => {
+  it("does not call Yaniv below the configured minimum threshold", () => {
+    const state = dealGame(
+      "bot-threshold-low",
+      [
+        { id: "player", name: "Player", isBot: false },
+        { id: "bot", name: "Bot", isBot: true },
+      ],
+      { yanivThreshold: 3, scoreLimit: 100, quickDraw: false },
+    );
+    state.currentPlayerIndex = 1;
+    state.players[1].hand = [
+      { suit: "hearts", rank: "4" },
+      { suit: "clubs", rank: "A" },
+    ];
+
+    expect(bot.getNextMove(state, "bot").type).toBe("DISCARD_AND_DRAW");
+  });
+
+  it("can call Yaniv up to the configured maximum threshold", () => {
+    const state = dealGame(
+      "bot-threshold-high",
+      [
+        { id: "player", name: "Player", isBot: false },
+        { id: "bot", name: "Bot", isBot: true },
+      ],
+      { yanivThreshold: 15, scoreLimit: 100, quickDraw: false },
+    );
+    state.currentPlayerIndex = 1;
+    state.players[1].hand = [
+      { suit: "hearts", rank: "10" },
+      { suit: "clubs", rank: "5" },
+    ];
+
+    expect(bot.getNextMove(state, "bot")).toEqual({ type: "CALL_YANIV", playerId: "bot" });
+  });
+});
+
 describe("describeSelection (live combo feedback)", () => {
   it("reports empty selection as not-legal", () => {
     const d = describeSelection([]);

@@ -39,7 +39,7 @@ export class YanivBot {
     const playerIdx = state.players.findIndex((p) => p.id === botPlayerId);
     const hand = state.players[playerIdx].hand;
 
-    if (canCallYaniv(hand)) {
+    if (canCallYaniv(hand, state.settings.yanivThreshold)) {
       return { type: "CALL_YANIV", playerId: botPlayerId };
     }
 
