@@ -114,6 +114,17 @@
   --state-warn:        #E8A53C;            /* SLOW — caution, time running low               */
   --state-alert:       #E0533B;            /* STOP — illegal move / danger / out of time     */
   --state-idle:        var(--muted-foreground); /* OFF — inactive / eliminated (no hue)       */
+
+  /* ── Suit colour channels — GAM-55 colorblind accessibility ───────────────
+     Kept in the primary :root (not a trailing second :root block) because
+     Tailwind v4 / Lightning CSS drops a duplicate top-level :root and the
+     sibling rules that follow it under Turbopack dev — which silently made
+     card ranks render colour-less (white-on-white) in dev. See `.pip-suit-*`
+     rules at the foot of this file. All four hues are AA-contrast on white. */
+  --pip-suit-red:   #C81E1E;
+  --pip-suit-black: #1C1714;
+  --pip-suit-blue:  #1D4ED8;
+  --pip-suit-green: #15803D;
 }
 
 .dark {
@@ -278,13 +289,9 @@ html[data-animation-speed="reduced"] *::after {
 /* ── Suit colour channels — GAM-55 colorblind accessibility ───────────────── */
 /* Suits must be readable without relying on red/black alone. The suit glyph
    (♥♦♣♠) is the always-on shape channel; these rules add the colour channel.
-   All four hues are AA-contrast on the white card face. */
-:root {
-  --pip-suit-red: #C81E1E;
-  --pip-suit-black: #1C1714;
-  --pip-suit-blue: #1D4ED8;
-  --pip-suit-green: #15803D;
-}
+   The four --pip-suit-* hues are defined in the primary :root block above
+   (a second top-level :root here was dropped by Lightning CSS under Turbopack
+   dev, taking these rules' colours with it). All hues are AA on white. */
 
 /* Default two-color deck: classic red & black. */
 .pip-suit-hearts,
