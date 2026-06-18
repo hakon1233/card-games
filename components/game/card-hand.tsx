@@ -268,10 +268,12 @@ export function CardHand({
                   setDraggedCardKey(null);
                 }}
                 onDragEnd={() => setDraggedCardKey(null)}
-                className="relative shrink-0 transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] hover:z-50"
+                className="relative shrink-0 hover:z-50"
                 style={wrapperStyle}
               >
-                <PlayingCard card={card} size={size} />
+                <div className="transition-transform duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] hover:-translate-y-2">
+                  <PlayingCard card={card} size={size} />
+                </div>
               </div>
             );
           }
@@ -298,14 +300,14 @@ export function CardHand({
                 setDraggedCardKey(null);
               }}
               onDragEnd={() => setDraggedCardKey(null)}
-              className="relative shrink-0 transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] hover:z-50 focus-within:z-50"
+              className="relative shrink-0 hover:z-50 focus-within:z-50"
               style={wrapperStyle}
             >
               <button
                 type="button"
                 onClick={() => !isDisabled && onCardClick(card, originalIndex)}
                 disabled={isDisabled}
-                className={`relative rounded-lg transition-all outline-none ${className}`}
+                className={`relative rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] outline-none hover:-translate-y-2 disabled:hover:translate-y-0 ${className}`}
                 aria-pressed={isSelected}
               >
                 <PlayingCard card={card} size={size} />
