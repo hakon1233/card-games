@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useId, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
+import {
+  AnimationPreferencesControl,
+  useAnimationSpeed,
+} from "@/components/game/animation-preferences-control";
+import {
+  CardDeckControl,
+  useCardDeck,
+} from "@/components/game/card-deck-control";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { CardHand } from "@/components/game/card-hand";
 import { PlayingCard } from "@/components/game/card";
+import { scaleAnimationDuration } from "@/lib/animation-preferences";
 import {
   dealGame,
   applyAction,
   canCallYaniv,
-  handTotal,
   yanivCardValue,
   describeSelection,
   getDiscardTopGroup,
-  getFinalStandings,
   canAddToSelection,
+  getFinalStandings,
   DEFAULT_YANIV_SETTINGS,
   type YanivGameState,
   type YanivPlayer,
@@ -26,21 +34,48 @@ import {
   type SelectionDescription,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
+import {
+  buildYanivScoreCascade,
+  type YanivFeedbackTone,
+  type YanivScoreCascadeEvent,
+} from "@/lib/games/yaniv-feedback";
 import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
+import { getYanivHandReadout } from "@/lib/games/yaniv-readout";
+import { getYanivRingLayout, type YanivTableFormFactor } from "@/lib/games/yaniv-layout";
+import { getYanivScoreboardRows, type YanivScoreboardRow } from "@/lib/games/yaniv-scoreboard";
+import { getTurnPreviewName } from "@/lib/games/yaniv-turn-preview";
 import { getTurnClockKey } from "@/lib/games/turn-clock";
+import { getTurnTimerUrgency, shouldPlayLowTimeCue } from "@/lib/games/turn-timer-ui";
 import type { ShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
 const SETTINGS_KEY = "yaniv-settings";
 const QUICK_DRAW_MS = 2000;
+const TURN_PREVIEW_MS = 1400;
 // Soft per-turn clock (playtest default). Drives the co-located countdown ring
 // on the active player's avatar so "how long do they have" is answerable at a
 // glance. On expiry the human auto-plays a safe default so the game never stalls.
 const TURN_SECONDS = 20;
 const TURN_MS = TURN_SECONDS * 1000;
+const LOW_TIME_CUE_MS = 6000;
 const bot = new YanivBot();
 
 type ActionBadge = { text: string; variant: "drew" | "yaniv" | "stolen"; key: number };
+type ScoreFeedback = YanivScoreCascadeEvent & { key: number };
+type YanivLocalSettings = YanivSettings & {
+  numBots: number;
+  lowTimeSound: boolean;
+  idlePulses: boolean;
+  nextUpPreview: boolean;
+};
+
+const DEFAULT_LOCAL_SETTINGS: YanivLocalSettings = {
+  ...DEFAULT_YANIV_SETTINGS,
+  numBots: 1,
+  lowTimeSound: false,
+  idlePulses: true,
+  nextUpPreview: true,
+};
 
 function buildPlayerDefs(numBots: number) {
   const defs: { id: string; name: string; isBot: boolean }[] = [
@@ -52,23 +87,65 @@ function buildPlayerDefs(numBots: number) {
   return defs;
 }
 
-function loadSettings(): YanivSettings & { numBots: number } {
-  if (typeof window === "undefined") return { ...DEFAULT_YANIV_SETTINGS, numBots: 1 };
+function loadSettings(): YanivLocalSettings {
+  if (typeof window === "undefined") return DEFAULT_LOCAL_SETTINGS;
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_YANIV_SETTINGS, numBots: 1, ...JSON.parse(raw) };
+    if (raw) return { ...DEFAULT_LOCAL_SETTINGS, ...JSON.parse(raw) };
   } catch {
     // ignore
   }
-  return { ...DEFAULT_YANIV_SETTINGS, numBots: 1 };
+  return DEFAULT_LOCAL_SETTINGS;
 }
 
-function saveSettings(s: YanivSettings & { numBots: number }) {
+function saveSettings(s: YanivLocalSettings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
   } catch {
     // ignore
   }
+}
+
+function playLowTimeCue() {
+  const audioWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+  const AudioContextCtor = audioWindow.AudioContext ?? audioWindow.webkitAudioContext;
+  if (!AudioContextCtor) return;
+  const audio = new AudioContextCtor();
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, audio.currentTime);
+  gain.gain.setValueAtTime(0.0001, audio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.08, audio.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.18);
+  oscillator.connect(gain);
+  gain.connect(audio.destination);
+  oscillator.start();
+  oscillator.stop(audio.currentTime + 0.2);
+  oscillator.addEventListener("ended", () => void audio.close());
+}
+
+function playFeedbackCue(tone: YanivFeedbackTone) {
+  const audioWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+  const AudioContextCtor = audioWindow.AudioContext ?? audioWindow.webkitAudioContext;
+  if (!AudioContextCtor) return;
+  const audio = new AudioContextCtor();
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  oscillator.type = tone === "penalty" ? "square" : "triangle";
+  oscillator.frequency.setValueAtTime(
+    tone === "safe" ? 660 : tone === "penalty" ? 180 : 440,
+    audio.currentTime,
+  );
+  if (tone === "score") oscillator.frequency.exponentialRampToValueAtTime(740, audio.currentTime + 0.16);
+  gain.gain.setValueAtTime(0.0001, audio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(tone === "penalty" ? 0.06 : 0.045, audio.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.2);
+  oscillator.connect(gain);
+  gain.connect(audio.destination);
+  oscillator.start();
+  oscillator.stop(audio.currentTime + 0.22);
+  oscillator.addEventListener("ended", () => void audio.close());
 }
 
 function toShellCard(card: { suit: string; rank: string }, faceUp = true): ShellCard {
@@ -99,6 +176,32 @@ function getNextActiveIdx(players: YanivPlayer[], currentIdx: number): number {
   return -1;
 }
 
+function useYanivTableFormFactor(): YanivTableFormFactor {
+  const [formFactor, setFormFactor] = useState<YanivTableFormFactor>("standard");
+
+  useEffect(() => {
+    const update = () => {
+      if (window.matchMedia("(orientation: portrait) and (max-width: 720px)").matches) {
+        setFormFactor("portrait");
+      } else if (window.matchMedia("(min-width: 720px) and (min-aspect-ratio: 4/3)").matches) {
+        setFormFactor("widescreen");
+      } else {
+        setFormFactor("standard");
+      }
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return formFactor;
+}
+
 function runBotLoop(state: YanivGameState): YanivGameState {
   let s = state;
   let guard = 0;
@@ -122,27 +225,71 @@ export default function YanivPage() {
   const [roundsLost, setRoundsLost] = useState(0);
   const [reshuffled, setReshuffled] = useState(false);
   const [actionBadges, setActionBadges] = useState<Record<string, ActionBadge>>({});
+  const [scoreFeedback, setScoreFeedback] = useState<Record<string, ScoreFeedback>>({});
+  const [roundOverlayReady, setRoundOverlayReady] = useState(true);
 
   const prevDeckLengthRef = useRef<number | null>(null);
   const gameStateRef = useRef<YanivGameState | null>(null);
   const badgeKeyRef = useRef(0);
+  const scoreFeedbackKeyRef = useRef(0);
   const badgeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const scoreFeedbackTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const previousTurnPlayerIdRef = useRef<string | null>(null);
+  const turnPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousTurnTimeLeftRef = useRef<number | null>(null);
 
   const [numBots, setNumBots] = useState(1);
   const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
   const [scoreLimit, setScoreLimit] = useState(DEFAULT_YANIV_SETTINGS.scoreLimit);
   const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
+  const [lowTimeSound, setLowTimeSound] = useState(DEFAULT_LOCAL_SETTINGS.lowTimeSound);
+  const [idlePulses, setIdlePulses] = useState(DEFAULT_LOCAL_SETTINGS.idlePulses);
+  const [nextUpPreview, setNextUpPreview] = useState(DEFAULT_LOCAL_SETTINGS.nextUpPreview);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
   const [turnTimeLeft, setTurnTimeLeft] = useState<number | null>(null);
+  const [turnPreview, setTurnPreview] = useState<{ name: string; key: number } | null>(null);
+  const [animationSpeed, setAnimationSpeed] = useAnimationSpeed();
+  const [cardDeck, setCardDeck] = useCardDeck();
 
   const qdWindowKey = gameState?.quickDrawWindow
     ? `${gameState.quickDrawWindow.discarderId}:${gameState.discardPile.length}`
     : null;
+  const activeTurnPlayerId =
+    gameState?.status === "in_progress" && !gameState.quickDrawWindow
+      ? gameState.players[gameState.currentPlayerIndex]?.id ?? null
+      : null;
+  const activeTurnKey =
+    gameState && activeTurnPlayerId
+      ? `${gameState.round}:${gameState.currentPlayerIndex}:${activeTurnPlayerId}`
+      : null;
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    return () => {
+      if (turnPreviewTimerRef.current) clearTimeout(turnPreviewTimerRef.current);
+      scoreFeedbackTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!gameState || !activeTurnKey) return;
+
+    const previewName = getTurnPreviewName(
+      gameState.players,
+      gameState.currentPlayerIndex,
+      previousTurnPlayerIdRef.current,
+    );
+    previousTurnPlayerIdRef.current = activeTurnPlayerId;
+
+    if (!previewName || !nextUpPreview) return;
+    setTurnPreview({ name: previewName, key: Date.now() });
+    if (turnPreviewTimerRef.current) clearTimeout(turnPreviewTimerRef.current);
+    turnPreviewTimerRef.current = setTimeout(() => setTurnPreview(null), TURN_PREVIEW_MS);
+  }, [activeTurnKey, activeTurnPlayerId, gameState, nextUpPreview]);
 
   function showBadge(playerId: string, text: string, variant: ActionBadge["variant"]) {
     const key = ++badgeKeyRef.current;
@@ -154,13 +301,76 @@ export default function YanivPage() {
         delete n[playerId];
         return n;
       });
-    }, 2000);
+    }, scaleAnimationDuration(2000, animationSpeed));
   }
 
-  function dispatch(state: YanivGameState, triggerAction?: YanivAction) {
+  function clearScoreFeedbackTimers() {
+    scoreFeedbackTimersRef.current.forEach(clearTimeout);
+    scoreFeedbackTimersRef.current = [];
+  }
+
+  function scheduleScoreCascade(before: YanivGameState, after: YanivGameState) {
+    if (!after.roundResult) return;
+
+    clearScoreFeedbackTimers();
+    setScoreFeedback({});
+    setRoundOverlayReady(false);
+
+    const events = buildYanivScoreCascade({
+      callerId: after.roundResult.callerId,
+      assaf: after.roundResult.assaf,
+      players: after.players
+        .filter((player) => after.roundResult?.handTotals[player.id] !== undefined)
+        .map((player) => {
+          const beforePlayer = before.players.find((p) => p.id === player.id);
+          return {
+            id: player.id,
+            name: player.name,
+            scoreBefore: beforePlayer?.score ?? player.score,
+            scoreAfter: player.score,
+            handTotal: after.roundResult?.handTotals[player.id] ?? 0,
+          };
+        }),
+    });
+
+    let overlayDelayMs = 0;
+    events.forEach((event) => {
+      const delayMs = scaleAnimationDuration(event.delayMs, animationSpeed);
+      const durationMs = scaleAnimationDuration(event.durationMs, animationSpeed);
+      overlayDelayMs = Math.max(overlayDelayMs, delayMs + durationMs + 300);
+      const startTimer = setTimeout(() => {
+        const feedback = { ...event, durationMs, key: ++scoreFeedbackKeyRef.current };
+        setScoreFeedback((prev) => ({ ...prev, [event.playerId]: feedback }));
+        playFeedbackCue(event.tone);
+      }, delayMs);
+      const endTimer = setTimeout(() => {
+        setScoreFeedback((prev) => {
+          const next = { ...prev };
+          delete next[event.playerId];
+          return next;
+        });
+      }, delayMs + durationMs + scaleAnimationDuration(700, animationSpeed));
+      scoreFeedbackTimersRef.current.push(startTimer, endTimer);
+    });
+
+    const overlayTimer = setTimeout(() => setRoundOverlayReady(true), overlayDelayMs);
+    scoreFeedbackTimersRef.current.push(overlayTimer);
+  }
+
+  function applyActionFeedback(action: YanivAction, before: YanivGameState, after: YanivGameState) {
+    const info = actionBadgeInfo(action);
+    if (info) {
+      showBadge(info.playerId, info.text, info.variant);
+      if (action.type !== "CALL_YANIV") playFeedbackCue(action.type === "QUICK_DRAW_STEAL" ? "penalty" : "score");
+    }
+    if (action.type === "CALL_YANIV" && after.roundResult) {
+      scheduleScoreCascade(before, after);
+    }
+  }
+
+  function dispatch(state: YanivGameState, triggerAction?: YanivAction, previousState?: YanivGameState) {
     if (triggerAction) {
-      const info = actionBadgeInfo(triggerAction);
-      if (info) showBadge(info.playerId, info.text, info.variant);
+      applyActionFeedback(triggerAction, previousState ?? state, state);
     }
 
     let s = state;
@@ -173,9 +383,9 @@ export default function YanivPage() {
     ) {
       const botId = s.players[s.currentPlayerIndex].id;
       const action = bot.getNextMove(s, botId);
-      const info = actionBadgeInfo(action);
-      if (info) showBadge(info.playerId, info.text, info.variant);
+      const beforeAction = s;
       s = applyAction(s, action);
+      applyActionFeedback(action, beforeAction, s);
       guard++;
     }
 
@@ -198,6 +408,9 @@ export default function YanivPage() {
       setYanivThreshold(saved.yanivThreshold);
       setScoreLimit(saved.scoreLimit);
       setQuickDraw(saved.quickDraw);
+      setLowTimeSound(saved.lowTimeSound);
+      setIdlePulses(saved.idlePulses);
+      setNextUpPreview(saved.nextUpPreview);
       setSettingsLoaded(true);
     });
   }, []);
@@ -209,10 +422,13 @@ export default function YanivPage() {
     prevDeckLengthRef.current = curr;
     if (prev !== null && prev === 0 && curr > 0) {
       setReshuffled(true);
-      const timer = setTimeout(() => setReshuffled(false), 2000);
+      const timer = setTimeout(
+        () => setReshuffled(false),
+        scaleAnimationDuration(2000, animationSpeed),
+      );
       return () => clearTimeout(timer);
     }
-  }, [gameState]);
+  }, [gameState, animationSpeed]);
 
   useEffect(() => {
     if (!qdWindowKey) {
@@ -229,7 +445,7 @@ export default function YanivPage() {
         clearInterval(interval);
         const s = gameStateRef.current;
         if (s?.quickDrawWindow) {
-          dispatch(applyAction(s, { type: "QUICK_DRAW_EXPIRE" }));
+          dispatch(applyAction(s, { type: "QUICK_DRAW_EXPIRE" }), { type: "QUICK_DRAW_EXPIRE" }, s);
         }
       }
     }, 50);
@@ -251,7 +467,7 @@ export default function YanivPage() {
       const s = gameStateRef.current;
       if (!s?.quickDrawWindow) return;
       const action = { type: "QUICK_DRAW_STEAL" as const, playerId: botId };
-      dispatch(applyAction(s, action), action);
+      dispatch(applyAction(s, action), action, s);
     }, delay);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,19 +495,32 @@ export default function YanivPage() {
       discardIndices: [hi],
       drawFromDiscard: false,
     };
-    dispatch(applyAction(s, action), action);
+    dispatch(applyAction(s, action), action, s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!turnKey) {
       queueMicrotask(() => setTurnTimeLeft(null));
+      previousTurnTimeLeftRef.current = null;
       return;
     }
     queueMicrotask(() => setTurnTimeLeft(TURN_MS));
+    previousTurnTimeLeftRef.current = TURN_MS;
     const startTime = Date.now();
     const interval = setInterval(() => {
       const remaining = Math.max(0, TURN_MS - (Date.now() - startTime));
+      if (
+        lowTimeSound &&
+        shouldPlayLowTimeCue({
+          previousMs: previousTurnTimeLeftRef.current,
+          remainingMs: remaining,
+          thresholdMs: LOW_TIME_CUE_MS,
+        })
+      ) {
+        playLowTimeCue();
+      }
+      previousTurnTimeLeftRef.current = remaining;
       setTurnTimeLeft(remaining);
       if (remaining === 0) {
         clearInterval(interval);
@@ -300,23 +529,29 @@ export default function YanivPage() {
     }, 100);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnKey]);
+  }, [turnKey, lowTimeSound]);
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
-    saveSettings({ ...settings, numBots });
+    saveSettings({ ...settings, numBots, lowTimeSound, idlePulses, nextUpPreview });
     const initial = dealGame(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
     setGameState(runBotLoop(initial));
     setSelected([]);
     setRoundsWon(0);
     setRoundsLost(0);
     setActionBadges({});
-  }, [numBots, yanivThreshold, scoreLimit, quickDraw]);
+    clearScoreFeedbackTimers();
+    setScoreFeedback({});
+    setRoundOverlayReady(true);
+    previousTurnPlayerIdRef.current = null;
+    setTurnPreview(null);
+    if (turnPreviewTimerRef.current) clearTimeout(turnPreviewTimerRef.current);
+  }, [numBots, yanivThreshold, scoreLimit, quickDraw, lowTimeSound, idlePulses, nextUpPreview]);
 
   function callYaniv() {
     if (!gameState) return;
     const action = { type: "CALL_YANIV" as const, playerId: PLAYER_ID };
-    dispatch(applyAction(gameState, action), action);
+    dispatch(applyAction(gameState, action), action, gameState);
   }
 
   function discardAndDraw(drawFromDiscard: boolean, drawDiscardIndex?: number) {
@@ -328,13 +563,13 @@ export default function YanivPage() {
       drawFromDiscard,
       drawDiscardIndex,
     };
-    dispatch(applyAction(gameState, action), action);
+    dispatch(applyAction(gameState, action), action, gameState);
   }
 
   function stealFromDiscard() {
     if (!gameState?.quickDrawWindow) return;
     const action = { type: "QUICK_DRAW_STEAL" as const, playerId: PLAYER_ID };
-    dispatch(applyAction(gameState, action), action);
+    dispatch(applyAction(gameState, action), action, gameState);
   }
 
   function nextRound() {
@@ -343,6 +578,9 @@ export default function YanivPage() {
     setGameState(s);
     setSelected([]);
     setActionBadges({});
+    clearScoreFeedbackTimers();
+    setScoreFeedback({});
+    setRoundOverlayReady(true);
   }
 
   function toggleCard(idx: number) {
@@ -382,8 +620,8 @@ export default function YanivPage() {
             </SettingRow>
 
             <SettingRow label="Yaniv Call Threshold">
-              <div className="flex gap-2">
-                {[5, 6, 7, 8, 9, 10].map((n) => (
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 13 }, (_, i) => i + 3).map((n) => (
                   <button
                     key={n}
                     onClick={() => setYanivThreshold(n)}
@@ -437,6 +675,77 @@ export default function YanivPage() {
               <p className="text-muted-foreground text-xs mt-1">2-second window to pick up discarded cards</p>
             </SettingRow>
 
+            <SettingRow label="Animation Speed">
+              <AnimationPreferencesControl
+                value={animationSpeed}
+                onChange={setAnimationSpeed}
+              />
+              <p className="text-muted-foreground text-xs mt-1">
+                Fast play shortens table motion; reduced minimizes movement.
+              </p>
+            </SettingRow>
+
+            <SettingRow label="Card Colors">
+              <CardDeckControl value={cardDeck} onChange={setCardDeck} />
+              <p className="text-muted-foreground text-xs mt-1">
+                Four-color gives each suit its own color, so suits stay easy to tell
+                apart for colorblind players. Suit symbols always show too.
+              </p>
+            </SettingRow>
+
+            <div className="grid grid-cols-2 gap-3">
+              <SettingRow label="Low-Time Sound">
+                <button
+                  onClick={() => setLowTimeSound((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    lowTimeSound ? "bg-primary" : "bg-input"
+                  }`}
+                  role="switch"
+                  aria-checked={lowTimeSound}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      lowTimeSound ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </SettingRow>
+
+              <SettingRow label="Idle Pulses">
+                <button
+                  onClick={() => setIdlePulses((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    idlePulses ? "bg-primary" : "bg-input"
+                  }`}
+                  role="switch"
+                  aria-checked={idlePulses}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      idlePulses ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </SettingRow>
+
+              <SettingRow label="Next-Up Preview">
+                <button
+                  onClick={() => setNextUpPreview((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    nextUpPreview ? "bg-primary" : "bg-input"
+                  }`}
+                  role="switch"
+                  aria-checked={nextUpPreview}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      nextUpPreview ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </SettingRow>
+            </div>
+
             <Button
               onClick={startGame}
               disabled={!settingsLoaded}
@@ -457,7 +766,8 @@ export default function YanivPage() {
     gameState.status === "in_progress" &&
     !gameState.quickDrawWindow &&
     gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID;
-  const playerTotal = handTotal(player.hand);
+  const handReadout = getYanivHandReadout(player.hand, gameState.settings.yanivThreshold);
+  const playerTotal = handReadout.total;
   const canYaniv = isMyTurn && canCallYaniv(player.hand, gameState.settings.yanivThreshold);
   const selectedCards = selected.map((i) => player.hand[i]).filter(Boolean);
   const selection = describeSelection(selectedCards);
@@ -496,9 +806,28 @@ export default function YanivPage() {
           Reshuffled!
         </div>
       )}
+      {turnPreview && (
+        <div
+          key={turnPreview.key}
+          className="fixed top-32 left-1/2 z-50 -translate-x-1/2 rounded-full border border-primary/40 bg-card/95 px-4 py-2 text-sm font-semibold text-card-foreground shadow-xl pointer-events-none"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-muted-foreground">Next up:</span>{" "}
+          <span className="text-primary">{turnPreview.name}</span>
+        </div>
+      )}
       <BrandHeader title="Yaniv" tone="red" backLabel="Back" />
 
-      <div className="flex-1 flex flex-col p-3 md:p-5 gap-3 max-w-2xl mx-auto w-full pip-table-surface pip-table-rail rounded-3xl">
+      <div className="yaniv-table-shell flex-1 flex flex-col p-3 md:p-5 gap-3 mx-auto w-full pip-table-surface pip-table-rail rounded-3xl">
+        <div className="ml-auto w-full max-w-xs flex flex-col gap-2">
+          <AnimationPreferencesControl
+            value={animationSpeed}
+            onChange={setAnimationSpeed}
+          />
+          <CardDeckControl value={cardDeck} onChange={setCardDeck} />
+        </div>
+
         {/* Circular player ring */}
         <PlayerRing
           players={gameState.players}
@@ -508,7 +837,9 @@ export default function YanivPage() {
           turnTimerActive={turnTimerActive}
           turnProgress={turnProgress}
           turnSecondsLeft={turnSecondsLeft}
+          idlePulses={idlePulses}
           actionBadges={actionBadges}
+          scoreFeedback={scoreFeedback}
           qdActive={qdActive}
           qdWindow={qdWindow}
           qdProgress={qdProgress}
@@ -521,16 +852,41 @@ export default function YanivPage() {
           onSteal={stealFromDiscard}
         />
 
+        <div className="yaniv-bottom-zone flex flex-col gap-2">
         {/* Human player hand */}
         <div className="pip-seat-panel rounded-xl p-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between gap-3 mb-2">
             <span className="text-foreground text-sm font-medium">
               {player.name}
               {isMyTurn && <span className="ml-2 text-primary text-xs">— your turn</span>}
             </span>
-            <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
-              <span>Score: {player.score}</span>
-              <span>Hand: {playerTotal}</span>
+            <div className="flex flex-wrap items-center justify-end gap-2 text-xs tabular-nums">
+              <span className="text-muted-foreground">Score: {player.score}</span>
+              <ContextTooltip
+                text={`Your hand total is ${handReadout.total}. You can call Yaniv at ${handReadout.threshold} or less.`}
+                className="rounded-md"
+              >
+                <span
+                  className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-black/15 px-2 py-1 font-medium text-foreground"
+                  aria-label={`Hand total ${handReadout.total}. Yaniv threshold ${handReadout.threshold}. ${
+                    handReadout.withinThreshold
+                      ? "You can call Yaniv on your turn."
+                      : `${handReadout.distanceToThreshold} points over the Yaniv threshold.`
+                  }`}
+                >
+                  <span>Hand {handReadout.total}</span>
+                  <span className="text-muted-foreground">/</span>
+                  <span
+                    className={
+                      handReadout.withinThreshold ? "text-emerald-300" : "text-amber-300"
+                    }
+                  >
+                    {handReadout.withinThreshold
+                      ? "Yaniv ready"
+                      : `${handReadout.distanceToThreshold} over Yaniv`}
+                  </span>
+                </span>
+              </ContextTooltip>
             </div>
           </div>
           <CardHand
@@ -557,36 +913,48 @@ export default function YanivPage() {
         {isMyTurn && (
           <div className="flex flex-col gap-2">
             {canYaniv && (
-              <Button
-                onClick={callYaniv}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
-              >
-                Call Yaniv! (hand = {playerTotal})
-              </Button>
+              <ContextTooltip text="End the round now. If another player has an equal or lower hand, you take the Assaf penalty.">
+                <Button
+                  onClick={callYaniv}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                >
+                  Call Yaniv! (hand = {playerTotal})
+                </Button>
+              </ContextTooltip>
             )}
             {selected.length > 0 && (
               <SelectionSummary cards={selectedCards} selection={selection} />
             )}
             <div className="flex gap-2">
-              <Button
-                onClick={() => discardAndDraw(false)}
-                disabled={!canDiscard}
+              <ContextTooltip
+                text="Discard your selected legal set, then draw one unknown card from the deck."
                 className="flex-1"
-                variant="default"
               >
-                Discard &amp; Draw from Deck
-              </Button>
-              <Button
-                onClick={() => discardAndDraw(true)}
-                disabled={!canDiscard || topGroup.length === 0}
+                <Button
+                  onClick={() => discardAndDraw(false)}
+                  disabled={!canDiscard}
+                  className="w-full"
+                  variant="default"
+                >
+                  Discard &amp; Draw from Deck
+                </Button>
+              </ContextTooltip>
+              <ContextTooltip
+                text="Discard your selected legal set, then take one visible card from the top discard group."
                 className="flex-1"
-                variant="outline"
               >
-                Discard &amp; Take{" "}
-                {topGroup.length > 0
-                  ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
-                  : "pile"}
-              </Button>
+                <Button
+                  onClick={() => discardAndDraw(true)}
+                  disabled={!canDiscard || topGroup.length === 0}
+                  className="w-full"
+                  variant="outline"
+                >
+                  Discard &amp; Take{" "}
+                  {topGroup.length > 0
+                    ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
+                    : "pile"}
+                </Button>
+              </ContextTooltip>
             </div>
             {selected.length === 0 && !canYaniv && (
               <p className="text-muted-foreground text-xs text-center">
@@ -615,9 +983,10 @@ export default function YanivPage() {
         {!isMyTurn && !qdActive && gameState.status === "in_progress" && (
           <p className="text-muted-foreground text-sm text-center">Bot is thinking…</p>
         )}
+        </div>
       </div>
 
-      {isRoundOver && gameState.roundResult && (
+      {isRoundOver && gameState.roundResult && roundOverlayReady && (
         <RoundEndOverlay
           state={gameState}
           playerId={PLAYER_ID}
@@ -664,7 +1033,9 @@ interface PlayerRingProps {
   turnTimerActive: boolean;
   turnProgress: number;
   turnSecondsLeft: number | null;
+  idlePulses: boolean;
   actionBadges: Record<string, ActionBadge>;
+  scoreFeedback: Record<string, ScoreFeedback>;
   qdActive: boolean;
   qdWindow: YanivQuickDrawWindow | null;
   qdProgress: number;
@@ -685,7 +1056,9 @@ function PlayerRing({
   turnTimerActive,
   turnProgress,
   turnSecondsLeft,
+  idlePulses,
   actionBadges,
+  scoreFeedback,
   qdActive,
   qdWindow,
   qdProgress,
@@ -697,31 +1070,31 @@ function PlayerRing({
   onPickDiscardCard,
   onSteal,
 }: PlayerRingProps) {
-  const N = players.length;
-  const humanIdx = players.findIndex((p) => p.id === humanId);
-
-  // Compute seat positions as percentages of container.
-  // Human fixed at bottom (angle = π/2 in screen coords = down).
-  // Each subsequent player offset clockwise.
-  const RING_R_PCT = 38; // radius as % of container
+  const formFactor = useYanivTableFormFactor();
+  const ringLayout = useMemo(
+    () => getYanivRingLayout(players.map((player) => player.id), humanId, formFactor),
+    [players, humanId, formFactor],
+  );
   const seats = players.map((player, i) => {
-    const offset = (i - humanIdx + N) % N;
-    const angle = Math.PI / 2 + offset * ((2 * Math.PI) / N);
-    const xPct = 50 + RING_R_PCT * Math.cos(angle);
-    const yPct = 50 + RING_R_PCT * Math.sin(angle);
+    const seatLayout = ringLayout.seats[i];
     const isActive = i === currentPlayerIndex;
     const isNext = i === nextPlayerIndex && !isActive;
-    return { player, xPct, yPct, isActive, isNext, angle };
+    return { player, xPct: seatLayout.xPct, yPct: seatLayout.yPct, isActive, isNext, angle: seatLayout.angle };
   });
 
   // Small clockwise arc indicator: from ~350° to ~50° (short arc at top-right)
-  // In SVG viewBox 0 0 100 100, center (50,50), radius 38
-  const arcR = RING_R_PCT;
-  const arcStart = { x: 50 + arcR * Math.cos(-0.3), y: 50 + arcR * Math.sin(-0.3) };
-  const arcEnd = { x: 50 + arcR * Math.cos(0.6), y: 50 + arcR * Math.sin(0.6) };
+  // In SVG viewBox 0 0 100 100; widescreen uses an ellipse, not a scaled circle.
+  const arcStart = {
+    x: ringLayout.centerXPct + ringLayout.xRadiusPct * Math.cos(-0.3),
+    y: ringLayout.centerYPct + ringLayout.yRadiusPct * Math.sin(-0.3),
+  };
+  const arcEnd = {
+    x: ringLayout.centerXPct + ringLayout.xRadiusPct * Math.cos(0.6),
+    y: ringLayout.centerYPct + ringLayout.yRadiusPct * Math.sin(0.6),
+  };
 
   return (
-    <div className="relative w-full" style={{ maxWidth: 500, margin: "0 auto", aspectRatio: "1 / 1" }}>
+    <div className="yaniv-player-ring relative w-full">
       {/* SVG ring guide */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -741,10 +1114,11 @@ function PlayerRing({
           </marker>
         </defs>
         {/* Dashed ring */}
-        <circle
-          cx="50"
-          cy="50"
-          r={arcR}
+        <ellipse
+          cx={ringLayout.centerXPct}
+          cy={ringLayout.centerYPct}
+          rx={ringLayout.xRadiusPct}
+          ry={ringLayout.yRadiusPct}
           fill="none"
           stroke="currentColor"
           strokeWidth="0.4"
@@ -753,7 +1127,7 @@ function PlayerRing({
         />
         {/* Clockwise direction arc with arrowhead */}
         <path
-          d={`M ${arcStart.x.toFixed(2)},${arcStart.y.toFixed(2)} A ${arcR},${arcR} 0 0,1 ${arcEnd.x.toFixed(2)},${arcEnd.y.toFixed(2)}`}
+          d={`M ${arcStart.x.toFixed(2)},${arcStart.y.toFixed(2)} A ${ringLayout.xRadiusPct},${ringLayout.yRadiusPct} 0 0,1 ${arcEnd.x.toFixed(2)},${arcEnd.y.toFixed(2)}`}
           fill="none"
           stroke="currentColor"
           strokeWidth="0.6"
@@ -773,7 +1147,9 @@ function PlayerRing({
           showTurnRing={isActive && turnTimerActive}
           turnProgress={turnProgress}
           turnSecondsLeft={turnSecondsLeft}
+          idlePulses={idlePulses}
           badge={actionBadges[player.id]}
+          scoreFeedback={scoreFeedback[player.id]}
           style={{
             position: "absolute",
             left: `calc(${xPct}% - 36px)`,
@@ -856,7 +1232,9 @@ function PlayerSeatNode({
   showTurnRing,
   turnProgress,
   turnSecondsLeft,
+  idlePulses,
   badge,
+  scoreFeedback: _scoreFeedback,
   style,
 }: {
   player: YanivPlayer;
@@ -866,7 +1244,9 @@ function PlayerSeatNode({
   showTurnRing?: boolean;
   turnProgress?: number;
   turnSecondsLeft?: number | null;
+  idlePulses: boolean;
   badge?: ActionBadge;
+  scoreFeedback?: ScoreFeedback;
   style?: React.CSSProperties;
 }) {
   const initials = player.name.slice(0, 2).toUpperCase();
@@ -887,45 +1267,60 @@ function PlayerSeatNode({
     >
       {/* Avatar */}
       <div className="relative flex items-center justify-center">
-        {/* Co-located turn countdown ring (time remaining this turn) */}
-        {showTurnRing && (
-          <TurnCountdownRing progress={turnProgress ?? 1} />
-        )}
-        <div
-          className={`
-            w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
-            transition-all duration-300
-            ${
-              isActive
-                ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                : isNext
-                ? "bg-muted text-foreground ring-1 ring-primary/40"
-                : player.eliminated
-                ? "bg-muted/30 text-muted-foreground/40"
-                : "bg-muted text-muted-foreground"
-            }
-          `}
-          style={
-            isActive
-              ? { animation: "seat-glow-pulse 1.5s ease-in-out infinite" }
-              : undefined
+        <ContextTooltip
+          text={
+            showTurnRing
+              ? "Active turn. The ring drains as time runs out; at zero, a safe discard is auto-played."
+              : isNext
+              ? "This player is next."
+              : `${player.name}'s seat. The badge shows cards left in hand.`
           }
+          className="rounded-full"
         >
-          {initials}
-        </div>
+          {/* Co-located turn countdown ring (time remaining this turn) */}
+          {showTurnRing && (
+            <TurnCountdownRing progress={turnProgress ?? 1} />
+          )}
+          <div
+            className={`
+              w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
+              transition-all duration-300
+              ${
+                isActive
+                  ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+                  : isNext
+                  ? "bg-muted text-foreground ring-1 ring-primary/40"
+                  : player.eliminated
+                  ? "bg-muted/30 text-muted-foreground/40"
+                  : "bg-muted text-muted-foreground"
+              }
+            `}
+            style={
+              isActive && idlePulses
+                ? { animation: "seat-glow-pulse 1.5s ease-in-out infinite" }
+                : undefined
+            }
+          >
+            {initials}
+          </div>
+        </ContextTooltip>
 
         {/* Numeric card-count badge — how many cards an opponent holds is a core Yaniv
             decision input, so it gets an explicit number rather than a fan to eyeball. */}
         {!player.eliminated && (
-          <div
-            className="absolute -bottom-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full
-              bg-foreground text-background text-[11px] font-bold leading-none
-              flex items-center justify-center ring-2 ring-background tabular-nums shadow-sm"
-            aria-label={`${player.hand.length} card${player.hand.length === 1 ? "" : "s"} in hand`}
-            title={`${player.hand.length} cards in hand`}
+          <ContextTooltip
+            text={`${player.name} has ${player.hand.length} card${player.hand.length === 1 ? "" : "s"} left.`}
+            className="absolute -bottom-1.5 -right-1.5"
           >
-            {player.hand.length}
-          </div>
+            <div
+              className="min-w-[20px] h-5 px-1 rounded-full
+                bg-foreground text-background text-[11px] font-bold leading-none
+                flex items-center justify-center ring-2 ring-background tabular-nums shadow-sm"
+              aria-label={`${player.hand.length} card${player.hand.length === 1 ? "" : "s"} in hand`}
+            >
+              {player.hand.length}
+            </div>
+          </ContextTooltip>
         )}
 
         {/* Action badge */}
@@ -1006,10 +1401,11 @@ function TurnCountdownRing({ progress }: { progress: number }) {
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.max(0, Math.min(1, progress)));
+  const urgency = getTurnTimerUrgency(progress);
   const color =
-    progress > 0.5
+    urgency === "normal"
       ? "var(--primary)"
-      : progress > 0.25
+      : urgency === "warning"
       ? "rgb(245 158 11)" // amber-500
       : "rgb(239 68 68)"; // red-500
   return (
@@ -1068,7 +1464,14 @@ function QuickDrawPile({
   const offset = circumference * (1 - progress);
 
   return (
-    <div className="relative flex items-center gap-1">
+    <ContextTooltip
+      text={
+        canSteal
+          ? "Quick draw: steal this fresh discard before the timer empties."
+          : "Quick draw window: another player may steal this fresh discard."
+      }
+      className="relative flex items-center gap-1"
+    >
       {cards.map((card, i) => (
         <div
           key={i}
@@ -1127,7 +1530,7 @@ function QuickDrawPile({
           aria-label="Steal discarded cards"
         />
       )}
-    </div>
+    </ContextTooltip>
   );
 }
 
@@ -1165,26 +1568,35 @@ function DiscardPileGroup({
         style={{ inset: 0, transform: "translate(2.5px, 2.5px)" }}
         aria-hidden
       />
-      <div className="relative flex gap-0.5">
-        {group.map((card, i) => (
-          <button
-            key={i}
-            onClick={() => canDraw && onPickCard(i)}
-            disabled={!canDraw}
-            className={`rounded-lg transition-all outline-none ${
-              canDraw
-                ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-                : "cursor-default"
-            }`}
-            aria-label={canDraw ? `Draw ${card.rank} of ${card.suit}` : `Top discard: ${card.rank} of ${card.suit}`}
-          >
-            <PlayingCard
-              card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }}
-              size={cardSize}
-            />
-          </button>
-        ))}
-      </div>
+      <ContextTooltip
+        text={
+          canDraw
+            ? "You may take one visible discard card after playing a legal discard."
+            : "The discard pile shows the newest visible card group."
+        }
+        className="relative"
+      >
+        <div className="relative flex gap-0.5">
+          {group.map((card, i) => (
+            <button
+              key={i}
+              onClick={() => canDraw && onPickCard(i)}
+              disabled={!canDraw}
+              className={`rounded-lg transition-all outline-none ${
+                canDraw
+                  ? "hover:-translate-y-1 cursor-pointer ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                  : "cursor-default"
+              }`}
+              aria-label={canDraw ? `Draw ${card.rank} of ${card.suit}` : `Top discard: ${card.rank} of ${card.suit}`}
+            >
+              <PlayingCard
+                card={{ suit: card.suit as ShellCard["suit"], rank: card.rank as ShellCard["rank"], faceUp: true }}
+                size={cardSize}
+              />
+            </button>
+          ))}
+        </div>
+      </ContextTooltip>
     </div>
   );
 }
@@ -1208,35 +1620,118 @@ function DeckVisual({ count }: { count: number }) {
   // Sized to roughly match the large discard card so the two piles read as a pair,
   // while the green face-down backs keep the draw pile unmistakably distinct.
   return (
+    <ContextTooltip text={`Draw deck: ${count} unknown card${count === 1 ? "" : "s"} left.`}>
+      <div
+        className="relative w-20 h-28"
+        aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
+        role="img"
+      >
+        {Array.from({ length: layers }, (_, i) => {
+          const isTop = i === topIndex;
+          const depth = topIndex - i;
+          return (
+            <div
+              key={i}
+              className="pip-card-back absolute rounded-lg shadow-md"
+              style={{
+                width: 64,
+                height: 90,
+                top: 6 + depth * 3,
+                left: 8 - depth * 4,
+                zIndex: i,
+                transform: `rotate(${depth * -2}deg)`,
+              }}
+            >
+              {isTop && (
+                <div className="w-full h-full flex items-center justify-center rounded-lg">
+                  <div className="w-[80%] h-[80%] rounded border border-white/30" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </ContextTooltip>
+  );
+}
+
+// ── ContextTooltip ───────────────────────────────────────────────────────
+// Hover on desktop, long-press on touch. Hints stay contextual so the table
+// never needs an upfront tutorial gate.
+
+function ContextTooltip({
+  text,
+  children,
+  className = "",
+}: {
+  text: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const id = useId();
+  const [visible, setVisible] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearTimers() {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    longPressTimerRef.current = null;
+    hideTimerRef.current = null;
+  }
+
+  function show() {
+    clearTimers();
+    setVisible(true);
+  }
+
+  function hideSoon() {
+    clearTimers();
+    hideTimerRef.current = setTimeout(() => setVisible(false), 120);
+  }
+
+  function startLongPress(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse") return;
+    clearTimers();
+    longPressTimerRef.current = setTimeout(() => setVisible(true), 450);
+  }
+
+  function endLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (visible) {
+      hideTimerRef.current = setTimeout(() => setVisible(false), 1400);
+    }
+  }
+
+  useEffect(() => {
+    return clearTimers;
+  }, []);
+
+  return (
     <div
-      className="relative w-20 h-28"
-      aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
-      role="img"
+      className={`relative inline-flex min-w-0 ${className}`}
+      aria-describedby={visible ? id : undefined}
+      onMouseEnter={show}
+      onMouseLeave={hideSoon}
+      onFocus={show}
+      onBlur={hideSoon}
+      onPointerDown={startLongPress}
+      onPointerUp={endLongPress}
+      onPointerCancel={endLongPress}
     >
-      {Array.from({ length: layers }, (_, i) => {
-        const isTop = i === topIndex;
-        const depth = topIndex - i;
-        return (
-          <div
-            key={i}
-            className="pip-card-back absolute rounded-lg shadow-md"
-            style={{
-              width: 64,
-              height: 90,
-              top: 6 + depth * 3,
-              left: 8 - depth * 4,
-              zIndex: i,
-              transform: `rotate(${depth * -2}deg)`,
-            }}
-          >
-            {isTop && (
-              <div className="w-full h-full flex items-center justify-center rounded-lg">
-                <div className="w-[80%] h-[80%] rounded border border-white/30" />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {children}
+      {visible && (
+        <div
+          id={id}
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-md border border-white/15 bg-popover px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug text-popover-foreground shadow-xl"
+        >
+          {text}
+        </div>
+      )}
     </div>
   );
 }
@@ -1266,6 +1761,7 @@ function RoundEndOverlay({
   onChangeGame: () => void;
 }) {
   const result = state.roundResult!;
+  const scoreboardRows = getYanivScoreboardRows(state);
   const callerName = state.players.find((p) => p.id === result.callerId)?.name ?? "Someone";
   const callerIsPlayer = result.callerId === playerId;
 
@@ -1279,40 +1775,26 @@ function RoundEndOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl flex flex-col gap-4">
+      <div className="relative z-10 w-full max-w-lg rounded-2xl bg-card border border-border p-5 shadow-2xl flex flex-col gap-4">
         <div className="text-center">
           <p className="text-2xl font-bold text-card-foreground">{headline}</p>
           <p className="text-sm text-muted-foreground mt-1">Round {state.round} complete</p>
         </div>
 
-        <div className="space-y-2">
-          {state.players.filter((p) => !p.eliminated).map((p) => (
-            <div key={p.id} className="flex items-start gap-3">
-              <div className="w-14 text-sm text-muted-foreground shrink-0">{p.name}</div>
-              <div className="flex flex-wrap gap-1">
-                {p.hand.map((c, i) => (
-                  <PlayingCard key={i} card={toShellCard(c)} size="sm" />
-                ))}
-              </div>
-              <div className="ml-auto text-sm font-semibold tabular-nums text-foreground shrink-0">
-                {result.handTotals[p.id] ?? 0} pts
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="overflow-hidden rounded-xl border border-border/80">
+          <div className="grid grid-cols-[minmax(0,1.2fr)_4.2rem_4rem_4.5rem] items-center gap-2 bg-muted/50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Player</span>
+            <span className="text-right">Hand</span>
+            <span className="text-right">Round</span>
+            <span className="text-right">Total</span>
+          </div>
+          <div className="divide-y divide-border/70">
+            {scoreboardRows.map((row) => {
+              const player = state.players.find((p) => p.id === row.id);
+              if (!player) return null;
 
-        <div className="border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 text-center">
-            Scores after round {state.round}
-          </p>
-          <div className="flex justify-center gap-8">
-            {state.players.map((p) => (
-              <div key={p.id} className="flex flex-col items-center">
-                <span className="text-2xl font-bold tabular-nums text-foreground">{p.score}</span>
-                <span className="text-xs text-muted-foreground">{p.name}</span>
-                {p.eliminated && <span className="text-xs text-destructive">eliminated</span>}
-              </div>
-            ))}
+              return <RoundScoreboardRow key={row.id} row={row} player={player} />;
+            })}
           </div>
         </div>
 
@@ -1329,6 +1811,73 @@ function RoundEndOverlay({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoundScoreboardRow({
+  row,
+  player,
+}: {
+  row: YanivScoreboardRow;
+  player: YanivPlayer;
+}) {
+  const thresholdClasses = {
+    safe: "text-foreground",
+    warning: "text-amber-300",
+    busted: "text-destructive",
+  }[row.thresholdState];
+
+  const statusLabel =
+    row.thresholdState === "busted"
+      ? "busted"
+      : row.thresholdState === "warning"
+        ? "near bust"
+        : null;
+
+  return (
+    <div
+      className={`grid grid-cols-[minmax(0,1.2fr)_4.2rem_4rem_4.5rem] items-center gap-2 px-3 py-2.5 ${
+        row.thresholdState === "warning"
+          ? "bg-amber-400/10"
+          : row.thresholdState === "busted"
+            ? "bg-destructive/10"
+            : "bg-card"
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold text-card-foreground">{row.name}</span>
+          {statusLabel && (
+            <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${thresholdClasses}`}>
+              {statusLabel}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex min-h-8 flex-wrap gap-1">
+          {player.hand.map((card, i) => (
+            <PlayingCard key={i} card={toShellCard(card)} size="sm" />
+          ))}
+        </div>
+      </div>
+      <span className="text-right text-sm font-semibold tabular-nums text-muted-foreground">
+        {row.handTotal}
+      </span>
+      <span
+        className={`text-right text-sm font-bold tabular-nums ${
+          row.roundDelta > 0
+            ? "text-amber-300"
+            : row.roundDelta < 0
+              ? "text-emerald-300"
+              : "text-muted-foreground"
+        }`}
+        style={{ animation: "score-delta-pop 700ms ease-out both" }}
+      >
+        {row.roundDelta > 0 ? `+${row.roundDelta}` : row.roundDelta}
+      </span>
+      <span className={`text-right text-xl font-bold tabular-nums ${thresholdClasses}`}>
+        {row.cumulativeScore}
+      </span>
     </div>
   );
 }
