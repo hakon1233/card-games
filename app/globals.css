@@ -214,6 +214,16 @@ html[data-animation-speed="reduced"] *::after {
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Strong-intensity score landing (big swing / Assaf) gets a brief shake on top
+   of the pop — proportional feedback for the climax. GAM-56. */
+@keyframes score-cascade-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-3px); }
+  40%      { transform: translateX(3px); }
+  60%      { transform: translateX(-2px); }
+  80%      { transform: translateX(2px); }
+}
+
 /* Selected discard card: lifted + glowing in the reserved SELECTION hue (cream).
    Selection is neutral to legality — it says only "you are holding this". GAM-54. */
 .card-selected-glow {

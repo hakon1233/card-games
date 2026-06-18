@@ -1408,21 +1408,19 @@ function PlayerSeatNode({
 // already animation-speed scaled by the caller, so a "reduced" setting collapses
 // the count-up to its final value instantly.
 function useScoreCountUp(from: number, to: number, durationMs: number, key: number): number {
-  const [value, setValue] = useState(to);
+  const [value, setValue] = useState(from);
   useEffect(() => {
-    if (durationMs <= 24 || from === to) {
-      setValue(to);
-      return;
-    }
+    // All updates happen inside the rAF callback so nothing is set synchronously
+    // during the effect. A scaled-down "reduced" duration finishes in one frame.
     let raf = 0;
     const start = Date.now();
+    const dur = Math.max(1, durationMs);
     const tick = () => {
-      const t = Math.min(1, (Date.now() - start) / durationMs);
+      const t = Math.min(1, (Date.now() - start) / dur);
       const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
       setValue(Math.round(from + (to - from) * eased));
       if (t < 1) raf = requestAnimationFrame(tick);
     };
-    setValue(from);
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [from, to, durationMs, key]);
