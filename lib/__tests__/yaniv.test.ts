@@ -201,6 +201,90 @@ describe("Yaniv scoring", () => {
     expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
   });
 
+  it("awards 0 to each opponent tied for the lowest Assaf hand", () => {
+    const state = dealGame("assaf-tie", [
+      { id: "caller", name: "Caller", isBot: false },
+      { id: "winner-1", name: "Winner 1", isBot: true },
+      { id: "winner-2", name: "Winner 2", isBot: true },
+      { id: "other", name: "Other", isBot: true },
+    ]);
+
+    const scored = applyAction({
+      ...state,
+      currentPlayerIndex: 0,
+      players: [
+        {
+          ...state.players[0],
+          id: "caller",
+          hand: [{ suit: "hearts", rank: "7" }],
+          score: 10,
+        },
+        {
+          ...state.players[1],
+          id: "winner-1",
+          hand: [{ suit: "clubs", rank: "5" }],
+          score: 20,
+        },
+        {
+          ...state.players[2],
+          id: "winner-2",
+          hand: [{ suit: "diamonds", rank: "5" }],
+          score: 30,
+        },
+        {
+          ...state.players[3],
+          id: "other",
+          hand: [{ suit: "spades", rank: "6" }],
+          score: 40,
+        },
+      ],
+    }, { type: "CALL_YANIV", playerId: "caller" });
+
+    expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.players.find((p) => p.id === "winner-1")?.score).toBe(20);
+    expect(scored.players.find((p) => p.id === "winner-2")?.score).toBe(30);
+    expect(scored.players.find((p) => p.id === "other")?.score).toBe(46);
+  });
+
+  it("counts an opponent tied with the caller as the Assaf winner", () => {
+    const state = dealGame("assaf-caller-tie", [
+      { id: "caller", name: "Caller", isBot: false },
+      { id: "winner", name: "Winner", isBot: true },
+      { id: "other", name: "Other", isBot: true },
+    ]);
+
+    const scored = applyAction({
+      ...state,
+      currentPlayerIndex: 0,
+      players: [
+        {
+          ...state.players[0],
+          id: "caller",
+          hand: [{ suit: "hearts", rank: "7" }],
+          score: 10,
+        },
+        {
+          ...state.players[1],
+          id: "winner",
+          hand: [{ suit: "clubs", rank: "7" }],
+          score: 20,
+        },
+        {
+          ...state.players[2],
+          id: "other",
+          hand: [{ suit: "diamonds", rank: "9" }],
+          score: 30,
+        },
+      ],
+    }, { type: "CALL_YANIV", playerId: "caller" });
+
+    expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.players.find((p) => p.id === "winner")?.score).toBe(20);
+    expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
+  });
+
   it("caller wins round: scores 0, loser adds hand total", () => {
     const state = dealGame("g2", [
       { id: "p1", name: "P1", isBot: false },

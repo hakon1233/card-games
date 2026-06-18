@@ -238,9 +238,13 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     if (!p.eliminated) handTotals[p.id] = handTotal(p.hand);
   });
 
+  const opponentTotals = state.players
+    .filter((p) => p.id !== callerId && !p.eliminated)
+    .map((p) => ({ id: p.id, total: handTotal(p.hand) }));
+  const lowestOpponentTotal = Math.min(...opponentTotals.map((p) => p.total));
   const assafWinnerIds = new Set(
-    state.players
-      .filter((p) => p.id !== callerId && !p.eliminated && handTotal(p.hand) <= callerTotal)
+    opponentTotals
+      .filter((p) => p.total === lowestOpponentTotal && p.total <= callerTotal)
       .map((p) => p.id),
   );
   const assaf = assafWinnerIds.size > 0;
