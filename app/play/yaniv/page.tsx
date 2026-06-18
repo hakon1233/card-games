@@ -1352,6 +1352,12 @@ function PlayerSeatNode({
             </span>
           </div>
         )}
+
+        {/* Score cascade — the Yaniv-call climax. A proportional count-up of the
+            new running total, glow + shake scaled to how many points landed, and
+            a +delta chip coloured by outcome (green = stayed safe, red = took
+            points). Sound is fired alongside in scheduleScoreCascade. GAM-56. */}
+        {scoreFeedback && <ScoreCascadeBadge feedback={scoreFeedback} />}
       </div>
 
       {/* Name */}
@@ -1394,9 +1400,83 @@ function PlayerSeatNode({
   );
 }
 
+// ── ScoreCascadeBadge ─────────────────────────────────────────────────────
+// The Yaniv-call climax, rendered per seat. The running total counts up from
+// scoreBefore → scoreAfter; glow + shake scale with how many points landed
+// (intensity), and colour follows the GAM-54 state channels: legal-green when a
+// seat stays safe (delta 0), alert-red when it takes points. durationMs is
+// already animation-speed scaled by the caller, so a "reduced" setting collapses
+// the count-up to its final value instantly.
+function useScoreCountUp(from: number, to: number, durationMs: number, key: number): number {
+  const [value, setValue] = useState(to);
+  useEffect(() => {
+    if (durationMs <= 24 || from === to) {
+      setValue(to);
+      return;
+    }
+    let raf = 0;
+    const start = Date.now();
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setValue(Math.round(from + (to - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    setValue(from);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to, durationMs, key]);
+  return value;
+}
+
+function ScoreCascadeBadge({ feedback }: { feedback: ScoreFeedback }) {
+  const total = useScoreCountUp(
+    feedback.scoreBefore,
+    feedback.scoreAfter,
+    feedback.durationMs,
+    feedback.key,
+  );
+  const isSafe = feedback.tone === "safe";
+  const color = isSafe ? "var(--state-legal)" : "var(--state-alert)";
+  const glowBlur = feedback.intensity === "strong" ? 16 : feedback.intensity === "medium" ? 10 : 6;
+  const shake = feedback.intensity === "strong";
+
+  return (
+    <div
+      key={feedback.key}
+      className="absolute pointer-events-none left-1/2 -translate-x-1/2 flex flex-col items-center"
+      style={{ bottom: "calc(100% + 16px)", animation: "score-delta-pop 240ms ease-out both" }}
+      role="status"
+      aria-live="polite"
+      aria-label={
+        isSafe
+          ? `${feedback.name} stayed safe, ${feedback.scoreAfter} points`
+          : `${feedback.name} took ${feedback.scoreDelta} points, now ${feedback.scoreAfter}`
+      }
+    >
+      <span
+        className="text-base font-extrabold tabular-nums leading-none px-2 py-1 rounded-lg"
+        style={{
+          color,
+          background: "color-mix(in oklab, var(--card) 90%, transparent)",
+          boxShadow: `0 0 ${glowBlur}px ${Math.round(glowBlur / 3)}px color-mix(in oklab, ${color} 55%, transparent)`,
+          animation: shake ? "score-cascade-shake 360ms ease-in-out both" : undefined,
+        }}
+      >
+        {total}
+      </span>
+      <span className="mt-0.5 text-[10px] font-bold tabular-nums" style={{ color }}>
+        {isSafe ? "safe" : `+${feedback.scoreDelta}`}
+      </span>
+    </div>
+  );
+}
+
 // ── TurnCountdownRing ─────────────────────────────────────────────────────
 // Thin ring co-located around the active avatar, depleting over the turn.
-// Colour shifts turn-hue → amber → red as time runs low (colour as information).
+// Colour shifts turn-hue → amber → vermilion as time runs low (colour as
+// information). Uses the reserved --state-* tokens from the GAM-54 colour
+// system, not decorative hues: turn (gold) → warn (amber) → alert (vermilion).
 function TurnCountdownRing({ progress }: { progress: number }) {
   const size = 52;
   const stroke = 3;
@@ -1406,10 +1486,10 @@ function TurnCountdownRing({ progress }: { progress: number }) {
   const urgency = getTurnTimerUrgency(progress);
   const color =
     urgency === "normal"
-      ? "var(--primary)"
+      ? "var(--state-turn)"
       : urgency === "warning"
-      ? "rgb(245 158 11)" // amber-500
-      : "rgb(239 68 68)"; // red-500
+      ? "var(--state-warn)"
+      : "var(--state-alert)";
   return (
     <svg
       width={size}
@@ -1427,7 +1507,7 @@ function TurnCountdownRing({ progress }: { progress: number }) {
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="color-mix(in oklab, var(--primary) 18%, transparent)"
+        stroke="color-mix(in oklab, var(--state-turn) 18%, transparent)"
         strokeWidth={stroke}
       />
       <circle
