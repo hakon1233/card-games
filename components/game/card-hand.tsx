@@ -7,6 +7,7 @@ import {
   ALL_SORT_STRATEGIES,
   GAME_DEFAULT_SORT,
   SORT_LABELS,
+  orderCardKeysForHand,
   sortCardsWithOriginalIndices,
   type SortStrategy,
 } from "@/lib/games/card-sorting";
@@ -15,8 +16,8 @@ import { CARD_DIMENSIONS, PlayingCard } from "./card";
 
 // Gap between cards when the hand is roomy enough not to overlap.
 const HAND_GAP = 8;
-const FULL_SPACING_MAX_COUNT = 7;
-const PROGRESSIVE_OVERLAP_MAX_COUNT = 12;
+const FAN_ROTATION_DEG = 3;
+const FAN_LIFT_CURVE = 0.9;
 // Vertical headroom (px) reserved so selected/hovered cards can lift without
 // being clipped or shifting layout. Must cover the largest -translate-y used.
 const LIFT_HEADROOM = 14;
@@ -38,19 +39,15 @@ export function calculateHandLayout({ count, handWidth, cardDimensions }: HandLa
   }
 
   const overlapMargin = Math.round(stride - cardDimensions.width);
-  const contentWidth = count > 0 ? Math.round(cardDimensions.width + stride * (count - 1)) : 0;
+  const contentWidth = count > 0 ? cardDimensions.width + stride * (count - 1) : 0;
   const needsScroll = handWidth > 0 && contentWidth > handWidth;
-  const fanRange =
-    count <= FULL_SPACING_MAX_COUNT ? 9 : count <= PROGRESSIVE_OVERLAP_MAX_COUNT ? 7 : 5;
-  const arcDepth =
-    count <= FULL_SPACING_MAX_COUNT ? 8 : count <= PROGRESSIVE_OVERLAP_MAX_COUNT ? 6 : 4;
   const midpoint = (count - 1) / 2;
 
   const cards = Array.from({ length: count }, (_, index) => {
-    const normalized = midpoint === 0 ? 0 : (index - midpoint) / midpoint;
+    const offset = index - midpoint;
     return {
-      rotation: Math.round(normalized * fanRange),
-      translateY: Math.round(Math.abs(normalized) ** 2 * arcDepth),
+      rotation: offset * FAN_ROTATION_DEG,
+      translateY: Math.round(Math.abs(offset) ** 2 * FAN_LIFT_CURVE),
     };
   });
 
@@ -85,6 +82,9 @@ function useMeasuredWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
+function cardOrderKey(card: ShellCard) {
+  return `${card.rank}:${card.suit}:${card.faceUp ? "up" : "down"}`;
+}
 
 interface CardHandProps {
   cards: ShellCard[];
@@ -116,11 +116,31 @@ export function CardHand({
   const defaultSort = GAME_DEFAULT_SORT[gameType] ?? "none";
   const [preferredSort, setPreferredSort] = useState<SortStrategy | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [manualOrder, setManualOrder] = useState<string[]>(() =>
+    orderCardKeysForHand(cards, [], cardOrderKey),
+  );
+  const [draggedCardKey, setDraggedCardKey] = useState<string | null>(null);
   const currentSort = sortStrategy ?? preferredSort ?? defaultSort;
 
+  const normalizedManualOrder = useMemo(
+    () => orderCardKeysForHand(cards, manualOrder, cardOrderKey),
+    [cards, manualOrder],
+  );
+
   const sortedCards = useMemo(
-    () => sortCardsWithOriginalIndices(cards, currentSort, gameType),
-    [cards, currentSort, gameType],
+    () => {
+      const cardsWithOriginalIndices = sortCardsWithOriginalIndices(cards, currentSort, gameType);
+
+      if (currentSort !== "none") return cardsWithOriginalIndices;
+
+      const order = new Map(normalizedManualOrder.map((key, index) => [key, index]));
+      return [...cardsWithOriginalIndices].sort(
+        (a, b) =>
+          (order.get(cardOrderKey(a.card)) ?? a.originalIndex) -
+          (order.get(cardOrderKey(b.card)) ?? b.originalIndex),
+      );
+    },
+    [cards, currentSort, gameType, normalizedManualOrder],
   );
 
   const [handRef, handWidth] = useMeasuredWidth<HTMLDivElement>();
@@ -139,6 +159,23 @@ export function CardHand({
     if (!sortStrategy) setPreferredSort(nextSort);
     onSortChange?.(nextSort);
     setIsPickerOpen(false);
+  }
+
+  function moveManualCard(sourceKey: string, targetKey: string) {
+    if (!sourceKey || sourceKey === targetKey) return;
+
+    setManualOrder((order) => {
+      const nextOrder = orderCardKeysForHand(cards, order, cardOrderKey);
+      const sourceIndex = nextOrder.indexOf(sourceKey);
+      const targetIndex = nextOrder.indexOf(targetKey);
+      if (sourceIndex < 0 || targetIndex < 0) return nextOrder;
+
+      const [source] = nextOrder.splice(sourceIndex, 1);
+      nextOrder.splice(targetIndex, 0, source);
+      return nextOrder;
+    });
+
+    if (currentSort !== "none") applySort("none");
   }
 
   if (cards.length === 0) {
@@ -197,6 +234,7 @@ export function CardHand({
           const isSelected = selectedIndices.includes(originalIndex);
           const isDisabled = disabledIndices.includes(originalIndex);
           const className = cardClassName?.(card, originalIndex) ?? "";
+          const orderKey = cardOrderKey(card);
 
           // Later cards paint over earlier ones (DOM order), so each card's
           // left corner index stays exposed. A selected card lifts above the
@@ -207,13 +245,30 @@ export function CardHand({
             zIndex: isSelected ? count + 1 : undefined,
             transform: `translateY(${fan.translateY}px) rotate(${fan.rotation}deg)`,
             transformOrigin: "50% 100%",
+            opacity: draggedCardKey === orderKey ? 0.55 : undefined,
           };
 
           if (!onCardClick) {
             return (
               <div
                 key={`${card.suit}-${card.rank}-${originalIndex}`}
-                className="relative shrink-0 transition-transform duration-150 hover:z-50"
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", orderKey);
+                  setDraggedCardKey(orderKey);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  moveManualCard(event.dataTransfer.getData("text/plain"), orderKey);
+                  setDraggedCardKey(null);
+                }}
+                onDragEnd={() => setDraggedCardKey(null)}
+                className="relative shrink-0 transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] hover:z-50"
                 style={wrapperStyle}
               >
                 <PlayingCard card={card} size={size} />
@@ -224,7 +279,26 @@ export function CardHand({
           return (
             <div
               key={`${card.suit}-${card.rank}-${originalIndex}`}
-              className="relative shrink-0 transition-transform duration-150 hover:z-50 focus-within:z-50"
+              draggable={!isDisabled}
+              onDragStart={(event) => {
+                if (isDisabled) return;
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", orderKey);
+                setDraggedCardKey(orderKey);
+              }}
+              onDragOver={(event) => {
+                if (isDisabled) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                if (isDisabled) return;
+                event.preventDefault();
+                moveManualCard(event.dataTransfer.getData("text/plain"), orderKey);
+                setDraggedCardKey(null);
+              }}
+              onDragEnd={() => setDraggedCardKey(null)}
+              className="relative shrink-0 transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] hover:z-50 focus-within:z-50"
               style={wrapperStyle}
             >
               <button
