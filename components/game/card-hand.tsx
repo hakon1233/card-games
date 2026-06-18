@@ -15,9 +15,47 @@ import { CARD_DIMENSIONS, PlayingCard } from "./card";
 
 // Gap between cards when the hand is roomy enough not to overlap.
 const HAND_GAP = 8;
+const FULL_SPACING_MAX_COUNT = 7;
+const PROGRESSIVE_OVERLAP_MAX_COUNT = 12;
 // Vertical headroom (px) reserved so selected/hovered cards can lift without
 // being clipped or shifting layout. Must cover the largest -translate-y used.
 const LIFT_HEADROOM = 14;
+
+interface HandLayoutInput {
+  count: number;
+  handWidth: number;
+  cardDimensions: { width: number; height: number; cornerWidth: number };
+}
+
+export function calculateHandLayout({ count, handWidth, cardDimensions }: HandLayoutInput) {
+  const naturalStride = cardDimensions.width + HAND_GAP;
+  const compactStride = cardDimensions.cornerWidth;
+  let stride = naturalStride;
+
+  if (handWidth > 0 && count > 1) {
+    const fitStride = (handWidth - cardDimensions.width) / (count - 1);
+    stride = Math.min(naturalStride, Math.max(compactStride, fitStride));
+  }
+
+  const overlapMargin = Math.round(stride - cardDimensions.width);
+  const contentWidth = count > 0 ? Math.round(cardDimensions.width + stride * (count - 1)) : 0;
+  const needsScroll = handWidth > 0 && contentWidth > handWidth;
+  const fanRange =
+    count <= FULL_SPACING_MAX_COUNT ? 9 : count <= PROGRESSIVE_OVERLAP_MAX_COUNT ? 7 : 5;
+  const arcDepth =
+    count <= FULL_SPACING_MAX_COUNT ? 8 : count <= PROGRESSIVE_OVERLAP_MAX_COUNT ? 6 : 4;
+  const midpoint = (count - 1) / 2;
+
+  const cards = Array.from({ length: count }, (_, index) => {
+    const normalized = midpoint === 0 ? 0 : (index - midpoint) / midpoint;
+    return {
+      rotation: Math.round(normalized * fanRange),
+      translateY: Math.round(Math.abs(normalized) ** 2 * arcDepth),
+    };
+  });
+
+  return { stride, overlapMargin, contentWidth, needsScroll, cards };
+}
 
 /**
  * Measure the live pixel width of an element. Drives the overlap math so the
@@ -88,21 +126,14 @@ export function CardHand({
   const [handRef, handWidth] = useMeasuredWidth<HTMLDivElement>();
   const dims = CARD_DIMENSIONS[size];
 
-  // How far apart consecutive cards sit (the "stride"). When the hand is
-  // roomy this is card width + gap; when it compresses, cards slide left over
-  // one another but never past the corner index — the stride floor is
-  // `cornerWidth`, so the rank+suit of every card stays visible. If the hand
-  // still can't fit at that floor, the row scrolls horizontally rather than
-  // clipping any index.
+  // How far apart consecutive cards sit (the "stride"). The layout helper also
+  // adds the gentle fan/arc and preserves the GAM-42 corner-index floor.
   const count = sortedCards.length;
-  const naturalStride = dims.width + HAND_GAP;
-  let stride = naturalStride;
-  if (handWidth > 0 && count > 1) {
-    const fitStride = (handWidth - dims.width) / (count - 1);
-    stride = Math.min(naturalStride, Math.max(dims.cornerWidth, fitStride));
-  }
-  // Negative margin pulls each card (after the first) left onto its neighbour.
-  const overlapMargin = Math.round(stride - dims.width);
+  const layout = calculateHandLayout({
+    count,
+    handWidth,
+    cardDimensions: dims,
+  });
 
   function applySort(nextSort: SortStrategy) {
     if (!sortStrategy) setPreferredSort(nextSort);
@@ -170,16 +201,19 @@ export function CardHand({
           // Later cards paint over earlier ones (DOM order), so each card's
           // left corner index stays exposed. A selected card lifts above the
           // overlap so its full face is readable.
+          const fan = layout.cards[i];
           const wrapperStyle = {
-            marginLeft: i === 0 ? 0 : overlapMargin,
+            marginLeft: i === 0 ? 0 : layout.overlapMargin,
             zIndex: isSelected ? count + 1 : undefined,
+            transform: `translateY(${fan.translateY}px) rotate(${fan.rotation}deg)`,
+            transformOrigin: "50% 100%",
           };
 
           if (!onCardClick) {
             return (
               <div
                 key={`${card.suit}-${card.rank}-${originalIndex}`}
-                className="relative shrink-0 hover:z-50"
+                className="relative shrink-0 transition-transform duration-150 hover:z-50"
                 style={wrapperStyle}
               >
                 <PlayingCard card={card} size={size} />
@@ -188,17 +222,21 @@ export function CardHand({
           }
 
           return (
-            <button
+            <div
               key={`${card.suit}-${card.rank}-${originalIndex}`}
-              type="button"
-              onClick={() => !isDisabled && onCardClick(card, originalIndex)}
-              disabled={isDisabled}
-              className={`relative shrink-0 rounded-lg transition-all outline-none hover:z-50 focus-visible:z-50 ${className}`}
+              className="relative shrink-0 transition-transform duration-150 hover:z-50 focus-within:z-50"
               style={wrapperStyle}
-              aria-pressed={isSelected}
             >
-              <PlayingCard card={card} size={size} />
-            </button>
+              <button
+                type="button"
+                onClick={() => !isDisabled && onCardClick(card, originalIndex)}
+                disabled={isDisabled}
+                className={`relative rounded-lg transition-all outline-none ${className}`}
+                aria-pressed={isSelected}
+              >
+                <PlayingCard card={card} size={size} />
+              </button>
+            </div>
           );
         })}
       </div>
