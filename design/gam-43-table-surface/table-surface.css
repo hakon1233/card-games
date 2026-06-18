@@ -1,0 +1,87 @@
+/* ============================================================================
+   GAM-43 — Court & Tin table surface system
+   "Calm dark surface vs. bright simplified card faces"
+   ----------------------------------------------------------------------------
+   Design intent (Designer-owned, GAM-43):
+   The table is the GROUND; cards + active info are the FIGURE. The surface must
+   be dark, warm, and almost noiseless so the eye is pulled to the bright card
+   faces and the lit center of the table — never to the felt.
+
+   All values derive from the LOCKED Court & Tin brand tokens (GAM-39):
+     ink #1C1714  ·  tin-red #7A1F1B / lo #5F1714  ·  cream #F3E9D2 / hi #F7F0DD
+     gold #C9A24B / light #E7C06A / dark #9C6A2F
+   The brand is cream-forward and had no dark surface; this file DEFINES it as a
+   warm, tin-shifted near-black — the heritage "card-room baize at night," not
+   green casino felt.
+
+   Drop-in: @import this after the brand tokens, or paste the :root block and the
+   utilities into app/globals.css. Pairs with GAM-40 (brand application).
+   ============================================================================ */
+
+:root {
+  /* ---- Table surface (warm near-black, derived from ink, tin-shifted) ---- */
+  --pip-table:      #1E1512; /* base table surface */
+  --pip-table-hi:   #2A1E19; /* center "spotlight" lift (radial top) */
+  --pip-table-lo:   #120C0A; /* edge / vignette deepen */
+  --pip-rail:       #C9A24B; /* gold keyline framing the play area (use at alpha) */
+
+  /* ---- Card faces (bright, to maximise figure/ground contrast) ---- */
+  --pip-card-face:  #FCFAF4; /* warm paper-white face (not stark white) */
+  --pip-card-edge:  #E7DEC8; /* hairline edge of a bright card on dark ground */
+  --pip-card-ink:   #1C1714; /* black-suit rank + index (brand ink) */
+  --pip-card-red:   #7A1F1B; /* red-suit rank + index (brand tin-red, heritage) */
+
+  /* ---- Card back (face-down) — tin-red panel + gilt, pops on dark ground ---- */
+  --pip-card-back:    #5F1714; /* tin-red-lo field */
+  --pip-card-back-hi: #7A1F1B; /* tin-red center lift */
+  --pip-card-back-gilt: #C9A24B; /* gold lattice / keyline on the back */
+
+  /* ---- Seat panels on the dark surface (frosted, warm, low-noise) ---- */
+  --pip-seat:        rgba(243, 233, 210, 0.06); /* cream @ 6% — barely-there panel */
+  --pip-seat-edge:   rgba(243, 233, 210, 0.12); /* cream @ 12% hairline */
+}
+
+/* ----------------------------------------------------------------------------
+   Utilities
+   ---------------------------------------------------------------------------- */
+
+/* The calm dark surface. A single soft radial gives depth + a gentle spotlight
+   on the table center (where the discard / active info live) with ZERO texture
+   noise. This is the figure/ground engine of GAM-43. */
+.pip-table-surface {
+  background-color: var(--pip-table);
+  background-image: radial-gradient(
+    125% 95% at 50% 36%,
+    var(--pip-table-hi) 0%,
+    var(--pip-table) 46%,
+    var(--pip-table-lo) 100%
+  );
+}
+
+/* Optional thin gold keyline framing the play area (brand "gilt rule"). Keep it
+   a hairline at low alpha — a frame, not decoration. */
+.pip-table-rail {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--pip-rail) 28%, transparent);
+}
+
+/* Bright card face. Minimal framing: hairline edge only, soft lift shadow to
+   separate the figure from the dark ground. */
+.pip-card-face {
+  background: var(--pip-card-face);
+  border: 1px solid var(--pip-card-edge);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+}
+
+/* Face-down back — tin-red field with a gold keyline. */
+.pip-card-back {
+  background-color: var(--pip-card-back);
+  background-image: radial-gradient(70% 70% at 50% 42%, var(--pip-card-back-hi) 0%, var(--pip-card-back) 100%);
+  border: 1px solid color-mix(in oklab, var(--pip-card-back-gilt) 55%, transparent);
+}
+
+/* Frosted seat panel, warm (cream-tinted) instead of cold white. */
+.pip-seat-panel {
+  background: var(--pip-seat);
+  border: 1px solid var(--pip-seat-edge);
+  backdrop-filter: blur(6px);
+}

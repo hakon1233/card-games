@@ -22,14 +22,46 @@ const FAN_LIFT_CURVE = 0.9;
 // being clipped or shifting layout. Must cover the largest -translate-y used.
 const LIFT_HEADROOM = 14;
 
+// The hand re-shapes — not just re-scales — across device form factors (GAM-50):
+//   • portrait   — a compact arc that stays low and thumb-reachable.
+//   • standard   — the baseline desktop-window fan (identity, unchanged).
+//   • widescreen — a visibly wider arc: cards spread apart (larger gap) and the
+//     fan opens up, so the cards are *repositioned* rather than merely zoomed.
+// Each profile scales the per-card rotation, the lift curve, and the inter-card
+// gap that decides how far cards spread when there is room. `standard` is
+// identity so the long-established baseline layout is byte-for-byte untouched.
+export type HandFormFactor = "portrait" | "standard" | "widescreen";
+
+const ARC_PROFILES: Record<HandFormFactor, { rotation: number; lift: number; gap: number }> = {
+  portrait: { rotation: 0.7, lift: 0.7, gap: HAND_GAP },
+  standard: { rotation: 1, lift: 1, gap: HAND_GAP },
+  widescreen: { rotation: 1.5, lift: 1.3, gap: HAND_GAP * 3 },
+};
+
+// Round to nearest integer by magnitude so the fan stays symmetric about the
+// centre card. Plain Math.round breaks ties toward +∞, which skews the two
+// halves of the arc once a profile multiplier yields *.5 degree angles.
+function symmetricRound(value: number) {
+  return Math.sign(value) * Math.round(Math.abs(value));
+}
+
 interface HandLayoutInput {
   count: number;
   handWidth: number;
   cardDimensions: { width: number; height: number; cornerWidth: number };
+  formFactor?: HandFormFactor;
 }
 
-export function calculateHandLayout({ count, handWidth, cardDimensions }: HandLayoutInput) {
-  const naturalStride = cardDimensions.width + HAND_GAP;
+export function calculateHandLayout({
+  count,
+  handWidth,
+  cardDimensions,
+  formFactor = "standard",
+}: HandLayoutInput) {
+  const profile = ARC_PROFILES[formFactor] ?? ARC_PROFILES.standard;
+  // Widescreen spreads cards farther apart so the arc literally widens; portrait
+  // and standard keep the tight natural gap so the hand stays thumb-reachable.
+  const naturalStride = cardDimensions.width + profile.gap;
   const compactStride = cardDimensions.cornerWidth;
   let stride = naturalStride;
 
@@ -42,12 +74,14 @@ export function calculateHandLayout({ count, handWidth, cardDimensions }: HandLa
   const contentWidth = count > 0 ? cardDimensions.width + stride * (count - 1) : 0;
   const needsScroll = handWidth > 0 && contentWidth > handWidth;
   const midpoint = (count - 1) / 2;
+  const rotationStep = FAN_ROTATION_DEG * profile.rotation;
+  const liftCurve = FAN_LIFT_CURVE * profile.lift;
 
   const cards = Array.from({ length: count }, (_, index) => {
     const offset = index - midpoint;
     return {
-      rotation: offset * FAN_ROTATION_DEG,
-      translateY: Math.round(Math.abs(offset) ** 2 * FAN_LIFT_CURVE),
+      rotation: symmetricRound(offset * rotationStep),
+      translateY: Math.round(Math.abs(offset) ** 2 * liftCurve),
     };
   });
 
@@ -98,6 +132,9 @@ interface CardHandProps {
   label?: string;
   size?: "sm" | "md";
   cardClassName?: (card: ShellCard, index: number) => string;
+  /** Device form factor — reshapes the fan (wider arc on widescreen, compact in
+   *  the portrait thumb zone). Defaults to the baseline desktop fan. */
+  formFactor?: HandFormFactor;
 }
 
 export function CardHand({
@@ -112,6 +149,7 @@ export function CardHand({
   label,
   size = "md",
   cardClassName,
+  formFactor = "standard",
 }: CardHandProps) {
   const defaultSort = GAME_DEFAULT_SORT[gameType] ?? "none";
   const [preferredSort, setPreferredSort] = useState<SortStrategy | null>(null);
@@ -153,6 +191,7 @@ export function CardHand({
     count,
     handWidth,
     cardDimensions: dims,
+    formFactor,
   });
 
   function applySort(nextSort: SortStrategy) {

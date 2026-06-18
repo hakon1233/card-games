@@ -28,6 +28,13 @@ export interface YanivRoundResult {
   callerId: string;
   assaf: boolean;
   handTotals: Record<string, number>;
+  /**
+   * Actual change applied to each player's cumulative score this round. Already
+   * accounts for the Assaf penalty and the 50/100 halving rule, so
+   * `score === previousScore + scoreDeltas[id]` always holds. Keyed by player id;
+   * eliminated-before-this-round players are omitted.
+   */
+  scoreDeltas: Record<string, number>;
 }
 
 export interface YanivQuickDrawWindow {
@@ -276,6 +283,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
   );
   const assaf = assafWinnerIds.size > 0;
 
+  const scoreDeltas: Record<string, number> = {};
   const updatedPlayers = state.players.map((p) => {
     if (p.eliminated) return p;
 
@@ -292,6 +300,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     if (newScore === 50) newScore = 25;
     else if (newScore === 100) newScore = 50;
 
+    scoreDeltas[p.id] = newScore - p.score;
     return { ...p, score: newScore, eliminated: newScore > scoreLimit };
   });
 
@@ -302,7 +311,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     ...state,
     players: updatedPlayers,
     status: gameOver ? "game_over" : "round_over",
-    roundResult: { callerId, assaf, handTotals },
+    roundResult: { callerId, assaf, handTotals, scoreDeltas },
     winnerId: gameOver ? (alive[0]?.id ?? null) : null,
   };
 }

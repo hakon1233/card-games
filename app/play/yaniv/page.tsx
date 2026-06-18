@@ -219,6 +219,7 @@ function runBotLoop(state: YanivGameState): YanivGameState {
 
 export default function YanivPage() {
   const router = useRouter();
+  const formFactor = useYanivTableFormFactor();
   const [gameState, setGameState] = useState<YanivGameState | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [roundsWon, setRoundsWon] = useState(0);
@@ -892,6 +893,7 @@ export default function YanivPage() {
           <CardHand
             cards={player.hand.map((card) => toShellCard(card))}
             gameType="yaniv"
+            formFactor={formFactor}
             selectedIndices={selected}
             disabledIndices={cardDisabled.map((isDisabled, i) => (isDisabled ? i : -1)).filter((i) => i >= 0)}
             onCardClick={(_, i) => toggleCard(i)}
@@ -1234,7 +1236,7 @@ function PlayerSeatNode({
   turnSecondsLeft,
   idlePulses,
   badge,
-  scoreFeedback: _scoreFeedback,
+  scoreFeedback,
   style,
 }: {
   player: YanivPlayer;

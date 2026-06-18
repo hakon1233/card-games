@@ -13,7 +13,7 @@ export type SortStrategy =
   | "value-desc";
 
 export const SORT_LABELS: Record<SortStrategy, string> = {
-  none: "Dealt order",
+  none: "Manual order",
   "rank-asc": "Rank: A to K",
   "rank-desc": "Rank: K to A",
   "suit-then-rank": "Suit, then rank",
@@ -24,10 +24,10 @@ export const SORT_LABELS: Record<SortStrategy, string> = {
 };
 
 export const GAME_DEFAULT_SORT: Record<string, SortStrategy> = {
-  blackjack: "rank-asc",
-  go_fish: "rank-then-suit",
-  crazy_eights: "suit-then-rank",
-  yaniv: "value-asc",
+  blackjack: "none",
+  go_fish: "none",
+  crazy_eights: "none",
+  yaniv: "none",
 };
 
 const SORT_STRATEGIES: SortStrategy[] = [
@@ -124,6 +124,20 @@ export function sortCardsWithOriginalIndices<T extends SortableCard>(
         a.originalIndex - b.originalIndex,
       ),
     );
+}
+
+export function orderCardKeysForHand<T extends SortableCard>(
+  cards: T[],
+  previousOrder: string[],
+  getCardKey: (card: T, index: number) => string,
+): string[] {
+  const nextKeys = cards.map(getCardKey);
+  const activeKeys = new Set(nextKeys);
+  const orderedExisting = previousOrder.filter((key) => activeKeys.has(key));
+  const orderedSet = new Set(orderedExisting);
+  const newKeys = nextKeys.filter((key) => !orderedSet.has(key));
+
+  return [...orderedExisting, ...newKeys];
 }
 
 export function sortCards<T extends SortableCard>(

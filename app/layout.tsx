@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Playfair_Display } from "next/font/google";
 import { AnimationPreferencesProvider } from "@/components/game/animation-preferences-control";
+import { CardDeckProvider } from "@/components/game/card-deck-control";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -46,6 +47,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AnimationPreferencesProvider />
+        <CardDeckProvider />
         {children}
       </body>
     </html>

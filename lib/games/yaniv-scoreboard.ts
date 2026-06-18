@@ -23,23 +23,17 @@ export function getYanivScoreboardRows(state: YanivGameState): YanivScoreboardRo
   const result = state.roundResult;
   if (!result) return [];
 
-  return state.players.map((player) => {
-    // Raw points added this round (before halving). The caller scores 0 (or 30
-    // for Assaf); everyone else scores their hand total.
-    const rawDelta = player.eliminated
-      ? 0
-      : player.id === result.callerId
-        ? result.assaf ? 30 : 0
-        : (result.handTotals[player.id] ?? 0);
-
-    return {
-      id: player.id,
-      name: player.name,
-      handTotal: result.handTotals[player.id] ?? 0,
-      roundDelta: rawDelta,
-      cumulativeScore: player.score,
-      thresholdState: getThresholdState(player.score, state.settings.scoreLimit, player.eliminated),
-      eliminated: player.eliminated,
-    };
-  });
+  return state.players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    handTotal: result.handTotals[player.id] ?? 0,
+    // Source of truth: the engine records the exact change applied to each
+    // cumulative score (Assaf penalty, Assaf-winner zeroing, and the 50/100
+    // halving all included). Using it guarantees the animated delta reconciles
+    // with the displayed total — `cumulativeScore === previousScore + roundDelta`.
+    roundDelta: result.scoreDeltas[player.id] ?? 0,
+    cumulativeScore: player.score,
+    thresholdState: getThresholdState(player.score, state.settings.scoreLimit, player.eliminated),
+    eliminated: player.eliminated,
+  }));
 }
