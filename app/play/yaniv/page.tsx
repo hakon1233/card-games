@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useId } from "react";
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -527,7 +527,11 @@ export default function YanivPage() {
             </span>
             <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
               <span>Score: {player.score}</span>
-              <span>Hand: {playerTotal}</span>
+              <ContextTooltip
+                text={`Your hand total is ${playerTotal}. You can call Yaniv when it is ${gameState.settings.yanivThreshold} or less.`}
+              >
+                <span>Hand: {playerTotal}</span>
+              </ContextTooltip>
             </div>
           </div>
           <CardHand
@@ -554,36 +558,51 @@ export default function YanivPage() {
         {isMyTurn && (
           <div className="flex flex-col gap-2">
             {canYaniv && (
-              <Button
-                onClick={callYaniv}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+              <ContextTooltip
+                text="End the round now. If another player has an equal or lower hand, you take the Assaf penalty."
+                className="w-full"
               >
-                Call Yaniv! (hand = {playerTotal})
-              </Button>
+                <Button
+                  onClick={callYaniv}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                >
+                  Call Yaniv! (hand = {playerTotal})
+                </Button>
+              </ContextTooltip>
             )}
             {selected.length > 0 && (
               <SelectionSummary cards={selectedCards} selection={selection} />
             )}
             <div className="flex gap-2">
-              <Button
-                onClick={() => discardAndDraw(false)}
-                disabled={!canDiscard}
+              <ContextTooltip
+                text="Discard your selected legal set, then draw one unknown card from the deck."
                 className="flex-1"
-                variant="default"
               >
-                Discard &amp; Draw from Deck
-              </Button>
-              <Button
-                onClick={() => discardAndDraw(true)}
-                disabled={!canDiscard || topGroup.length === 0}
+                <Button
+                  onClick={() => discardAndDraw(false)}
+                  disabled={!canDiscard}
+                  className="w-full"
+                  variant="default"
+                >
+                  Discard &amp; Draw from Deck
+                </Button>
+              </ContextTooltip>
+              <ContextTooltip
+                text="Discard your selected legal set, then take the visible card from the top discard group."
                 className="flex-1"
-                variant="outline"
               >
-                Discard &amp; Take{" "}
-                {topGroup.length > 0
-                  ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
-                  : "pile"}
-              </Button>
+                <Button
+                  onClick={() => discardAndDraw(true)}
+                  disabled={!canDiscard || topGroup.length === 0}
+                  className="w-full"
+                  variant="outline"
+                >
+                  Discard &amp; Take{" "}
+                  {topGroup.length > 0
+                    ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
+                    : "pile"}
+                </Button>
+              </ContextTooltip>
             </div>
             {selected.length === 0 && !canYaniv && (
               <p className="text-muted-foreground text-xs text-center">
@@ -879,7 +898,16 @@ function PlayerSeatNode({
       }}
     >
       {/* Avatar */}
-      <div className="relative flex items-center justify-center">
+      <ContextTooltip
+        text={
+          isActive
+            ? "Active turn. The ring drains as time runs out; at zero a safe discard is auto-played."
+            : isNext
+            ? `${player.name} plays next.`
+            : `${player.name}'s seat. The badge shows how many cards are left in hand.`
+        }
+        className="relative flex items-center justify-center"
+      >
         {/* Co-located turn countdown ring (time remaining this turn) */}
         {showTurnRing && (
           <TurnCountdownRing progress={turnProgress ?? 1} />
@@ -948,7 +976,7 @@ function PlayerSeatNode({
             </span>
           </div>
         )}
-      </div>
+      </ContextTooltip>
 
       {/* Name */}
       <span
@@ -1061,7 +1089,14 @@ function QuickDrawPile({
   const offset = circumference * (1 - progress);
 
   return (
-    <div className="relative flex items-center gap-1">
+    <ContextTooltip
+      text={
+        canSteal
+          ? "Quick draw: steal this fresh discard before the timer empties."
+          : "Quick draw window — another player may grab this fresh discard."
+      }
+      className="relative flex items-center gap-1"
+    >
       {cards.map((card, i) => (
         <div
           key={i}
@@ -1120,7 +1155,7 @@ function QuickDrawPile({
           aria-label="Steal discarded cards"
         />
       )}
-    </div>
+    </ContextTooltip>
   );
 }
 
@@ -1146,7 +1181,14 @@ function DiscardPileGroup({
   // a discarded set/run shows each card a notch smaller so the row still fits.
   const cardSize = group.length === 1 ? "lg" : "md";
   return (
-    <div className="relative">
+    <ContextTooltip
+      text={
+        canDraw
+          ? "Take one visible card here instead of drawing blind from the deck."
+          : "The discard pile — its newest face-up group is takeable right after you discard."
+      }
+      className="relative"
+    >
       {/* Offset backing cards convey that this is a stack of past discards. */}
       <div
         className="absolute rounded-lg bg-muted-foreground/15 border border-border"
@@ -1178,7 +1220,7 @@ function DiscardPileGroup({
           </button>
         ))}
       </div>
-    </div>
+    </ContextTooltip>
   );
 }
 
@@ -1201,11 +1243,14 @@ function DeckVisual({ count }: { count: number }) {
   // Sized to roughly match the large discard card so the two piles read as a pair,
   // while the green face-down backs keep the draw pile unmistakably distinct.
   return (
-    <div
-      className="relative w-20 h-28"
-      aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
-      role="img"
+    <ContextTooltip
+      text={`Draw deck — ${count} unknown card${count === 1 ? "" : "s"} left to draw blind.`}
     >
+      <div
+        className="relative w-20 h-28"
+        aria-label={`draw deck with ${count} card${count === 1 ? "" : "s"} remaining`}
+        role="img"
+      >
       {Array.from({ length: layers }, (_, i) => {
         const isTop = i === topIndex;
         const depth = topIndex - i;
@@ -1230,6 +1275,89 @@ function DeckVisual({ count }: { count: number }) {
           </div>
         );
       })}
+      </div>
+    </ContextTooltip>
+  );
+}
+
+// ── ContextTooltip ────────────────────────────────────────────────────────
+// Progressive-disclosure teaching tooltip (GAM-60). Rules surface in context —
+// on hover or keyboard focus (desktop) and on long-press (touch) — instead of a
+// blocking upfront tutorial. Wraps any element; the tooltip is announced to
+// assistive tech via role="tooltip" + aria-describedby.
+function ContextTooltip({
+  text,
+  children,
+  className = "",
+}: {
+  text: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const id = useId();
+  const [visible, setVisible] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearTimers() {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    longPressTimerRef.current = null;
+    hideTimerRef.current = null;
+  }
+
+  function show() {
+    clearTimers();
+    setVisible(true);
+  }
+
+  function hideSoon() {
+    clearTimers();
+    hideTimerRef.current = setTimeout(() => setVisible(false), 120);
+  }
+
+  // Touch: a deliberate long-press (≈450ms) reveals the tooltip without
+  // triggering the wrapped control's tap action prematurely.
+  function startLongPress(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse") return;
+    clearTimers();
+    longPressTimerRef.current = setTimeout(() => setVisible(true), 450);
+  }
+
+  function endLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (visible) {
+      hideTimerRef.current = setTimeout(() => setVisible(false), 1400);
+    }
+  }
+
+  useEffect(() => clearTimers, []);
+
+  return (
+    <div
+      className={`relative inline-flex min-w-0 ${className}`}
+      aria-describedby={visible ? id : undefined}
+      onMouseEnter={show}
+      onMouseLeave={hideSoon}
+      onFocus={show}
+      onBlur={hideSoon}
+      onPointerDown={startLongPress}
+      onPointerUp={endLongPress}
+      onPointerCancel={endLongPress}
+    >
+      {children}
+      {visible && (
+        <div
+          id={id}
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-md border border-white/15 bg-popover px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug text-popover-foreground shadow-xl"
+        >
+          {text}
+        </div>
+      )}
     </div>
   );
 }
