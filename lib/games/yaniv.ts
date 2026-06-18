@@ -60,6 +60,15 @@ export interface YanivGameState {
   quickDrawWindow: YanivQuickDrawWindow | null;
 }
 
+export interface YanivStanding {
+  rank: number;
+  playerId: string;
+  name: string;
+  score: number;
+  eliminated: boolean;
+  isWinner: boolean;
+}
+
 export type YanivAction =
   | { type: "DISCARD_AND_DRAW"; playerId: string; discardIndices: number[]; drawFromDiscard: boolean; drawDiscardIndex?: number }
   | { type: "QUICK_DRAW_STEAL"; playerId: string }
@@ -226,6 +235,24 @@ export function dealGame(
     settings,
     quickDrawWindow: null,
   };
+}
+
+export function getFinalStandings(state: YanivGameState): YanivStanding[] {
+  return [...state.players]
+    .sort((a, b) => {
+      if (a.id === state.winnerId) return -1;
+      if (b.id === state.winnerId) return 1;
+      if (a.eliminated !== b.eliminated) return a.eliminated ? 1 : -1;
+      return a.score - b.score;
+    })
+    .map((player, index) => ({
+      rank: index + 1,
+      playerId: player.id,
+      name: player.name,
+      score: player.score,
+      eliminated: player.eliminated,
+      isWinner: player.id === state.winnerId,
+    }));
 }
 
 function applyScore(state: YanivGameState, callerId: string): YanivGameState {

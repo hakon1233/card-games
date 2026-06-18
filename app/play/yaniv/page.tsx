@@ -15,6 +15,7 @@ import {
   yanivCardValue,
   describeSelection,
   getDiscardTopGroup,
+  getFinalStandings,
   canAddToSelection,
   DEFAULT_YANIV_SETTINGS,
   type YanivGameState,
@@ -464,6 +465,8 @@ export default function YanivPage() {
   const topGroup = getDiscardTopGroup(gameState);
   const isRoundOver = gameState.status === "round_over";
   const isGameOver = gameState.status === "game_over";
+  const finalStandings = isGameOver ? getFinalStandings(gameState) : [];
+  const winnerName = finalStandings.find((row) => row.isWinner)?.name;
   const qdWindow = gameState.quickDrawWindow;
   const qdActive = !!qdWindow;
   const qdPlayerCanSteal =
@@ -625,12 +628,20 @@ export default function YanivPage() {
 
       {isGameOver && (
         <EndGameScreen
-          headline={gameState.winnerId === PLAYER_ID ? "You Win!" : "Bot Wins"}
+          headline={gameState.winnerId === PLAYER_ID ? "You Win!" : "Game Complete"}
           subline={
             gameState.winnerId === PLAYER_ID
-              ? "You outlasted the bot!"
-              : "Better luck next time."
+              ? "You outlasted the table."
+              : `${winnerName ?? "The winner"} outlasted the table.`
           }
+          winnerName={winnerName}
+          standings={finalStandings.map((row) => ({
+            rank: row.rank,
+            name: row.name,
+            score: row.score,
+            eliminated: row.eliminated,
+            isWinner: row.isWinner,
+          }))}
           sessionRows={[
             { label: "Rounds Won", value: roundsWon },
             { label: "Rounds Lost", value: roundsLost },

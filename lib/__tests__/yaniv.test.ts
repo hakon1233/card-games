@@ -7,6 +7,7 @@ import {
   isValidDiscard,
   yanivCardValue,
   describeSelection,
+  getFinalStandings,
 } from "../games/yaniv";
 import { YanivBot } from "../bots/yaniv-bot";
 
@@ -366,5 +367,48 @@ describe("full game simulation", () => {
     expect(state.winnerId).toBeTruthy();
     // At least one player must be eliminated
     expect(state.players.some((p) => p.eliminated)).toBe(true);
+  });
+});
+
+describe("getFinalStandings", () => {
+  it("places the winner first, then orders the final table by score", () => {
+    const state = dealGame("standings", [
+      { id: "player-1", name: "You", isBot: false },
+      { id: "bot-1", name: "Bot 1", isBot: true },
+      { id: "bot-2", name: "Bot 2", isBot: true },
+      { id: "bot-3", name: "Bot 3", isBot: true },
+    ]);
+
+    const standings = getFinalStandings({
+      ...state,
+      status: "game_over",
+      winnerId: "bot-2",
+      players: [
+        { ...state.players[0], score: 40, eliminated: false },
+        { ...state.players[1], score: 210, eliminated: true },
+        { ...state.players[2], score: 55, eliminated: false },
+        { ...state.players[3], score: 160, eliminated: true },
+      ],
+    });
+
+    expect(standings.map((row) => row.playerId)).toEqual([
+      "bot-2",
+      "player-1",
+      "bot-3",
+      "bot-1",
+    ]);
+    expect(standings[0]).toMatchObject({
+      rank: 1,
+      name: "Bot 2",
+      score: 55,
+      isWinner: true,
+      eliminated: false,
+    });
+    expect(standings[3]).toMatchObject({
+      rank: 4,
+      score: 210,
+      eliminated: true,
+      isWinner: false,
+    });
   });
 });
