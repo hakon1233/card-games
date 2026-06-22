@@ -1,7 +1,7 @@
 "use client";
 
 import { Palette, SwatchBook } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { ComponentType } from "react";
 
 import {
@@ -30,20 +30,41 @@ function applyCardDeck(deck: CardDeck) {
   document.documentElement.dataset.cardDeck = deck;
 }
 
+// The persisted deck lives in localStorage — a client-only value. We expose it
+// through useSyncExternalStore so the control stays hydration-safe (GAM-87):
+// `getServerSnapshot` (and the very first client render during hydration)
+// return the "two-color" fallback, matching the server HTML; React then
+// re-renders with the real stored value from `getSnapshot`. Reading
+// localStorage in a useState initializer instead diverged from SSR and froze
+// the toggle on "two-color" until the first state change.
+const deckListeners = new Set<() => void>();
+
+function subscribeDeck(onChange: () => void) {
+  deckListeners.add(onChange);
+  return () => {
+    deckListeners.delete(onChange);
+  };
+}
+
+function getServerDeck(): CardDeck {
+  return "two-color";
+}
+
 export function useCardDeck() {
-  const [deck, setDeck] = useState<CardDeck>(readInitialDeck);
+  const deck = useSyncExternalStore(subscribeDeck, readInitialDeck, getServerDeck);
 
   useEffect(() => {
     applyCardDeck(deck);
   }, [deck]);
 
   function updateDeck(next: CardDeck) {
-    setDeck(next);
     try {
       window.localStorage.setItem(CARD_DECK_STORAGE_KEY, next);
     } catch {
       // Non-critical preference persistence.
     }
+    // Notify subscribers so the snapshot (now reflecting localStorage) re-reads.
+    deckListeners.forEach((listener) => listener());
   }
 
   return [deck, updateDeck] as const;
