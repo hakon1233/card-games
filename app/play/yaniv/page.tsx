@@ -126,6 +126,7 @@ export default function YanivPage() {
   const gameStateRef = useRef<YanivGameState | null>(null);
   const badgeKeyRef = useRef(0);
   const badgeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const turnClockGenerationRef = useRef(0);
 
   const [numBots, setNumBots] = useState(1);
   const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
@@ -157,6 +158,10 @@ export default function YanivPage() {
   }
 
   function dispatch(state: YanivGameState, triggerAction?: YanivAction) {
+    // BUG-GAM-76: invalidate this clock synchronously. React cleans up effects
+    // after the state transition, so an expiring interval can otherwise tick
+    // once more and apply its 0s result to the next human turn.
+    turnClockGenerationRef.current += 1;
     if (triggerAction) {
       const info = actionBadgeInfo(triggerAction);
       if (info) showBadge(info.playerId, info.text, info.variant);
@@ -288,8 +293,13 @@ export default function YanivPage() {
       return;
     }
     queueMicrotask(() => setTurnTimeLeft(TURN_MS));
+    const turnClockGeneration = turnClockGenerationRef.current;
     const startTime = Date.now();
     const interval = setInterval(() => {
+      if (turnClockGeneration !== turnClockGenerationRef.current) {
+        clearInterval(interval);
+        return;
+      }
       const remaining = Math.max(0, TURN_MS - (Date.now() - startTime));
       setTurnTimeLeft(remaining);
       if (remaining === 0) {
