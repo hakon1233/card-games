@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Playfair_Display } from "next/font/google";
+import { AnimationPreferencesProvider } from "@/components/game/animation-preferences-control";
+import { CardDeckProvider } from "@/components/game/card-deck-control";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -43,7 +45,11 @@ export default function RootLayout({
       lang="en"
       className={`${playfair.variable} ${lora.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AnimationPreferencesProvider />
+        <CardDeckProvider />
+        {children}
+      </body>
     </html>
   );
 }

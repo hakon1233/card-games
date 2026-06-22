@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GAM-43 — Court &amp; Tin table surface vs. bright card faces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---- Court & Tin brand tokens (GAM-39, locked) ---- */
+  :root{
+    --pip-tin-red:#7A1F1B; --pip-tin-red-hi:#8E2622; --pip-tin-red-lo:#5F1714;
+    --pip-cream:#F3E9D2; --pip-cream-hi:#F7F0DD;
+    --pip-gold:#C9A24B; --pip-gold-light:#E7C06A; --pip-gold-dark:#9C6A2F;
+    --pip-ink:#1C1714;
+    --pip-font-display:'Playfair Display',Didot,serif;
+    --pip-font-body:'Lora',Georgia,serif;
+
+    /* ---- GAM-43 table-surface system ---- */
+    --pip-table:#1E1512; --pip-table-hi:#2A1E19; --pip-table-lo:#120C0A;
+    --pip-rail:#C9A24B;
+    --pip-card-face:#FCFAF4; --pip-card-edge:#E7DEC8;
+    --pip-card-ink:#1C1714; --pip-card-red:#7A1F1B;
+    --pip-card-back:#5F1714; --pip-card-back-hi:#7A1F1B; --pip-card-back-gilt:#C9A24B;
+    --pip-seat:rgba(243,233,210,0.06); --pip-seat-edge:rgba(243,233,210,0.12);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b0b0c;color:var(--pip-cream);font-family:var(--pip-font-body);padding:32px 20px 64px}
+  h1{font-family:var(--pip-font-display);font-weight:900;color:var(--pip-cream-hi);font-size:26px;margin:0 0 4px}
+  .sub{color:#9b9087;font-size:13px;margin:0 0 28px;max-width:760px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1180px;margin:0 auto}
+  @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  .label{font-family:var(--pip-font-display);font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;margin:0 0 10px;color:#b7ab9d}
+  .tag-bad{color:#c98a8a}
+  .tag-good{color:var(--pip-gold-light)}
+
+  /* ---- the table shell ---- */
+  .table{border-radius:20px;overflow:hidden;min-height:440px;display:flex;flex-direction:column;gap:18px;padding:22px;position:relative}
+  /* BEFORE: flat green felt */
+  .felt-old{background:#0f5132}
+  .felt-old .seat{background:rgba(255,255,255,.10)}
+  .felt-old .card-back{background:#1a6b3c;border:1px solid rgba(255,255,255,.2)}
+  /* AFTER: calm dark Court & Tin surface */
+  .felt-new{
+    background-color:var(--pip-table);
+    background-image:radial-gradient(125% 95% at 50% 36%,var(--pip-table-hi) 0%,var(--pip-table) 46%,var(--pip-table-lo) 100%);
+    box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--pip-rail) 26%,transparent);
+  }
+  .felt-new .seat{background:var(--pip-seat);border:1px solid var(--pip-seat-edge);backdrop-filter:blur(6px)}
+  .felt-new .card-back{
+    background-color:var(--pip-card-back);
+    background-image:radial-gradient(70% 70% at 50% 42%,var(--pip-card-back-hi),var(--pip-card-back));
+    border:1px solid color-mix(in oklab,var(--pip-card-back-gilt) 55%,transparent);
+  }
+  .felt-new .card-back::after{content:"♠";color:var(--pip-card-back-gilt);font-size:20px;opacity:.85}
+
+  /* ---- seats ---- */
+  .seat-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .seat{border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .seat .name{font-size:12px;font-weight:600;opacity:.9}
+  .seat .count{font-size:11px;opacity:.7}
+  .mini{display:flex}
+  .mini .card-back{width:26px;height:36px;border-radius:5px;margin-left:-10px;display:flex;align-items:center;justify-content:center}
+  .mini .card-back:first-child{margin-left:0}
+
+  /* ---- center: lit discard ---- */
+  .center{flex:1;display:flex;align-items:center;justify-content:center;gap:14px}
+  .pile-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55;text-align:center;margin-bottom:6px}
+
+  /* ---- bright card face ---- */
+  .card{width:74px;height:104px;border-radius:9px;position:relative;display:flex;align-items:center;justify-content:center}
+  .card-back{border-radius:9px;display:flex;align-items:center;justify-content:center}
+  .felt-old .face{background:#fff;border:1px solid #e5e7eb;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+  .felt-new .face{background:var(--pip-card-face);border:1px solid var(--pip-card-edge);
+    box-shadow:0 3px 9px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.6)}
+  /* corner index — big + bold (acceptance: "big bold corner indices, minimal framing") */
+  .idx{position:absolute;top:6px;left:7px;display:flex;flex-direction:column;align-items:center;line-height:.86;font-weight:700;font-family:var(--pip-font-display)}
+  .idx .r{font-size:22px}
+  .idx .s{font-size:15px;margin-top:1px}
+  .idx.br{top:auto;left:auto;bottom:6px;right:7px;transform:rotate(180deg)}
+  .pip-center{font-size:30px;font-family:var(--pip-font-display)}
+  .felt-old .red{color:#dc2626}.felt-old .blk{color:#111827}
+  .felt-new .red{color:var(--pip-card-red)}.felt-new .blk{color:var(--pip-card-ink)}
+
+  .hand{display:flex;justify-content:center}
+  .hand .card{margin-left:-22px}
+  .hand .card:first-child{margin-left:0}
+
+  .swatches{max-width:1180px;margin:34px auto 0;display:flex;flex-wrap:wrap;gap:10px}
+  .sw{display:flex;align-items:center;gap:8px;font-size:11px;color:#b7ab9d;background:#161617;border:1px solid #262320;border-radius:8px;padding:6px 10px}
+  .chip{width:18px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+  <h1>Calm dark surface, bright card faces</h1>
+  <p class="sub">GAM-43 · The table is <em>ground</em>, the cards are <em>figure</em>. Left: today's flat green felt — the surface competes with the cards. Right: the Court &amp; Tin surface (warm near-black derived from <code>ink</code> + a whisper of <code>tin-red</code>, a soft center spotlight, a hairline gold rail). Bright warm-white faces with big bold corner indices and a tin-red+gilt back pop off the dark ground; the eye lands on the lit center and the cards, never the felt.</p>
+
+  <div class="grid">
+    <!-- BEFORE -->
+    <div>
+      <p class="label tag-bad">Before · green felt (#0f5132)</p>
+      <div class="table felt-old">
+        <div class="seat-row">
+          <div class="seat"><div class="mini"><div class="card-back"></div><div class="card-back"></div><div class="card-back"></div></div><span class="name">Maya</span><span class="count">3 cards</span></div>
+          <div class="seat"><div class="mini"><div class="card-back"></div><div class="card-back"></div></div><span class="name">Ravi</span><span class="count">2 cards</span></div>
+        </div>
+        <div class="center">
+          <div><div class="pile-label">Draw</div><div class="card card-back"></div></div>
+          <div><div class="pile-label">Discard</div>
+            <div class="card face"><span class="idx red"><span class="r">9</span><span class="s">♥</span></span><span class="pip-center red">♥</span><span class="idx br red"><span class="r">9</span><span class="s">♥</span></span></div>
+          </div>
+        </div>
+        <div class="hand">
+          <div class="card face"><span class="idx blk"><span class="r">A</span><span class="s">♠</span></span><span class="pip-center blk">♠</span><span class="idx br blk"><span class="r">A</span><span class="s">♠</span></span></div>
+          <div class="card face"><span class="idx red"><span class="r">7</span><span class="s">♦</span></span><span class="pip-center red">♦</span><span class="idx br red"><span class="r">7</span><span class="s">♦</span></span></div>
+          <div class="card face"><span class="idx blk"><span class="r">K</span><span class="s">♣</span></span><span class="pip-center blk">♣</span><span class="idx br blk"><span class="r">K</span><span class="s">♣</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <p class="label tag-good">After · Court &amp; Tin surface</p>
+      <div class="table felt-new">
+        <div class="seat-row">
+          <div class="seat"><div class="mini"><div class="card-back"></div><div class="card-back"></div><div class="card-back"></div></div><span class="name">Maya</span><span class="count">3 cards</span></div>
+          <div class="seat"><div class="mini"><div class="card-back"></div><div class="card-back"></div></div><span class="name">Ravi</span><span class="count">2 cards</span></div>
+        </div>
+        <div class="center">
+          <div><div class="pile-label">Draw</div><div class="card card-back"></div></div>
+          <div><div class="pile-label">Discard</div>
+            <div class="card face"><span class="idx red"><span class="r">9</span><span class="s">♥</span></span><span class="pip-center red">♥</span><span class="idx br red"><span class="r">9</span><span class="s">♥</span></span></div>
+          </div>
+        </div>
+        <div class="hand">
+          <div class="card face"><span class="idx blk"><span class="r">A</span><span class="s">♠</span></span><span class="pip-center blk">♠</span><span class="idx br blk"><span class="r">A</span><span class="s">♠</span></span></div>
+          <div class="card face"><span class="idx red"><span class="r">7</span><span class="s">♦</span></span><span class="pip-center red">♦</span><span class="idx br red"><span class="r">7</span><span class="s">♦</span></span></div>
+          <div class="card face"><span class="idx blk"><span class="r">K</span><span class="s">♣</span></span><span class="pip-center blk">♣</span><span class="idx br blk"><span class="r">K</span><span class="s">♣</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#1E1512"></span>table #1E1512</div>
+    <div class="sw"><span class="chip" style="background:#2A1E19"></span>table-hi #2A1E19</div>
+    <div class="sw"><span class="chip" style="background:#120C0A"></span>table-lo #120C0A</div>
+    <div class="sw"><span class="chip" style="background:#C9A24B"></span>gold rail #C9A24B</div>
+    <div class="sw"><span class="chip" style="background:#FCFAF4"></span>card face #FCFAF4</div>
+    <div class="sw"><span class="chip" style="background:#7A1F1B"></span>red index #7A1F1B</div>
+    <div class="sw"><span class="chip" style="background:#1C1714"></span>black index #1C1714</div>
+    <div class="sw"><span class="chip" style="background:#5F1714"></span>card back #5F1714</div>
+  </div>
+</body>
+</html>

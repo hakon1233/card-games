@@ -30,3 +30,32 @@ describe("PlayingCard sizing", () => {
     expect(html).toContain("text-4xl");
   });
 });
+
+describe("PlayingCard suit accessibility (GAM-55)", () => {
+  it("tags each suit with a CSS class so the four-color deck can recolor it", () => {
+    for (const [suit, cls] of [
+      ["hearts", "pip-suit-hearts"],
+      ["diamonds", "pip-suit-diamonds"],
+      ["clubs", "pip-suit-clubs"],
+      ["spades", "pip-suit-spades"],
+    ] as const) {
+      const html = renderToStaticMarkup(
+        createElement(PlayingCard, { card: { suit, rank: "7" as const, faceUp: true } }),
+      );
+      expect(html).toContain(cls);
+      // Color is never the only channel: the suit glyph is always rendered.
+      expect(html).toContain(SUIT_SYMBOL[suit]);
+    }
+  });
+
+  it("does not hardcode a raw red/black Tailwind color on the card", () => {
+    const html = renderToStaticMarkup(
+      createElement(PlayingCard, { card: { suit: "hearts" as const, rank: "7" as const, faceUp: true } }),
+    );
+    // Suit color must come from the toggleable CSS channel, not a fixed utility.
+    expect(html).not.toContain("text-red-600");
+    expect(html).not.toContain("text-gray-900");
+  });
+});
+
+const SUIT_SYMBOL = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" } as const;

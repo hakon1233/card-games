@@ -9,7 +9,16 @@ const SUIT_SYMBOL: Record<string, string> = {
   spades: "♠",
 };
 
-const RED_SUITS = new Set(["hearts", "diamonds"]);
+// Suit colour is driven by CSS so the four-color accessibility deck can override
+// it globally (see `.pip-suit-*` rules + `html[data-card-deck]` in globals.css).
+// The suit *glyph* (♥♦♣♠) is an always-on shape channel that distinguishes suits
+// without any reliance on colour — critical for colorblind players (GAM-55).
+const SUIT_COLOR_CLASS: Record<string, string> = {
+  hearts: "pip-suit-hearts",
+  diamonds: "pip-suit-diamonds",
+  clubs: "pip-suit-clubs",
+  spades: "pip-suit-spades",
+};
 
 type CardSize = "sm" | "md" | "lg";
 
@@ -52,7 +61,7 @@ interface CardProps {
 }
 
 export function bottomCornerRankText(rank: string) {
-  return rank;
+  return rank.length > 1 ? rank.split("").reverse().join("") : rank;
 }
 
 export function PlayingCard({ card, size = "md" }: CardProps) {
@@ -73,9 +82,8 @@ export function PlayingCard({ card, size = "md" }: CardProps) {
     );
   }
 
-  const isRed = RED_SUITS.has(card.suit);
   const symbol = SUIT_SYMBOL[card.suit];
-  const textColor = isRed ? "text-red-600" : "text-gray-900";
+  const suitColor = SUIT_COLOR_CLASS[card.suit];
 
   return (
     <div
@@ -83,7 +91,7 @@ export function PlayingCard({ card, size = "md" }: CardProps) {
         rounded-lg border border-gray-200 shadow-md bg-white select-none
         relative overflow-hidden
         ${style.box} ${style.rank}
-        ${textColor}
+        ${suitColor}
       `}
       aria-label={`${card.rank} of ${card.suit}`}
     >

@@ -4,6 +4,7 @@ import type { ShellCard } from "./shell-types";
 import {
   GAME_DEFAULT_SORT,
   SORT_LABELS,
+  orderCardKeysForHand,
   sortCards,
   sortCardsWithOriginalIndices,
   type SortStrategy,
@@ -32,10 +33,10 @@ describe("card sorting", () => {
 
     expect(Object.keys(SORT_LABELS).sort()).toEqual([...strategies].sort());
     expect(GAME_DEFAULT_SORT).toMatchObject({
-      blackjack: "rank-asc",
-      go_fish: "rank-then-suit",
-      crazy_eights: "suit-then-rank",
-      yaniv: "value-asc",
+      blackjack: "none",
+      go_fish: "none",
+      crazy_eights: "none",
+      yaniv: "none",
     });
   });
 
@@ -116,5 +117,25 @@ describe("card sorting", () => {
       { card: cards[2], originalIndex: 2 },
       { card: cards[0], originalIndex: 0 },
     ]);
+  });
+
+  it("preserves manual hand order across removed cards and appends newly drawn cards", () => {
+    const cards = [card("K", "clubs"), card("A", "spades"), card("5", "hearts")];
+    const key = (c: ShellCard) => `${c.rank}-${c.suit}`;
+    const manualOrder = ["5-hearts", "K-clubs", "A-spades"];
+
+    expect(orderCardKeysForHand(cards, manualOrder, key)).toEqual([
+      "5-hearts",
+      "K-clubs",
+      "A-spades",
+    ]);
+
+    expect(
+      orderCardKeysForHand(
+        [card("A", "spades"), card("5", "hearts"), card("Q", "diamonds")],
+        manualOrder,
+        key,
+      ),
+    ).toEqual(["5-hearts", "A-spades", "Q-diamonds"]);
   });
 });
