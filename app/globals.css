@@ -265,6 +265,13 @@ html[data-animation-speed="reduced"] *::after {
 
   .yaniv-player-ring {
     max-width: min(100%, 430px);
+    /* GAM-96: the square (aspect-ratio:1/1) ring is too tall for short phones
+       (iPhone SE = 375x667). The sticky bottom-zone then pins up over the ring's
+       centred pile, overlapping the "Discard" pile label and the hand-total
+       readout into a garbled string. Cap the ring height to viewport height so
+       only short viewports shrink it; taller phones (>=812) keep the square ring
+       (this expression exceeds the width-derived height there, so it's a no-op). */
+    max-height: calc(100svh - 28rem);
   }
 
   .yaniv-bottom-zone {
@@ -272,6 +279,13 @@ html[data-animation-speed="reduced"] *::after {
     bottom: max(0.75rem, env(safe-area-inset-bottom));
     z-index: 5;
     margin-top: auto;
+    /* GAM-96: opaque felt backing so the sticky panel cleanly covers the
+       redundant own-seat node that tucks behind it on short phones, instead of
+       letting its "your turn" label bleed through the translucent panel. */
+    background: #171210;
+    box-shadow: 0 -10px 18px -2px #171210;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.75rem 0.75rem 0 0;
   }
 }
 
