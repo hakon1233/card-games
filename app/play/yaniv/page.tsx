@@ -669,20 +669,7 @@ export default function YanivPage() {
             </SettingRow>
 
             <SettingRow label="Quick Draw">
-              <button
-                onClick={() => setQuickDraw((v) => !v)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  quickDraw ? "bg-primary" : "bg-input"
-                }`}
-                role="switch"
-                aria-checked={quickDraw}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    quickDraw ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
+              <ToggleSwitch label="Quick Draw" checked={quickDraw} onChange={setQuickDraw} />
               <p className="text-muted-foreground text-xs mt-1">2-second window to pick up discarded cards</p>
             </SettingRow>
 
@@ -706,54 +693,15 @@ export default function YanivPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <SettingRow label="Low-Time Sound">
-                <button
-                  onClick={() => setLowTimeSound((v) => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    lowTimeSound ? "bg-primary" : "bg-input"
-                  }`}
-                  role="switch"
-                  aria-checked={lowTimeSound}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      lowTimeSound ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                <ToggleSwitch label="Low-Time Sound" checked={lowTimeSound} onChange={setLowTimeSound} />
               </SettingRow>
 
               <SettingRow label="Idle Pulses">
-                <button
-                  onClick={() => setIdlePulses((v) => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    idlePulses ? "bg-primary" : "bg-input"
-                  }`}
-                  role="switch"
-                  aria-checked={idlePulses}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      idlePulses ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                <ToggleSwitch label="Idle Pulses" checked={idlePulses} onChange={setIdlePulses} />
               </SettingRow>
 
               <SettingRow label="Next-Up Preview">
-                <button
-                  onClick={() => setNextUpPreview((v) => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    nextUpPreview ? "bg-primary" : "bg-input"
-                  }`}
-                  role="switch"
-                  aria-checked={nextUpPreview}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      nextUpPreview ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                <ToggleSwitch label="Next-Up Preview" checked={nextUpPreview} onChange={setNextUpPreview} />
               </SettingRow>
             </div>
 
@@ -1842,6 +1790,40 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
       <label className="text-foreground text-sm font-medium">{label}</label>
       {children}
     </div>
+  );
+}
+
+// ── ToggleSwitch ──────────────────────────────────────────────────────────
+// On/off switch with an accessible name. The `label` is applied as
+// `aria-label` so screen readers announce e.g. "Quick Draw, switch, on"
+// instead of a bare "switch" (WCAG 2.1 SC 4.1.2).
+
+function ToggleSwitch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+        checked ? "bg-primary" : "bg-input"
+      }`}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }
 
