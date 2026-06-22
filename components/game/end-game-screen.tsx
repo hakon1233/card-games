@@ -11,6 +11,8 @@ interface EndGameScreenProps {
   headline: string;
   subline?: string;
   sessionRows: SessionRow[];
+  /** Optional per-entry final scores (e.g. one row per player), shown as a list. */
+  finalScoreRows?: SessionRow[];
   onPlayAgain: () => void;
   onChangeGame: () => void;
 }
@@ -19,6 +21,7 @@ export function EndGameScreen({
   headline,
   subline,
   sessionRows,
+  finalScoreRows,
   onPlayAgain,
   onChangeGame,
 }: EndGameScreenProps) {
@@ -48,6 +51,27 @@ export function EndGameScreen({
                     {row.value}
                   </span>
                   <span className="text-xs text-muted-foreground">{row.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {finalScoreRows && finalScoreRows.length > 0 && (
+          <div className="w-full">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 text-center">
+              Final Scores
+            </p>
+            <div className="flex flex-col gap-1">
+              {finalScoreRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-foreground">{row.label}</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {row.value}
+                  </span>
                 </div>
               ))}
             </div>
