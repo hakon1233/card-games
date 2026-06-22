@@ -1,7 +1,7 @@
 "use client";
 
 import { Palette, SwatchBook } from "lucide-react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 
 import {
@@ -30,41 +30,45 @@ function applyCardDeck(deck: CardDeck) {
   document.documentElement.dataset.cardDeck = deck;
 }
 
-// The persisted deck lives in localStorage — a client-only value. We expose it
-// through useSyncExternalStore so the control stays hydration-safe (GAM-87):
-// `getServerSnapshot` (and the very first client render during hydration)
-// return the "two-color" fallback, matching the server HTML; React then
-// re-renders with the real stored value from `getSnapshot`. Reading
-// localStorage in a useState initializer instead diverged from SSR and froze
-// the toggle on "two-color" until the first state change.
-const deckListeners = new Set<() => void>();
-
-function subscribeDeck(onChange: () => void) {
-  deckListeners.add(onChange);
-  return () => {
-    deckListeners.delete(onChange);
-  };
-}
-
-function getServerDeck(): CardDeck {
-  return "two-color";
-}
-
+// The persisted deck lives in localStorage — a client-only value, so the hook
+// must stay hydration-safe.
+//
+// GAM-87 first moved this to `useSyncExternalStore` to silence the hydration
+// *warning*: `getServerSnapshot` returned the "two-color" fallback to match the
+// server HTML, and `getSnapshot` read localStorage for the real value. That
+// killed the warning but left the original user-facing bug (GAM-94): after a
+// reload with `four-color` persisted, the toggle stayed stuck on "two-color".
+// `useSyncExternalStore`'s post-hydration re-render to the client snapshot did
+// not flip the value the control binds to, so `aria-pressed` lied about the
+// active deck — the very thing colour-blind users rely on.
+//
+// The reliable, canonical pattern (same one next-themes uses) is plain
+// `useState` + a post-mount `useEffect`: render the "two-color" fallback on the
+// server AND on the client's first paint (so hydration matches — no warning),
+// then adopt the persisted value in an effect that runs after hydration. The
+// state update guarantees a re-render, so the displayed selected control always
+// reflects the persisted deck on first paint after reload.
 export function useCardDeck() {
-  const deck = useSyncExternalStore(subscribeDeck, readInitialDeck, getServerDeck);
+  const [deck, setDeck] = useState<CardDeck>("two-color");
+
+  // Adopt the persisted deck once, after hydration. Runs after the server-
+  // matching first paint, so it re-renders the control onto the real value
+  // without a hydration mismatch.
+  useEffect(() => {
+    setDeck(readInitialDeck());
+  }, []);
 
   useEffect(() => {
     applyCardDeck(deck);
   }, [deck]);
 
   function updateDeck(next: CardDeck) {
+    setDeck(next);
     try {
       window.localStorage.setItem(CARD_DECK_STORAGE_KEY, next);
     } catch {
       // Non-critical preference persistence.
     }
-    // Notify subscribers so the snapshot (now reflecting localStorage) re-reads.
-    deckListeners.forEach((listener) => listener());
   }
 
   return [deck, updateDeck] as const;
