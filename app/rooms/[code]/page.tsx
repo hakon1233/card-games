@@ -10,19 +10,25 @@ export default async function RoomPage({
   const { code } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // The room lookup does not depend on the authenticated user, so issue both
+  // round-trips concurrently instead of waterfalling auth → room.
+  const [
+    {
+      data: { user },
+    },
+    { data: room },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("rooms")
+      .select("code, game_type, host_id, host_display_name, status")
+      .eq("code", code.toUpperCase())
+      .single(),
+  ]);
 
   if (!user) {
     redirect(`/auth/sign-in?next=/rooms/${code}`);
   }
-
-  const { data: room } = await supabase
-    .from("rooms")
-    .select("code, game_type, host_id, host_display_name, status")
-    .eq("code", code.toUpperCase())
-    .single();
 
   if (!room) notFound();
 
