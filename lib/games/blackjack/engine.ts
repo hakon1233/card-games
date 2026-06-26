@@ -115,7 +115,7 @@ export function applyDealerTurn(state: GameState): GameState {
   // hard/soft 17+ computed over its COMPLETE hand, not just the visible up-card.
   // handValue() filters out hidden cards (for player-facing display), so the
   // draw loop must run against the revealed hand or it ignores the hole card.
-  let dealerCards = state.dealerHand.map((c) => ({ ...c, hidden: false }));
+  let dealerCards: Card[] = state.dealerHand.map((c) => ({ ...c, hidden: false }));
   while (handValue(dealerCards) < 17) {
     if (deck.length === 0) break;
     const { card, remaining } = drawCard(deck);
