@@ -10,6 +10,10 @@ pnpm_bin="${YANIV_PNPM_BIN:-$(command -v pnpm || true)}"
 service_label="${YANIV_SERVICE_LABEL:-com.courtandtin.yaniv}"
 service_target="${YANIV_SERVICE_TARGET:-gui/$(id -u)/$service_label}"
 smoke_url="${YANIV_SMOKE_URL:-http://127.0.0.1:3001/}"
+# Post-restart smoke retry budget. A cold `next start` of this app takes ~20s to
+# accept connections, so the budget must comfortably exceed that or every deploy
+# rolls back on a healthy build. ~60s of headroom by default; overridable.
+smoke_max_attempts="${YANIV_SMOKE_MAX_ATTEMPTS:-60}"
 revision="${YANIV_DEPLOY_REF:-HEAD}"
 dry_run=false
 cache_root="${YANIV_DEPLOY_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/Library/Caches}/yaniv-deploy/$cache_key}"
@@ -144,7 +148,7 @@ smoke_test() {
   local html asset asset_count=0 attempt=0
   until html="$(curl --fail --silent --show-error "$smoke_url")"; do
     attempt=$((attempt + 1))
-    [[ "$attempt" -lt 15 ]] || return 1
+    [[ "$attempt" -lt "$smoke_max_attempts" ]] || return 1
     sleep 1
   done
 
