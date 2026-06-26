@@ -111,17 +111,17 @@ export function applyPlayerHit(state: GameState): GameState {
 export function applyDealerTurn(state: GameState): GameState {
   let deck = state.deck;
 
-  // Dealer draws while visible (non-hidden) total is below 17.
-  let dealerCards = [...state.dealerHand];
+  // Reveal the hole card BEFORE deciding to draw: the dealer must stand on
+  // hard/soft 17+ computed over its COMPLETE hand, not just the visible up-card.
+  // handValue() filters out hidden cards (for player-facing display), so the
+  // draw loop must run against the revealed hand or it ignores the hole card.
+  let dealerCards = state.dealerHand.map((c) => ({ ...c, hidden: false }));
   while (handValue(dealerCards) < 17) {
     if (deck.length === 0) break;
     const { card, remaining } = drawCard(deck);
     deck = remaining;
     dealerCards = [...dealerCards, card];
   }
-
-  // Reveal all dealer cards after drawing.
-  dealerCards = dealerCards.map((c) => ({ ...c, hidden: false }));
 
   const dealerTotal = handValue(dealerCards);
   const playerTotal = handValue(state.playerHand.cards);

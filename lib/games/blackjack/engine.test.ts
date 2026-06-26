@@ -162,32 +162,63 @@ describe("applyPlayerHit", () => {
 });
 
 describe("applyDealerTurn", () => {
-  it("dealer draws while visible total < 17, then reveals", () => {
-    // Dealer visible: K=10 (8 hidden). 10 < 17 → draw J (end of deck) → 10+10=20 >= 17 → stop
+  it("dealer draws on a sub-17 complete hand (hole card included), then reveals", () => {
+    // Dealer 9 + 6(hidden) = 15 complete < 17 → draw 5 (deck end) → 9+6+5 = 20 ≥ 17 → stop.
     const state = makeState({
       playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("8")] },
-      dealerHand: [card("K"), { ...card("8"), hidden: true }],
-      deck: [card("2"), card("J")],
+      dealerHand: [card("9"), { ...card("6"), hidden: true }],
+      deck: [card("2"), card("5")],
       turn: "dealer",
     });
     const next = applyDealerTurn(state);
     expect(next.dealerHand.every((c) => !c.hidden)).toBe(true);
-    expect(handValue(next.dealerHand)).toBeGreaterThanOrEqual(17);
+    expect(handValue(next.dealerHand)).toBe(20);
     expect(next.turn).toBe("over");
   });
 
   it("dealer busts when drawn cards push over 21", () => {
-    // Dealer visible: K=10 (Q hidden). 10 < 17 → draw 5 (end) → K+5=15 visible < 17 → deck empty
-    // Reveal Q: K+5+Q = 25 → bust
+    // Dealer 9 + 6(hidden) = 15 complete < 17 → draw K (end) → 9+6+K = 25 → bust.
     const state = makeState({
       playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("8")] },
-      dealerHand: [card("K"), { ...card("Q"), hidden: true }],
-      deck: [card("5")],
+      dealerHand: [card("9"), { ...card("6"), hidden: true }],
+      deck: [card("K")],
       turn: "dealer",
     });
     const next = applyDealerTurn(state);
     expect(next.status).toBe("dealer_bust");
     expect(next.result).toBe("player_win");
+  });
+
+  // Regression for GAM-123: the dealer must stand on a made two-card 17–20 when
+  // the hole card is counted. The original bug evaluated handValue() over only the
+  // visible up-card (hidden cards are filtered out), so the dealer overdrew on pat
+  // hands like A+7=18 and J+9=19. The deck is stacked so that ANY draw would be
+  // detectable — a correct dealer must not touch it.
+  describe("stands on a pat two-card hand including the hole card (GAM-123)", () => {
+    const patHands: Array<[string, Card, Card, number]> = [
+      ["hard 17 (K + 7)", card("K"), card("7"), 17],
+      ["soft 18 (A + 7)", card("A"), card("7"), 18],
+      ["hard 19 (J + 9)", card("J"), card("9"), 19],
+      ["hard 20 (Q + 10)", card("Q"), card("10"), 20],
+    ];
+
+    for (const [label, up, hole, total] of patHands) {
+      it(`does not draw on ${label}`, () => {
+        const state = makeState({
+          playerHand: { playerId: "p1", isBot: false, cards: [card("6"), card("5")] },
+          dealerHand: [up, { ...hole, hidden: true }],
+          // Stacked with low cards: if the dealer wrongly drew, the hand would change.
+          deck: [card("2"), card("3"), card("4")],
+          turn: "dealer",
+        });
+        const next = applyDealerTurn(state);
+        expect(next.dealerHand).toHaveLength(2);
+        expect(next.dealerHand.every((c) => !c.hidden)).toBe(true);
+        expect(handValue(next.dealerHand)).toBe(total);
+        expect(next.deck).toHaveLength(3);
+        expect(next.turn).toBe("over");
+      });
+    }
   });
 
   it("detects push when totals equal", () => {
