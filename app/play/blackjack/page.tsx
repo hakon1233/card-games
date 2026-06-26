@@ -34,6 +34,28 @@ function blackjackHeadline(state: GameState): { headline: string; subline?: stri
   }
 }
 
+// Screen-reader cue that LEADS with the current turn/result so assistive tech
+// announces the outcome (not a stale visual state) after deal, hit, stand, bust,
+// dealer result, and rematch. Mirrors the Go Fish GAM-117 pattern (GAM-122).
+function blackjackLiveCue(state: GameState, playerValue: number | null): string {
+  switch (state.status) {
+    case "player_bust":
+      return "Bust — dealer wins. You went over 21.";
+    case "dealer_bust":
+      return "You win — dealer busted.";
+    case "player_win":
+      return isBlackjack(state.playerHand.cards) ? "Blackjack — you win!" : "You win.";
+    case "dealer_win":
+      return "Dealer wins.";
+    case "push":
+      return "Push — tie.";
+    default:
+      return playerValue !== null
+        ? `Your turn — hit or stand. Your hand totals ${playerValue}.`
+        : "Your turn — hit or stand.";
+  }
+}
+
 export default function BlackjackPage() {
   const router = useRouter();
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -125,9 +147,20 @@ export default function BlackjackPage() {
   const endScreen =
     isOver && gameState ? blackjackHeadline(gameState) : null;
 
+  // Dedicated sr-only polite live region. The route otherwise has no
+  // role=status / aria-live node, so turn and result cues are silent to
+  // assistive tech; this announces them on every state change (GAM-122).
+  const liveStatus = gameState ? blackjackLiveCue(gameState, playerValue) : "";
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <BrandHeader title="Blackjack" backLabel="Back" />
+      {/* Screen-reader turn/result announcer — always leads with the current
+          cue so a keyboard/SR player hears the outcome after deal, hit, stand,
+          bust, dealer result, and rematch (GAM-122). */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {liveStatus}
+      </p>
       <div className="flex-1 flex items-stretch p-4 md:p-8">
         <div className="flex-1 max-w-2xl mx-auto">
           <GameShell state={shellState} gameType="blackjack" actionArea={actionArea} />
