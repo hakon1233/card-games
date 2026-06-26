@@ -1507,6 +1507,9 @@ function QuickDrawPile({
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - progress);
+  // Stabilize converted-card identity so PlayingCard's memo bails out across
+  // the 10Hz quick-draw clock ticks (progress/timeLeftMs change, cards don't).
+  const shellCards = useMemo(() => cards.map((card) => toShellCard(card)), [cards]);
 
   return (
     <ContextTooltip
@@ -1517,7 +1520,7 @@ function QuickDrawPile({
       }
       className="relative flex items-center gap-1"
     >
-      {cards.map((card, i) => (
+      {shellCards.map((card, i) => (
         <div
           key={i}
           className={`rounded-lg ring-2 ring-amber-400 shadow-lg shadow-amber-400/30 ${
@@ -1527,7 +1530,7 @@ function QuickDrawPile({
           role={canSteal ? "button" : undefined}
           aria-label={canSteal ? "Steal from discard pile" : undefined}
         >
-          <PlayingCard card={toShellCard(card)} size="sm" />
+          <PlayingCard card={card} size="sm" />
         </div>
       ))}
       <svg
@@ -1915,6 +1918,10 @@ function RoundScoreboardRow({
         ? "near bust"
         : null;
 
+  // Stabilize converted-card identity so PlayingCard's memo bails out when the
+  // scoreboard re-renders on clock ticks while the hand itself is unchanged.
+  const handCards = useMemo(() => player.hand.map((card) => toShellCard(card)), [player.hand]);
+
   return (
     <div
       className={`grid grid-cols-[minmax(0,1.2fr)_4.2rem_4rem_4.5rem] items-center gap-2 px-3 py-2.5 ${
@@ -1935,8 +1942,8 @@ function RoundScoreboardRow({
           )}
         </div>
         <div className="mt-1 flex min-h-8 flex-wrap gap-1">
-          {player.hand.map((card, i) => (
-            <PlayingCard key={i} card={toShellCard(card)} size="sm" />
+          {handCards.map((card, i) => (
+            <PlayingCard key={i} card={card} size="sm" />
           ))}
         </div>
       </div>
