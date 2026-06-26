@@ -218,6 +218,20 @@ export default function GoFishPage() {
       : "You win!"
     : `${winnerName} wins`;
 
+  // Dedicated screen-reader status. Unlike the visible table-status (which keeps
+  // echoing the last bot event for sighted players), this region must always
+  // reflect turn state so assistive tech announces "your turn" when control
+  // returns to the human — mirrors the Crazy Eights pattern (GAM-117). On the
+  // human's turn we lead with the turn cue, then append the prior bot event for
+  // context; otherwise we surface the bot event / dealing / end-of-game state.
+  const liveStatus = isOver
+    ? headline
+    : isHumanTurn
+      ? statusLine
+        ? `Your turn — pick a rank to ask for. ${statusLine}`
+        : "Your turn — pick a rank to ask for."
+      : statusLine || "Dealing…";
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <BrandHeader title="Go Fish" backLabel="Back" />
@@ -273,11 +287,14 @@ export default function GoFishPage() {
           })}
         </section>
 
-        {/* Table status */}
-        <div
-          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
-          aria-live="polite"
-        >
+        {/* Screen-reader turn announcer — always reflects turn state so a
+            keyboard/SR player hears a cue when control returns to them (GAM-117). */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {liveStatus}
+        </p>
+
+        {/* Table status (visible; not a live region so SR isn't double-announced) */}
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <p className="min-w-0 text-sm text-foreground">
             {statusLine ||
               (isHumanTurn ? "Your turn — pick a rank to ask for." : "Dealing…")}
