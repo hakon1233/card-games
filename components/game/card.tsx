@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { ShellCard } from "@/lib/games/shell-types";
 
 const SUIT_SYMBOL: Record<string, string> = {
@@ -64,7 +65,11 @@ export function bottomCornerRankText(rank: string) {
   return rank.length > 1 ? rank.split("").reverse().join("") : rank;
 }
 
-export function PlayingCard({ card, size = "md" }: CardProps) {
+// Pure presentational component (no hooks / side effects): its output is a function
+// of `card` + `size` only. Memoized so the high-frequency parent re-renders (the
+// per-turn countdown clock ticks ~10×/s) don't re-render every card whose props are
+// unchanged — hand cards carry stable identity from game state, so they skip.
+export const PlayingCard = memo(function PlayingCard({ card, size = "md" }: CardProps) {
   const style = SIZE_STYLES[size];
 
   if (!card.faceUp) {
@@ -121,4 +126,4 @@ export function PlayingCard({ card, size = "md" }: CardProps) {
       </span>
     </div>
   );
-}
+});
