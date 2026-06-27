@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+/**
+ * @vitest-environment jsdom
+ */
+
+import { render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { CARD_DIMENSIONS } from "./card";
-import { calculateHandLayout } from "./card-hand";
+import { calculateHandLayout, CardHand } from "./card-hand";
 
 describe("calculateHandLayout", () => {
   it("keeps roomy hands fully spaced while fanning around the center", () => {
@@ -99,5 +105,28 @@ describe("calculateHandLayout", () => {
 
     expect(edge("widescreen")).toBeGreaterThan(edge("standard"));
     expect(edge("standard")).toBeGreaterThan(edge("portrait"));
+  });
+});
+
+describe("CardHand accessibility", () => {
+  it("names each clickable card button by card and hand position", () => {
+    render(
+      createElement(CardHand, {
+        cards: [
+          { suit: "hearts", rank: "A", faceUp: true },
+          { suit: "spades", rank: "10", faceUp: true },
+        ],
+        gameType: "yaniv",
+        onCardClick: vi.fn(),
+        showSortPicker: false,
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: "Select A of hearts, card 1 of 2" })).toBeInstanceOf(
+      HTMLButtonElement,
+    );
+    expect(screen.getByRole("button", { name: "Select 10 of spades, card 2 of 2" })).toBeInstanceOf(
+      HTMLButtonElement,
+    );
   });
 });

@@ -347,6 +347,7 @@ export function CardHand({
                 onClick={() => !isDisabled && onCardClick(card, originalIndex)}
                 disabled={isDisabled}
                 className={`relative rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.9,0.2,1.15)] outline-none hover:-translate-y-2 disabled:hover:translate-y-0 ${className}`}
+                aria-label={`Select ${card.rank} of ${card.suit}, card ${i + 1} of ${count}`}
                 aria-pressed={isSelected}
               >
                 <PlayingCard card={card} size={size} />
