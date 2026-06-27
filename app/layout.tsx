@@ -7,7 +7,7 @@ import "./globals.css";
 const playfair = Playfair_Display({
   variable: "--font-pip-display",
   subsets: ["latin"],
-  weight: ["400", "700", "900"],
+  weight: ["700"],
 });
 
 const lora = Lora({

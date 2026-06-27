@@ -55,7 +55,7 @@ export function useCardDeck() {
   // matching first paint, so it re-renders the control onto the real value
   // without a hydration mismatch.
   useEffect(() => {
-    setDeck(readInitialDeck());
+    queueMicrotask(() => setDeck(readInitialDeck()));
   }, []);
 
   useEffect(() => {

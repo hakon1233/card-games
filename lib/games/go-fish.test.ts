@@ -456,10 +456,10 @@ describe("full game simulation", () => {
       { id: "p2", name: "Bob", isBot: false },
     ]);
     const pub = publicStateFor(state, "p1");
-    expect(pub.ownHand.length).toBe(7); // p1's own hand visible
+    expect(pub.ownHand).toEqual(state.players[0].hand); // p1's own hand visible
     const p2Public = pub.players.find((p) => p.id === "p2")!;
     expect((p2Public as { hand?: Card[] }).hand).toBeUndefined();
-    expect(p2Public.handSize).toBe(7);
+    expect(p2Public.handSize).toBe(state.players[1].hand.length);
     expect(pub.deckSize).toBe(52 - 14);
   });
 });

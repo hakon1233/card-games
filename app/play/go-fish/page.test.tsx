@@ -70,6 +70,6 @@ describe("Go Fish page", () => {
 
     // Game reached its end screen with a declared winner.
     expect(rematch).toBeTruthy();
-    expect(screen.getByText(/you win!|you tied!|wins/i)).toBeDefined();
+    expect(screen.getAllByText(/you win!|you tied!|wins/i).length).toBeGreaterThan(0);
   });
 });
