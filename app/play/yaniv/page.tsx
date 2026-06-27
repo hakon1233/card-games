@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useId, useMemo, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+} from "react";
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -59,6 +68,13 @@ const TURN_SECONDS = 20;
 const TURN_MS = TURN_SECONDS * 1000;
 const LOW_TIME_CUE_MS = 6000;
 const bot = new YanivBot();
+
+// Per-turn countdown value broadcast (CAR-182). The active player's turn timer
+// ticks ~10×/second; the ticking `remaining` lives in <TurnCountdown> and is
+// published through this context, so only the ring + the "Ns" readout re-render
+// each tick — not the whole 2000-line /play/yaniv tree.
+type TurnCountdownValue = { progress: number; secondsLeft: number };
+const TurnCountdownContext = createContext<TurnCountdownValue | null>(null);
 
 type ActionBadge = { text: string; variant: "drew" | "yaniv" | "stolen"; key: number };
 type ScoreFeedback = YanivScoreCascadeEvent & { key: number };
@@ -238,7 +254,6 @@ export default function YanivPage() {
   const scoreFeedbackTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const previousTurnPlayerIdRef = useRef<string | null>(null);
   const turnPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousTurnTimeLeftRef = useRef<number | null>(null);
 
   const [numBots, setNumBots] = useState(1);
   const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
@@ -249,7 +264,6 @@ export default function YanivPage() {
   const [nextUpPreview, setNextUpPreview] = useState(DEFAULT_LOCAL_SETTINGS.nextUpPreview);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
-  const [turnTimeLeft, setTurnTimeLeft] = useState<number | null>(null);
   const [turnPreview, setTurnPreview] = useState<{ name: string; key: number } | null>(null);
   const [animationSpeed, setAnimationSpeed] = useAnimationSpeed();
   const [cardDeck, setCardDeck] = useCardDeck();
@@ -505,42 +519,10 @@ export default function YanivPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!turnKey) {
-      queueMicrotask(() => setTurnTimeLeft(null));
-      previousTurnTimeLeftRef.current = null;
-      return;
-    }
-    queueMicrotask(() => setTurnTimeLeft(TURN_MS));
-    const turnClockGeneration = turnClockGenerationRef.current;
-    previousTurnTimeLeftRef.current = TURN_MS;
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      if (turnClockGeneration !== turnClockGenerationRef.current) {
-        clearInterval(interval);
-        return;
-      }
-      const remaining = Math.max(0, TURN_MS - (Date.now() - startTime));
-      if (
-        lowTimeSound &&
-        shouldPlayLowTimeCue({
-          previousMs: previousTurnTimeLeftRef.current,
-          remainingMs: remaining,
-          thresholdMs: LOW_TIME_CUE_MS,
-        })
-      ) {
-        playLowTimeCue();
-      }
-      previousTurnTimeLeftRef.current = remaining;
-      setTurnTimeLeft(remaining);
-      if (remaining === 0) {
-        clearInterval(interval);
-        autoPlayTurnTimeout();
-      }
-    }, 100);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnKey, lowTimeSound]);
+  // The per-turn countdown interval, low-time cue, and auto-play-on-expiry now
+  // live in <TurnCountdown> (rendered below) so a 10Hz tick no longer re-renders
+  // this whole component — see CAR-182. `turnKey`/`autoPlayTurnTimeout` are
+  // forwarded to it unchanged.
 
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
@@ -752,11 +734,7 @@ export default function YanivPage() {
   });
 
   const nextPlayerIdx = getNextActiveIdx(gameState.players, gameState.currentPlayerIndex);
-  const turnTimerActive = turnTimeLeft !== null;
-  const turnProgress = turnTimerActive
-    ? Math.max(0, Math.min(1, (turnTimeLeft ?? 0) / TURN_MS))
-    : 1;
-  const turnSecondsLeft = turnTimerActive ? Math.ceil((turnTimeLeft ?? 0) / 1000) : null;
+  const turnTimerActive = turnKey !== null;
 
   return (
     <div className="dark flex flex-col min-h-screen bg-[var(--pip-table)] text-foreground">
@@ -787,29 +765,36 @@ export default function YanivPage() {
           <CardDeckControl value={cardDeck} onChange={setCardDeck} />
         </div>
 
-        {/* Circular player ring */}
-        <PlayerRing
-          players={gameState.players}
-          humanId={PLAYER_ID}
-          currentPlayerIndex={gameState.currentPlayerIndex}
-          nextPlayerIndex={nextPlayerIdx}
-          turnTimerActive={turnTimerActive}
-          turnProgress={turnProgress}
-          turnSecondsLeft={turnSecondsLeft}
-          idlePulses={idlePulses}
-          actionBadges={actionBadges}
-          scoreFeedback={scoreFeedback}
-          qdActive={qdActive}
-          qdWindow={qdWindow}
-          qdProgress={qdProgress}
-          qdTimeLeft={qdTimeLeft ?? 0}
-          qdPlayerCanSteal={qdPlayerCanSteal}
-          deckCount={gameState.deck.length}
-          discardTopGroup={topGroup}
-          canDrawFromDiscard={canDiscard}
-          onPickDiscardCard={(idx) => discardAndDraw(true, idx)}
-          onSteal={stealFromDiscard}
-        />
+        {/* Circular player ring. Wrapped in <TurnCountdown> so the per-turn
+            10Hz tick re-renders only the countdown ring + seconds readout via
+            context, never PlayerRing itself (CAR-182). */}
+        <TurnCountdown
+          turnKey={turnKey}
+          lowTimeSound={lowTimeSound}
+          turnClockGenerationRef={turnClockGenerationRef}
+          onExpire={autoPlayTurnTimeout}
+        >
+          <PlayerRing
+            players={gameState.players}
+            humanId={PLAYER_ID}
+            currentPlayerIndex={gameState.currentPlayerIndex}
+            nextPlayerIndex={nextPlayerIdx}
+            turnTimerActive={turnTimerActive}
+            idlePulses={idlePulses}
+            actionBadges={actionBadges}
+            scoreFeedback={scoreFeedback}
+            qdActive={qdActive}
+            qdWindow={qdWindow}
+            qdProgress={qdProgress}
+            qdTimeLeft={qdTimeLeft ?? 0}
+            qdPlayerCanSteal={qdPlayerCanSteal}
+            deckCount={gameState.deck.length}
+            discardTopGroup={topGroup}
+            canDrawFromDiscard={canDiscard}
+            onPickDiscardCard={(idx) => discardAndDraw(true, idx)}
+            onSteal={stealFromDiscard}
+          />
+        </TurnCountdown>
 
         <div className="yaniv-bottom-zone flex flex-col gap-2">
         {/* Human player hand */}
@@ -998,8 +983,6 @@ interface PlayerRingProps {
   currentPlayerIndex: number;
   nextPlayerIndex: number;
   turnTimerActive: boolean;
-  turnProgress: number;
-  turnSecondsLeft: number | null;
   idlePulses: boolean;
   actionBadges: Record<string, ActionBadge>;
   scoreFeedback: Record<string, ScoreFeedback>;
@@ -1021,8 +1004,6 @@ function PlayerRing({
   currentPlayerIndex,
   nextPlayerIndex,
   turnTimerActive,
-  turnProgress,
-  turnSecondsLeft,
   idlePulses,
   actionBadges,
   scoreFeedback,
@@ -1112,8 +1093,6 @@ function PlayerRing({
           isActive={isActive}
           isNext={isNext}
           showTurnRing={isActive && turnTimerActive}
-          turnProgress={turnProgress}
-          turnSecondsLeft={turnSecondsLeft}
           idlePulses={idlePulses}
           badge={actionBadges[player.id]}
           scoreFeedback={scoreFeedback[player.id]}
@@ -1197,8 +1176,6 @@ function PlayerSeatNode({
   isActive,
   isNext,
   showTurnRing,
-  turnProgress,
-  turnSecondsLeft,
   idlePulses,
   badge,
   scoreFeedback,
@@ -1209,8 +1186,6 @@ function PlayerSeatNode({
   isActive: boolean;
   isNext: boolean;
   showTurnRing?: boolean;
-  turnProgress?: number;
-  turnSecondsLeft?: number | null;
   idlePulses: boolean;
   badge?: ActionBadge;
   scoreFeedback?: ScoreFeedback;
@@ -1244,10 +1219,10 @@ function PlayerSeatNode({
           }
           className="rounded-full"
         >
-          {/* Co-located turn countdown ring (time remaining this turn) */}
-          {showTurnRing && (
-            <TurnCountdownRing progress={turnProgress ?? 1} />
-          )}
+          {/* Co-located turn countdown ring (time remaining this turn).
+              LiveTurnCountdownRing subscribes to TurnCountdownContext so only it
+              re-renders per 10Hz tick, not this seat node (CAR-182). */}
+          {showTurnRing && <LiveTurnCountdownRing />}
           <div
             className={`
               w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
@@ -1342,7 +1317,7 @@ function PlayerSeatNode({
           aria-live={showTurnRing ? "off" : undefined}
         >
           ↑ turn
-          {showTurnRing && turnSecondsLeft != null ? ` · ${turnSecondsLeft}s` : ""}
+          {showTurnRing && <LiveTurnSeconds />}
         </span>
       )}
       {!isActive && isNext && (
@@ -1487,6 +1462,99 @@ function TurnCountdownRing({ progress }: { progress: number }) {
       />
     </svg>
   );
+}
+
+// ── TurnCountdown (perf isolation, CAR-182) ───────────────────────────────
+// Owns the single per-turn 100ms interval, the ticking `remaining`, and every
+// side effect the old page-level effect had (low-time cue + auto-play on
+// expiry, with the BUG-GAM-76 generation guard). It publishes only
+// {progress, secondsLeft} through TurnCountdownContext, so a 10Hz tick
+// re-renders just LiveTurnCountdownRing / LiveTurnSeconds — never `children`
+// (the whole PlayerRing/table tree). Semantics are identical to before: same
+// TURN_MS / LOW_TIME_CUE_MS, same auto-play-safe-default-on-expiry.
+function TurnCountdown({
+  turnKey,
+  lowTimeSound,
+  turnClockGenerationRef,
+  onExpire,
+  children,
+}: {
+  turnKey: string | null;
+  lowTimeSound: boolean;
+  turnClockGenerationRef: React.RefObject<number>;
+  onExpire: () => void;
+  children: React.ReactNode;
+}) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const previousRemainingRef = useRef<number | null>(null);
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
+
+  useEffect(() => {
+    if (!turnKey) {
+      // queueMicrotask defers the reset out of the effect body so it doesn't
+      // trip react-hooks/set-state-in-effect (synchronous setState).
+      queueMicrotask(() => setRemaining(null));
+      previousRemainingRef.current = null;
+      return;
+    }
+    queueMicrotask(() => setRemaining(TURN_MS));
+    // Pin the turn this interval belongs to; if a dispatch advances the turn
+    // (generation bump) the in-flight tick must not auto-play into it.
+    const turnClockGeneration = turnClockGenerationRef.current;
+    previousRemainingRef.current = TURN_MS;
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      if (turnClockGeneration !== turnClockGenerationRef.current) {
+        clearInterval(interval);
+        return;
+      }
+      const remaining = Math.max(0, TURN_MS - (Date.now() - startTime));
+      if (
+        lowTimeSound &&
+        shouldPlayLowTimeCue({
+          previousMs: previousRemainingRef.current,
+          remainingMs: remaining,
+          thresholdMs: LOW_TIME_CUE_MS,
+        })
+      ) {
+        playLowTimeCue();
+      }
+      previousRemainingRef.current = remaining;
+      setRemaining(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+        onExpireRef.current();
+      }
+    }, 100);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnKey, lowTimeSound]);
+
+  const value = useMemo<TurnCountdownValue | null>(() => {
+    if (remaining === null) return null;
+    return { progress: remaining / TURN_MS, secondsLeft: Math.ceil(remaining / 1000) };
+  }, [remaining]);
+
+  return (
+    <TurnCountdownContext.Provider value={value}>
+      {children}
+    </TurnCountdownContext.Provider>
+  );
+}
+
+// Leaf consumers — the only nodes that re-render on each 100ms tick.
+function LiveTurnCountdownRing() {
+  const value = useContext(TurnCountdownContext);
+  return <TurnCountdownRing progress={value?.progress ?? 1} />;
+}
+
+function LiveTurnSeconds() {
+  const value = useContext(TurnCountdownContext);
+  if (value === null) return null;
+  return <>{` · ${value.secondsLeft}s`}</>;
 }
 
 // ── QuickDrawPile ─────────────────────────────────────────────────────────
