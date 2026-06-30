@@ -21,6 +21,7 @@ import {
   CardDeckControl,
   useCardDeck,
 } from "@/components/game/card-deck-control";
+import { TableDisplaySettings } from "@/components/game/table-display-settings";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { CardHand } from "@/components/game/card-hand";
 import { PlayingCard } from "@/components/game/card";
@@ -757,13 +758,14 @@ export default function YanivPage() {
       <BrandHeader title="Yaniv" tone="red" backLabel="Back" />
 
       <div className="yaniv-table-shell flex-1 flex flex-col p-3 md:p-5 gap-3 mx-auto w-full pip-table-surface pip-table-rail rounded-3xl">
-        <div className="ml-auto w-full max-w-xs flex flex-col gap-2">
-          <AnimationPreferencesControl
-            value={animationSpeed}
-            onChange={setAnimationSpeed}
+        {!isRoundOver && !isGameOver && (
+          <TableDisplaySettings
+            animationSpeed={animationSpeed}
+            onAnimationSpeedChange={setAnimationSpeed}
+            cardDeck={cardDeck}
+            onCardDeckChange={setCardDeck}
           />
-          <CardDeckControl value={cardDeck} onChange={setCardDeck} />
-        </div>
+        )}
 
         {/* Circular player ring. Wrapped in <TurnCountdown> so the per-turn
             10Hz tick re-renders only the countdown ring + seconds readout via
