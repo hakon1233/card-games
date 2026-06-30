@@ -963,10 +963,6 @@ export default function YanivPage() {
             { label: "Rounds Won", value: roundsWon },
             { label: "Rounds Lost", value: roundsLost },
           ]}
-          finalScoreRows={gameState.players.map((p) => ({
-            label: p.eliminated ? `${p.name} (eliminated)` : p.name,
-            value: p.score,
-          }))}
           onPlayAgain={startGame}
           onChangeGame={() => router.push("/")}
         />
