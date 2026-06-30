@@ -86,10 +86,12 @@ export function EndGameScreen({
                   }`}
                 >
                   <span className="tabular-nums text-muted-foreground">#{row.rank}</span>
-                  <span className="min-w-0 truncate font-semibold text-foreground">
-                    {row.name}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate font-semibold text-foreground">
+                      {row.name}
+                    </span>
                     {row.eliminated && (
-                      <span className="ml-2 text-xs font-medium text-muted-foreground">
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                         out
                       </span>
                     )}
