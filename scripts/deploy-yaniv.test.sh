@@ -121,12 +121,14 @@ YANIV_FAKE_PNPM_LOG="$cache_dir/pnpm.log" \
 YANIV_DEPLOY_CACHE_DIR="$cache_dir/deploy-cache" \
 YANIV_ALLOW_DIRTY_FOR_TESTS=true \
 YANIV_PNPM_BIN="$fake_pnpm" \
+YANIV_DEPLOY_LOG="$cache_dir/deploy.log" \
   "$repo_root/scripts/deploy-yaniv.sh" --dry-run >"$output_file" 2>&1
 
 YANIV_FAKE_PNPM_LOG="$cache_dir/pnpm.log" \
 YANIV_DEPLOY_CACHE_DIR="$cache_dir/deploy-cache" \
 YANIV_ALLOW_DIRTY_FOR_TESTS=true \
 YANIV_PNPM_BIN="$fake_pnpm" \
+YANIV_DEPLOY_LOG="$cache_dir/deploy.log" \
   "$repo_root/scripts/deploy-yaniv.sh" --dry-run >"$output_file" 2>&1
 
 grep -Fq 'install reused cache' "$cache_dir/pnpm.log" || {
