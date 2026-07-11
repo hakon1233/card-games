@@ -105,7 +105,7 @@ export function EndGameScreen({
           </div>
         )}
 
-        {!hasStandings && sessionRows.length > 0 && (
+        {sessionRows.length > 0 && (
           <div className="w-full">
             <p className="mb-2 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Session
