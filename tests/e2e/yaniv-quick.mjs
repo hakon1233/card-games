@@ -10,7 +10,7 @@ const SHOTS = "tests/e2e/.artifacts";
 mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(...a);
-const cardRe = / of (hearts|diamonds|clubs|spades)$/i;
+const cardRe = /^Select ([A-Za-z0-9]+) of (hearts|diamonds|clubs|spades), card \d+ of \d+$/i;
 
 // hard kill so the process can never hang a heartbeat
 const HARD = setTimeout(() => { log("HARD-TIMEOUT"); process.exit(2); }, 110000);

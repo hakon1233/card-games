@@ -4,6 +4,7 @@ set -euo pipefail
 files=(
   "tests/e2e/yaniv-live-qa.mjs"
   "tests/e2e/yaniv-assaf-probe.mjs"
+  "tests/e2e/yaniv-quick.mjs"
 )
 
 for file in "${files[@]}"; do
