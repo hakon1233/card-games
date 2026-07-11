@@ -1913,10 +1913,12 @@ function RoundEndOverlay({
   const scoreboardRows = getYanivScoreboardRows(state);
   const callerName = state.players.find((p) => p.id === result.callerId)?.name ?? "Someone";
   const callerIsPlayer = result.callerId === playerId;
+  const callerDelta = result.scoreDeltas[result.callerId] ?? 0;
+  const callerDeltaLabel = callerDelta >= 0 ? `+${callerDelta}` : String(callerDelta);
 
   let headline: string;
   if (result.assaf) {
-    headline = callerIsPlayer ? "Assaf! You got penalty points" : `Assaf! ${callerName} got +30`;
+    headline = callerIsPlayer ? `Assaf! You got ${callerDeltaLabel}` : `Assaf! ${callerName} got ${callerDeltaLabel}`;
   } else {
     headline = callerIsPlayer ? "Yaniv! You win this round" : `${callerName} called Yaniv`;
   }

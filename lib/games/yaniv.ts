@@ -309,7 +309,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
 
     let delta: number;
     if (p.id === callerId) {
-      delta = assaf ? 30 : 0;
+      delta = assaf ? callerTotal + 30 : 0;
     } else if (assafWinnerIds.has(p.id)) {
       delta = 0;
     } else {

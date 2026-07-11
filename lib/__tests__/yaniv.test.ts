@@ -236,7 +236,7 @@ describe("dealGame", () => {
 });
 
 describe("Yaniv scoring", () => {
-  it("awards 0 to an opponent who beats the Yaniv caller", () => {
+  it("adds the caller's hand total plus the penalty when an opponent beats the Yaniv caller", () => {
     const state = dealGame("assaf-scoring", [
       { id: "caller", name: "Caller", isBot: false },
       { id: "winner", name: "Winner", isBot: true },
@@ -269,7 +269,8 @@ describe("Yaniv scoring", () => {
     }, { type: "CALL_YANIV", playerId: "caller" });
 
     expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
-    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.roundResult?.scoreDeltas.caller).toBe(37);
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(47);
     expect(scored.players.find((p) => p.id === "winner")?.score).toBe(20);
     expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
   });
@@ -314,7 +315,7 @@ describe("Yaniv scoring", () => {
     }, { type: "CALL_YANIV", playerId: "caller" });
 
     expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
-    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(47);
     expect(scored.players.find((p) => p.id === "winner-1")?.score).toBe(20);
     expect(scored.players.find((p) => p.id === "winner-2")?.score).toBe(30);
     expect(scored.players.find((p) => p.id === "other")?.score).toBe(46);
@@ -353,7 +354,7 @@ describe("Yaniv scoring", () => {
     }, { type: "CALL_YANIV", playerId: "caller" });
 
     expect(scored.roundResult).toMatchObject({ callerId: "caller", assaf: true });
-    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(40);
+    expect(scored.players.find((p) => p.id === "caller")?.score).toBe(47);
     expect(scored.players.find((p) => p.id === "winner")?.score).toBe(20);
     expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
   });
