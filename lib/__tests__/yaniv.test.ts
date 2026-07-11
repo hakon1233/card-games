@@ -72,7 +72,11 @@ describe("YanivBot threshold settings", () => {
       { suit: "clubs", rank: "5" },
     ];
 
-    expect(bot.getNextMove(state, "bot")).toEqual({ type: "CALL_YANIV", playerId: "bot" });
+    // A hand of 15 is eligible but not a near-lock, so the bot only calls it
+    // some of the time (GAM-154 pacing). Force the call branch deterministically
+    // to assert it *can* call at the top of the threshold.
+    const callingBot = new YanivBot(() => 0);
+    expect(callingBot.getNextMove(state, "bot")).toEqual({ type: "CALL_YANIV", playerId: "bot" });
   });
 });
 

@@ -9,7 +9,37 @@ import {
   discardPileTop,
 } from "@/lib/games/yaniv";
 
+/**
+ * Hand total at or below which the bot always calls Yaniv the moment it can.
+ * A hand this low is effectively unbeatable, so there is no reason to hold it —
+ * and a bot that sat on a near-lock hand would look broken.
+ */
+const SNAP_CALL_MAX = 3;
+
+/**
+ * When the bot is eligible to call Yaniv but its hand is above SNAP_CALL_MAX, it
+ * only calls this fraction of the time and otherwise keeps playing. This is the
+ * GAM-154 pacing fix: the old bot called Yaniv the instant `canCallYaniv` was
+ * true, so in a 1-bot game it won the race to call every round and a human never
+ * got a realistic window to call Yaniv, trigger Assaf, or reach the save rule.
+ * Holding eligible-but-not-locked hands keeps rounds alive long enough for the
+ * human to act first sometimes, without making the bot a pushover.
+ */
+const CALL_PROBABILITY = 0.4;
+
 export class YanivBot {
+  private readonly rng: () => number;
+
+  /**
+   * @param rng Injectable source of randomness in [0, 1). Defaults to
+   * `Math.random`; tests pass a deterministic function to force the call/hold
+   * branch. Only the Yaniv-call decision is stochastic — move selection stays
+   * deterministic.
+   */
+  constructor(rng: () => number = Math.random) {
+    this.rng = rng;
+  }
+
   /**
    * Decide whether the bot should steal during a quick-draw window.
    * Returns true when stealing the cards is likely to benefit the bot.
@@ -39,7 +69,10 @@ export class YanivBot {
     const playerIdx = state.players.findIndex((p) => p.id === botPlayerId);
     const hand = state.players[playerIdx].hand;
 
-    if (canCallYaniv(hand, state.settings.yanivThreshold)) {
+    if (
+      canCallYaniv(hand, state.settings.yanivThreshold) &&
+      this.shouldCallYaniv(hand)
+    ) {
       return { type: "CALL_YANIV", playerId: botPlayerId };
     }
 
@@ -52,6 +85,17 @@ export class YanivBot {
       discardIndices: bestDiscard,
       drawFromDiscard,
     };
+  }
+
+  /**
+   * Given the bot is *eligible* to call Yaniv, decide whether it actually does.
+   * Near-lock hands (<= SNAP_CALL_MAX) are always called; otherwise the bot
+   * holds most of the time so a human gets a realistic window to call first.
+   * See CALL_PROBABILITY for the full GAM-154 rationale.
+   */
+  private shouldCallYaniv(hand: Card[]): boolean {
+    if (handTotal(hand) <= SNAP_CALL_MAX) return true;
+    return this.rng() < CALL_PROBABILITY;
   }
 }
 
