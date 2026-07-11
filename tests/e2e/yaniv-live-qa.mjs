@@ -30,7 +30,7 @@ async function statusText(page) {
 }
 
 const SUITS = ["hearts", "diamonds", "clubs", "spades"];
-const cardRe = / of (hearts|diamonds|clubs|spades)$/i;
+const cardRe = /^Select ([A-Za-z0-9]+) of (hearts|diamonds|clubs|spades), card \d+ of \d+$/i;
 
 async function play(ctx) {
   console.log("\n=== Yaniv (desktop) ===");
