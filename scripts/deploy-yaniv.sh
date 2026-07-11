@@ -51,6 +51,45 @@ prune_staged_build_outputs() {
   find "$staging_dir/.next" -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} + || true
 }
 
+# Available space (whole MiB) on the volume that holds "$1". Prints nothing and
+# fails if it cannot be measured, so callers can choose not to block on it.
+free_space_mb() {
+  local kb
+  kb="$(df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4}')" || return 1
+  [[ "$kb" =~ ^[0-9]+$ ]] || return 1
+  printf '%s' "$((kb / 1024))"
+}
+
+# Guard against a silent ENOSPC in `next build`. When the Data volume fills up,
+# the build gate fails closed and blocks *every* deploy company-wide with a
+# cryptic ENOSPC deep inside the build (GAM-114). Before the expensive build we
+# reclaim reversible space (pnpm store + stale git worktree metadata, the two
+# consumers that caused the original incident) and, if headroom is still below a
+# hard floor, abort early with an actionable message instead of ENOSPC.
+ensure_disk_headroom() {
+  local trigger_mb="${YANIV_DEPLOY_MIN_FREE_MB:-5120}"
+  local abort_mb="${YANIV_DEPLOY_ABORT_FREE_MB:-2048}"
+  local free_mb
+  free_mb="$(free_space_mb "$app_dir")" || return 0
+
+  if [[ "$free_mb" -ge "$trigger_mb" ]]; then
+    return 0
+  fi
+
+  echo "disk headroom low: ${free_mb} MiB free (want >= ${trigger_mb} MiB); reclaiming space" >&2
+  git worktree prune >/dev/null 2>&1 || true
+  "$pnpm_bin" store prune >/dev/null 2>&1 || true
+
+  free_mb="$(free_space_mb "$app_dir")" || return 0
+  echo "disk headroom after reclamation: ${free_mb} MiB free" >&2
+
+  if [[ "$free_mb" -lt "$abort_mb" ]]; then
+    echo "aborting deploy: only ${free_mb} MiB free on the Data volume (need >= ${abort_mb} MiB to build safely)." >&2
+    echo "the build gate fails on ENOSPC when the disk is full; free space before retrying (old builds/caches, paperclip logs/transcripts). See GAM-114." >&2
+    exit 1
+  fi
+}
+
 restore_previous_build() {
   if [[ "$promoted" != true || -z "$backup_next" || ! -d "$backup_next" ]]; then
     return
@@ -104,6 +143,7 @@ revision="$(git rev-parse --verify "$revision^{commit}")"
 
 staging_root="$cache_root"
 staging_dir="$staging_root/source"
+ensure_disk_headroom
 prepare_staging_worktree
 
 echo "building $revision in $staging_dir"

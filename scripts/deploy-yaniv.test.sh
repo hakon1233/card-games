@@ -106,3 +106,39 @@ grep -Fq 'install reused cache' "$cache_dir/pnpm.log" || {
   echo "dry-run must leave the staged Next build cache available for the next gate run" >&2
   exit 1
 }
+
+# A silent ENOSPC in the build gate blocks every deploy company-wide (GAM-114).
+# When headroom stays below the hard floor after reclamation, the deploy must
+# abort early with an actionable message rather than dying inside `next build`.
+abort_cache="$(mktemp -d)"
+abort_output="$(mktemp)"
+trap 'rm -f "$output_file" "$abort_output"; rm -rf "$cache_dir" "$abort_cache"' EXIT
+
+if YANIV_FAKE_PNPM_LOG="$abort_cache/pnpm.log" \
+   YANIV_DEPLOY_CACHE_DIR="$abort_cache/deploy-cache" \
+   YANIV_ALLOW_DIRTY_FOR_TESTS=true \
+   YANIV_PNPM_BIN="$fake_pnpm" \
+   YANIV_DEPLOY_MIN_FREE_MB=1000000000000 \
+   YANIV_DEPLOY_ABORT_FREE_MB=1000000000000 \
+     "$repo_root/scripts/deploy-yaniv.sh" --dry-run >"$abort_output" 2>&1; then
+  cat "$abort_output" >&2
+  echo "deploy must abort when disk headroom stays below the hard floor" >&2
+  exit 1
+fi
+
+grep -Fq 'aborting deploy:' "$abort_output" || {
+  cat "$abort_output" >&2
+  echo "low-disk abort must explain why the deploy stopped" >&2
+  exit 1
+}
+
+grep -Fq 'GAM-114' "$abort_output" || {
+  cat "$abort_output" >&2
+  echo "low-disk abort must point at the ENOSPC remediation (GAM-114)" >&2
+  exit 1
+}
+
+[[ ! -e "$abort_cache/deploy-cache/source/.next/BUILD_ID" ]] || {
+  echo "low-disk abort must stop before staging a build" >&2
+  exit 1
+}
