@@ -51,6 +51,13 @@ export default function GamePage() {
   const prevTurnRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    prevTurnRef.current = undefined;
+    setState(null);
+    setError(null);
+    setActing(false);
+  }, [gameId]);
+
+  useEffect(() => {
     const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
     const socket = new PartySocket({ host, room: gameId });
 
