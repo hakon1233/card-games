@@ -50,6 +50,7 @@ const baseState: YanivGameState = {
       winner: 0,
       danger: 9,
     },
+    savedScores: {},
   },
   winnerId: null,
   settings: { yanivThreshold: 7, scoreLimit: 100, quickDraw: false },
@@ -118,5 +119,31 @@ describe("getYanivScoreboardRows", () => {
 
     // The displayed delta reconciles with the cumulative total the engine kept.
     expect(rows[0]).toMatchObject({ id: "caller", roundDelta: -25, cumulativeScore: 25 });
+  });
+
+  it("surfaces the save-rule from/to when the engine halved a player's score", () => {
+    const rows = getYanivScoreboardRows({
+      ...baseState,
+      players: [
+        { ...baseState.players[0], score: 25 },
+        ...baseState.players.slice(1),
+      ],
+      roundResult: {
+        ...baseState.roundResult!,
+        scoreDeltas: { ...baseState.roundResult!.scoreDeltas, caller: -5 },
+        savedScores: { caller: { from: 50, to: 25 } },
+      },
+    });
+
+    expect(rows[0]).toMatchObject({ id: "caller", roundDelta: -5, save: { from: 50, to: 25 } });
+    // Players the rule did not touch carry no save marker.
+    expect(rows[1].save).toBeNull();
+    expect(rows[2].save).toBeNull();
+  });
+
+  it("leaves save null for a plain total that merely equals 25 (no halving fired)", () => {
+    // baseState has no savedScores entries; a genuine total is not a save.
+    const rows = getYanivScoreboardRows(baseState);
+    expect(rows.every((r) => r.save === null)).toBe(true);
   });
 });

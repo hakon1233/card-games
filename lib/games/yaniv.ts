@@ -35,6 +35,14 @@ export interface YanivRoundResult {
    * eliminated-before-this-round players are omitted.
    */
   scoreDeltas: Record<string, number>;
+  /**
+   * Present per-player only when the 50/100 save rule fired this round: the
+   * player's score would have landed exactly on `from` (50 or 100) and was
+   * halved down to `to` (25 or 50). Absent for players the rule did not touch.
+   * The UI uses this to explain an otherwise-confusing round delta (e.g. a
+   * player going 30 -> 25 after taking a 20-point hand).
+   */
+  savedScores: Record<string, { from: number; to: number }>;
 }
 
 export interface YanivQuickDrawWindow {
@@ -284,6 +292,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
   const assaf = assafWinnerIds.size > 0;
 
   const scoreDeltas: Record<string, number> = {};
+  const savedScores: Record<string, { from: number; to: number }> = {};
   const updatedPlayers = state.players.map((p) => {
     if (p.eliminated) return p;
 
@@ -296,10 +305,14 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
       delta = handTotal(p.hand);
     }
 
-    let newScore = p.score + delta;
-    if (newScore === 50) newScore = 25;
-    else if (newScore === 100) newScore = 50;
+    const grossScore = p.score + delta;
+    let newScore = grossScore;
+    if (grossScore === 50) newScore = 25;
+    else if (grossScore === 100) newScore = 50;
 
+    if (newScore !== grossScore) {
+      savedScores[p.id] = { from: grossScore, to: newScore };
+    }
     scoreDeltas[p.id] = newScore - p.score;
     return { ...p, score: newScore, eliminated: newScore > scoreLimit };
   });
@@ -311,7 +324,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
     ...state,
     players: updatedPlayers,
     status: gameOver ? "game_over" : "round_over",
-    roundResult: { callerId, assaf, handTotals, scoreDeltas },
+    roundResult: { callerId, assaf, handTotals, scoreDeltas, savedScores },
     winnerId: gameOver ? (alive[0]?.id ?? null) : null,
   };
 }

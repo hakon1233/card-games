@@ -2007,6 +2007,16 @@ function RoundScoreboardRow({
             </span>
           )}
         </div>
+        {row.save && (
+          <div className="mt-1">
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
+              title={`Save rule: landing on ${row.save.from} is halved to ${row.save.to}`}
+            >
+              Saved {row.save.from} → {row.save.to}
+            </span>
+          </div>
+        )}
         <div className="mt-1 flex min-h-8 flex-wrap gap-1">
           {handCards.map((card, i) => (
             <PlayingCard key={i} card={card} size="sm" />
@@ -2025,6 +2035,11 @@ function RoundScoreboardRow({
               : "text-muted-foreground"
         }`}
         style={{ animation: "score-delta-pop 700ms ease-out both" }}
+        aria-label={
+          row.save
+            ? `Round change ${row.roundDelta}, after save rule halved ${row.save.from} to ${row.save.to}`
+            : undefined
+        }
       >
         {row.roundDelta > 0 ? `+${row.roundDelta}` : row.roundDelta}
       </span>

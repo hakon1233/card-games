@@ -324,6 +324,44 @@ describe("Yaniv scoring", () => {
     expect(scored.players.find((p) => p.id === "other")?.score).toBe(39);
   });
 
+  it("records savedScores when a player lands exactly on 50 (halved to 25)", () => {
+    const state = dealGame("save-rule-50", [
+      { id: "caller", name: "Caller", isBot: false },
+      { id: "other", name: "Other", isBot: true },
+    ]);
+
+    const scored = applyAction({
+      ...state,
+      currentPlayerIndex: 0,
+      players: [
+        {
+          ...state.players[0],
+          id: "caller",
+          hand: [{ suit: "hearts", rank: "7" }], // total 7 — caller wins, no save
+          score: 0,
+        },
+        {
+          ...state.players[1],
+          id: "other",
+          hand: [
+            { suit: "clubs", rank: "K" },
+            { suit: "spades", rank: "Q" },
+          ], // total 20 → 30 + 20 = 50 → saved to 25
+          score: 30,
+        },
+      ],
+    }, { type: "CALL_YANIV", playerId: "caller" });
+
+    // Correct scoring is preserved: the halving still applies.
+    expect(scored.players.find((p) => p.id === "other")?.score).toBe(25);
+    // The save is recorded with the pre-save gross and the halved result.
+    expect(scored.roundResult?.savedScores).toEqual({ other: { from: 50, to: 25 } });
+    // Delta reconciles with the total: 25 - 30 = -5.
+    expect(scored.roundResult?.scoreDeltas.other).toBe(-5);
+    // The caller landed on 0, not a save boundary — no entry.
+    expect(scored.roundResult?.savedScores.caller).toBeUndefined();
+  });
+
   it("caller wins round: scores 0, loser adds hand total", () => {
     const state = dealGame("g2", [
       { id: "p1", name: "P1", isBot: false },
