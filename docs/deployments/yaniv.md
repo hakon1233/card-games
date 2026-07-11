@@ -1,9 +1,14 @@
 # Yaniv deploy runbook
 
 The live app is a launchd service, `com.courtandtin.yaniv`, running `next start`
-on port 3001. Tailscale serves port 7842 to that local port. Its plist is
-`~/Library/LaunchAgents/com.courtandtin.yaniv.plist`; logs are
-`/tmp/courtandtin-yaniv.{out,err}.log`.
+on port 3001. Its plist is `~/Library/LaunchAgents/com.courtandtin.yaniv.plist`;
+logs are `/tmp/courtandtin-yaniv.{out,err}.log`.
+
+The tailnet-facing port is handled by a separate launchd service,
+`com.courtandtin.yaniv-edge`, running `scripts/run-yaniv-edge.sh` on local port
+3002. Tailscale forwards raw TCP port 7842 to that edge service. The edge
+service redirects plain HTTP requests to `https://...:7842/...`, terminates TLS
+with a `tailscale cert` certificate, and proxies HTTPS traffic to Next on 3001.
 
 Do not run `next build` in the live checkout. The service can continue serving
 HTML whose chunk references no longer exist while `.next` is being rebuilt.
@@ -24,6 +29,7 @@ changing the running service. For a manual service restart, use:
 
 ```sh
 launchctl kickstart -k "gui/$(id -u)/com.courtandtin.yaniv"
+launchctl kickstart -k "gui/$(id -u)/com.courtandtin.yaniv-edge"
 ```
 
 The versioned pre-push hook runs `pnpm deploy:yaniv:dry-run`, including Next's
@@ -33,3 +39,16 @@ automatically.
 
 Do not use shared integration branches. Every change lands on `main`; deploy
 only from that committed revision through the atomic deploy command above.
+
+If the Tailscale serve config needs to be restored manually, keep 7842 as a raw
+TCP forward to the edge service:
+
+```sh
+tailscale serve --tcp=7842 tcp://127.0.0.1:3002
+```
+
+The focused edge regression test is:
+
+```sh
+pnpm test:yaniv-edge
+```
