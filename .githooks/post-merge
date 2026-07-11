@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+
+# Auto-promote a freshly-pulled revision into the live Yaniv build so a `git
+# pull` into the live app_dir actually deploys — closing the "validation-on-push
+# ≠ deployment" gap (GAM-230/GAM-231). `deploy:yaniv` is atomic, smoke-tested,
+# and auto-rolls-back, so this is the low-risk prevention tier.
+#
+# GUARDED so agent workspaces that also pull don't each try to deploy. All of
+# these must hold before we promote:
+#   1. not opted out (YANIV_SKIP_POST_MERGE_DEPLOY != true)
+#   2. on `main`
+#   3. this box is the live host — either YANIV_IS_LIVE_HOST=true, or the launchd
+#      service is actually loaded here.
+#
+# post-merge runs after `git merge`/`git pull`; git ignores its exit status, and
+# deploy:yaniv builds in an isolated worktree (no `git pull`/`merge`), so there
+# is no recursion and a failed deploy can't break the pull.
+
+set -eu
+
+if [ "${YANIV_SKIP_POST_MERGE_DEPLOY:-false}" = "true" ]; then
+  exit 0
+fi
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+if [ "$branch" != "main" ]; then
+  exit 0
+fi
+
+service_label="${YANIV_SERVICE_LABEL:-com.courtandtin.yaniv}"
+service_target="${YANIV_SERVICE_TARGET:-gui/$(id -u)/$service_label}"
+
+if [ "${YANIV_IS_LIVE_HOST:-false}" != "true" ]; then
+  # Not explicitly flagged live — only deploy if the launchd service exists here.
+  if ! launchctl print "$service_target" >/dev/null 2>&1; then
+    exit 0
+  fi
+fi
+
+echo "[post-merge] promoting pulled revision to live Yaniv (branch=$branch)"
+pnpm deploy:yaniv

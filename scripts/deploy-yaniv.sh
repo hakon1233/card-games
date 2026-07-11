@@ -16,12 +16,30 @@ smoke_url="${YANIV_SMOKE_URL:-http://127.0.0.1:3001/}"
 smoke_max_attempts="${YANIV_SMOKE_MAX_ATTEMPTS:-60}"
 revision="${YANIV_DEPLOY_REF:-HEAD}"
 dry_run=false
+mode="promote"
 cache_root="${YANIV_DEPLOY_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/Library/Caches}/yaniv-deploy/$cache_key}"
+# Durable, append-only deploy log. Answers "what's live, when it was promoted,
+# and every attempt+outcome" from a file, independent of the app being up
+# (GAM-231). Override for tests/CI via YANIV_DEPLOY_LOG.
+deploy_log="${YANIV_DEPLOY_LOG:-$HOME/Library/Logs/yaniv-deploy.log}"
 staging_root=""
 staging_dir=""
 lock_dir=""
 backup_next=""
 promoted=false
+
+# Never let logging abort the deploy (keep the outer `set -euo pipefail`): an
+# unwritable log or missing dir is tolerated. No secrets are ever logged.
+log() {
+  mkdir -p "$(dirname "$deploy_log")" 2>/dev/null || true
+  printf '%s [yaniv-deploy] %s\n' "$(date -u +%FT%TZ)" "$*" >>"$deploy_log" 2>/dev/null || true
+}
+
+# Best-effort short SHA for logging; falls back to the raw ref if git can't
+# resolve it (e.g. a still-symbolic HEAD before resolution).
+short_rev() {
+  git rev-parse --short "${1:-HEAD}" 2>/dev/null || printf '%.12s' "${1:-unknown}"
+}
 
 usage() {
   cat <<'EOF'
@@ -36,7 +54,7 @@ EOF
 
 for arg in "$@"; do
   case "$arg" in
-    --dry-run) dry_run=true ;;
+    --dry-run) dry_run=true; mode="dry-run" ;;
     --help|-h) usage; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; usage >&2; exit 2 ;;
   esac
@@ -84,6 +102,7 @@ ensure_disk_headroom() {
   echo "disk headroom after reclamation: ${free_mb} MiB free" >&2
 
   if [[ "$free_mb" -lt "$abort_mb" ]]; then
+    log "abort reason=low-disk free_mb=${free_mb} need_mb=${abort_mb}"
     echo "aborting deploy: only ${free_mb} MiB free on the Data volume (need >= ${abort_mb} MiB to build safely)." >&2
     echo "the build gate fails on ENOSPC when the disk is full; free space before retrying (old builds/caches, paperclip logs/transcripts). See GAM-114." >&2
     exit 1
@@ -95,6 +114,7 @@ restore_previous_build() {
     return
   fi
 
+  log "rollback rev=$(short_rev "$revision")"
   echo "rolling back to the previous build" >&2
   rm -rf "$staging_root/failed-next"
   [[ ! -d "$app_dir/.next" ]] || mv "$app_dir/.next" "$staging_root/failed-next"
@@ -124,6 +144,7 @@ prepare_staging_worktree() {
 }
 
 on_interrupt() {
+  log "interrupted rev=$(short_rev "$revision")"
   restore_previous_build
   exit 1
 }
@@ -132,9 +153,11 @@ trap cleanup EXIT
 trap on_interrupt HUP INT TERM
 
 cd "$app_dir"
-[[ -x "$pnpm_bin" ]] || { echo "pnpm not executable: $pnpm_bin" >&2; exit 1; }
+log "start mode=$mode ref=$revision rev=$(short_rev "$revision")"
+[[ -x "$pnpm_bin" ]] || { log "abort reason=pnpm-not-executable bin=$pnpm_bin"; echo "pnpm not executable: $pnpm_bin" >&2; exit 1; }
 if [[ "${YANIV_ALLOW_DIRTY_FOR_TESTS:-false}" != true ]]; then
   git diff --quiet && git diff --cached --quiet || {
+    log "abort reason=dirty-checkout"
     echo "refusing to deploy a dirty checkout; commit or discard local changes first" >&2
     exit 1
   }
@@ -153,6 +176,7 @@ if ! (
   "$pnpm_bin" build
 ); then
   prune_staged_build_outputs
+  log "build-failed rev=$(short_rev "$revision")"
   echo "build failed; the live build was not changed" >&2
   exit 1
 fi
@@ -160,6 +184,7 @@ fi
 for required in BUILD_ID build-manifest.json server static; do
   [[ -e "$staging_dir/.next/$required" ]] || {
     prune_staged_build_outputs
+    log "incomplete-build rev=$(short_rev "$revision") missing=.next/$required"
     echo "staged build is incomplete: missing .next/$required" >&2
     echo "build failed; the live build was not changed" >&2
     exit 1
@@ -167,6 +192,7 @@ for required in BUILD_ID build-manifest.json server static; do
 done
 
 if [[ "$dry_run" == true ]]; then
+  log "dry-run-ok rev=$(short_rev "$revision")"
   echo "staged build is valid; dry run finished before promotion"
   prune_staged_build_outputs
   exit 0
@@ -174,6 +200,7 @@ fi
 
 [[ -d "$app_dir/.next" && -f "$app_dir/.next/BUILD_ID" ]] || {
   prune_staged_build_outputs
+  log "abort reason=missing-live-build rev=$(short_rev "$revision")"
   echo "refusing to replace a missing or incomplete live build" >&2
   exit 1
 }
@@ -203,6 +230,7 @@ smoke_test() {
 
 launchctl kickstart -k "$service_target"
 if ! smoke_test; then
+  log "smoke-failed rev=$(short_rev "$revision")"
   echo "post-restart smoke test failed" >&2
   restore_previous_build
   exit 1
@@ -210,4 +238,5 @@ fi
 
 promoted=false
 rm -rf "$backup_next"
+log "promote rev=$revision short=$(short_rev "$revision")"
 echo "deploy succeeded: $revision"
