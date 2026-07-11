@@ -878,12 +878,12 @@ export default function YanivPage() {
             <div className="flex gap-2">
               <ContextTooltip
                 text="Discard your selected legal set, then draw one unknown card from the deck."
-                className="flex-1"
+                className="flex-1 min-w-0"
               >
                 <Button
                   onClick={() => discardAndDraw(false)}
                   disabled={!canDiscard}
-                  className="w-full"
+                  className="w-full whitespace-normal text-center leading-tight py-2"
                   variant="default"
                 >
                   Discard &amp; Draw from Deck
@@ -891,7 +891,7 @@ export default function YanivPage() {
               </ContextTooltip>
               <ContextTooltip
                 text="Discard your selected legal set, then take one visible card from the top discard group."
-                className="flex-1"
+                className="flex-1 min-w-0"
               >
                 <Button
                   onClick={() => discardAndDraw(true)}
