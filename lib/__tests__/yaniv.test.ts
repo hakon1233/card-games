@@ -14,7 +14,8 @@ import { YanivBot } from "../bots/yaniv-bot";
 const bot = new YanivBot();
 
 describe("yaniv card values", () => {
-  it("scores A=1, face=10, pip=face value", () => {
+  it("scores Joker=0, A=1, face=10, pip=face value", () => {
+    expect(yanivCardValue("Joker")).toBe(0);
     expect(yanivCardValue("A")).toBe(1);
     expect(yanivCardValue("J")).toBe(10);
     expect(yanivCardValue("Q")).toBe(10);
@@ -170,6 +171,14 @@ describe("isValidDiscard", () => {
     ])).toBe(true);
   });
 
+  it("does not let a Joker complete a straight", () => {
+    expect(isValidDiscard([
+      { suit: "hearts", rank: "Joker" },
+      { suit: "hearts", rank: "A" },
+      { suit: "hearts", rank: "2" },
+    ])).toBe(false);
+  });
+
   it("rejects mixed-suit straight", () => {
     expect(isValidDiscard([
       { suit: "hearts", rank: "A" },
@@ -188,7 +197,7 @@ describe("isValidDiscard", () => {
 });
 
 describe("dealGame", () => {
-  it("deals 5 cards to each player", () => {
+  it("deals 5 cards to each player from a Yaniv deck with two Jokers", () => {
     const state = dealGame("g1", [
       { id: "p1", name: "P1", isBot: false },
       { id: "p2", name: "P2", isBot: true },
@@ -197,7 +206,11 @@ describe("dealGame", () => {
     expect(state.players[1].hand).toHaveLength(5);
     expect(state.discardPile).toHaveLength(1);
     expect(state.status).toBe("in_progress");
-    expect(state.deck.length).toBe(52 - 10 - 1); // 41
+    expect(state.deck.length).toBe(54 - 10 - 1); // 43
+
+    const allCards = [...state.players[0].hand, ...state.players[1].hand, ...state.discardPile, ...state.deck];
+    expect(allCards).toHaveLength(54);
+    expect(allCards.filter((card) => card.rank === "Joker")).toHaveLength(2);
   });
 });
 

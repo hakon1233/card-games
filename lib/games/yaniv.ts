@@ -92,8 +92,17 @@ export type YanivAction =
   | { type: "NEXT_ROUND"; playerId: string };
 
 const RANK_ORDER: Rank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const YANIV_JOKERS: Card[] = [
+  { suit: "hearts", rank: "Joker" },
+  { suit: "spades", rank: "Joker" },
+];
+
+function buildYanivDeck(): Card[] {
+  return [...buildDeck(), ...YANIV_JOKERS];
+}
 
 export function yanivCardValue(rank: Rank): number {
+  if (rank === "Joker") return 0;
   if (rank === "A") return 1;
   if (rank === "J" || rank === "Q" || rank === "K") return 10;
   return parseInt(rank, 10);
@@ -120,6 +129,7 @@ export function isValidDiscard(cards: Card[]): boolean {
   if (!allSameSuit) return false;
 
   const indices = cards.map((c) => RANK_ORDER.indexOf(c.rank)).sort((a, b) => a - b);
+  if (indices.includes(-1)) return false;
   for (let i = 1; i < indices.length; i++) {
     if (indices[i] !== indices[i - 1] + 1) return false;
   }
@@ -207,6 +217,7 @@ export function canAddToSelection(selected: Card[], card: Card): boolean {
   if (allSameSuit && card.suit === selected[0].suit) {
     const indices = selected.map((c) => RANK_ORDER.indexOf(c.rank)).sort((a, b) => a - b);
     const cardIdx = RANK_ORDER.indexOf(card.rank);
+    if (cardIdx === -1 || indices.includes(-1)) return false;
     const isConsecutive = indices.every((v, i) => i === 0 || v === indices[i - 1] + 1);
     if (isConsecutive && (cardIdx === indices[0] - 1 || cardIdx === indices[indices.length - 1] + 1)) return true;
   }
@@ -222,7 +233,7 @@ export function dealGame(
   if (playerDefs.length < 2 || playerDefs.length > 6) {
     throw new Error("Yaniv requires 2–6 players");
   }
-  const deck = shuffle(buildDeck());
+  const deck = shuffle(buildYanivDeck());
   const handSize = 5;
 
   const players: YanivPlayer[] = playerDefs.map((p, i) => ({
@@ -339,7 +350,7 @@ export function startNextRound(state: YanivGameState): YanivGameState {
   if (state.status !== "round_over") return state;
 
   const activePlayers = state.players.filter((p) => !p.eliminated);
-  const deck = shuffle(buildDeck());
+  const deck = shuffle(buildYanivDeck());
   const handSize = 5;
 
   let offset = 0;

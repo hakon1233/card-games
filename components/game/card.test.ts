@@ -12,6 +12,10 @@ describe("bottomCornerRankText", () => {
   it("leaves single-character ranks unchanged", () => {
     expect(bottomCornerRankText("J")).toBe("J");
   });
+
+  it("leaves Joker labels unchanged", () => {
+    expect(bottomCornerRankText("Joker")).toBe("Joker");
+  });
 });
 
 describe("PlayingCard sizing", () => {

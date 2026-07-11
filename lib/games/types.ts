@@ -12,7 +12,8 @@ export type Rank =
   | "10"
   | "J"
   | "Q"
-  | "K";
+  | "K"
+  | "Joker";
 
 export interface Card {
   suit: Suit;
