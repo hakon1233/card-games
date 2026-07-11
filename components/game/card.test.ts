@@ -5,8 +5,8 @@ import { createElement } from "react";
 import { bottomCornerRankText, PlayingCard } from "./card";
 
 describe("bottomCornerRankText", () => {
-  it("pre-reverses two-character ranks so rotation preserves visual order", () => {
-    expect(bottomCornerRankText("10")).toBe("01");
+  it("preserves two-character ranks in reading order", () => {
+    expect(bottomCornerRankText("10")).toBe("10");
   });
 
   it("leaves single-character ranks unchanged", () => {
@@ -21,6 +21,12 @@ describe("PlayingCard sizing", () => {
     const html = renderToStaticMarkup(createElement(PlayingCard, { card, size: "sm" }));
     expect(html).toContain("w-10 h-14");
     expect(html).toContain("10 of hearts");
+  });
+
+  it("renders the bottom-right 10 rank in reading order", () => {
+    const html = renderToStaticMarkup(createElement(PlayingCard, { card, size: "md" }));
+    expect(html).toContain(">10</span>");
+    expect(html).not.toContain(">01</span>");
   });
 
   it("renders a large, legible top-discard card with bigger geometry and type", () => {

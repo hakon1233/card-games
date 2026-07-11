@@ -62,7 +62,7 @@ interface CardProps {
 }
 
 export function bottomCornerRankText(rank: string) {
-  return rank.length > 1 ? rank.split("").reverse().join("") : rank;
+  return rank;
 }
 
 // Pure presentational component (no hooks / side effects): its output is a function
