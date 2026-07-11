@@ -230,7 +230,7 @@ export function CardHand({
     <div className="flex flex-col gap-2">
       {showSortPicker && (
         <div className="relative flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="truncate">
+          <span className="min-w-0 flex-1 leading-tight break-words">
             {label && <span className="font-medium text-foreground">{label}</span>}
             {label && <span className="mx-1.5 text-muted-foreground/70">/</span>}
             <span className="tabular-nums">{SORT_LABELS[currentSort]}</span>

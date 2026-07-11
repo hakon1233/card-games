@@ -129,4 +129,20 @@ describe("CardHand accessibility", () => {
       HTMLButtonElement,
     );
   });
+
+  it("allows the sort label to wrap instead of truncating in narrow hands", () => {
+    render(
+      createElement(CardHand, {
+        cards: [
+          { suit: "hearts", rank: "A", faceUp: true },
+          { suit: "spades", rank: "10", faceUp: true },
+        ],
+        gameType: "blackjack",
+      }),
+    );
+
+    const sortLabel = screen.getByText("Manual order").parentElement;
+    expect(sortLabel?.classList.contains("truncate")).toBe(false);
+    expect(sortLabel?.classList.contains("break-words")).toBe(true);
+  });
 });
