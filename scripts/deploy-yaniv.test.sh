@@ -46,6 +46,14 @@ grep -Fq 'build-failed' "$log_file" || {
   exit 1
 }
 
+# The EXIT trap records the final rc on every exit (GAM-231, CTO review), so
+# even a path that leaves no named terminal line is still provably not silent.
+grep -Fq 'exit rc=' "$log_file" || {
+  cat "$log_file" >&2
+  echo "deploy log must record the final exit code via the EXIT trap" >&2
+  exit 1
+}
+
 hook_file="$repo_root/.githooks/pre-push"
 grep -Fxq 'pnpm deploy:yaniv:dry-run' "$hook_file" || {
   echo "pre-push must use the isolated deploy dry run" >&2
@@ -211,5 +219,35 @@ grep -Fq 'GAM-114' "$abort_output" || {
 
 [[ ! -e "$abort_cache/deploy-cache/source/.next/BUILD_ID" ]] || {
   echo "low-disk abort must stop before staging a build" >&2
+  exit 1
+}
+
+# Provably never silent (GAM-231, CTO review): an unresolvable deploy ref dies
+# at `git rev-parse --verify`, an unhandled `set -e` death that no named
+# terminal path covers. The EXIT trap must still record the final rc so a deploy
+# attempt is never invisible in the log.
+badref_log="$(mktemp)"
+badref_output="$(mktemp)"
+trap 'rm -f "$output_file" "$log_file" "$dry_run_log" "$abort_output" "$badref_log" "$badref_output"; rm -rf "$cache_dir" "$abort_cache"' EXIT
+
+if YANIV_ALLOW_DIRTY_FOR_TESTS=true \
+   YANIV_PNPM_BIN=/usr/bin/true \
+   YANIV_DEPLOY_LOG="$badref_log" \
+   YANIV_DEPLOY_REF=0000000000000000000000000000000000000000 \
+     "$repo_root/scripts/deploy-yaniv.sh" >"$badref_output" 2>&1; then
+  cat "$badref_output" >&2
+  echo "deploy unexpectedly succeeded with an unresolvable ref" >&2
+  exit 1
+fi
+
+grep -Fq '[yaniv-deploy] start' "$badref_log" || {
+  cat "$badref_log" >&2
+  echo "deploy log must record a start line even for an unresolvable ref" >&2
+  exit 1
+}
+
+grep -Fq 'exit rc=' "$badref_log" || {
+  cat "$badref_log" >&2
+  echo "the EXIT trap must record a final rc on an unhandled set -e death" >&2
   exit 1
 }

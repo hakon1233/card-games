@@ -61,7 +61,14 @@ for arg in "$@"; do
 done
 
 cleanup() {
-  [[ -z "$lock_dir" || ! -d "$lock_dir" ]] || rmdir "$lock_dir"
+  local rc=$?
+  [[ -z "$lock_dir" || ! -d "$lock_dir" ]] || rmdir "$lock_dir" 2>/dev/null || true
+  # Backstop so no exit is ever silent (GAM-231, CTO review): the named paths
+  # each log their own reason, but an unhandled `set -e` death (an unresolvable
+  # ref, a `git worktree add` failure) or the lock-contention reject would
+  # otherwise leave no trail. Record the final rc on every exit. Best-effort,
+  # like log() itself, so it can never change the deploy's outcome.
+  log "exit rc=${rc} rev=$(short_rev "$revision")"
 }
 
 prune_staged_build_outputs() {
@@ -126,11 +133,14 @@ restore_previous_build() {
 
 prepare_staging_worktree() {
   mkdir -p "$staging_root"
-  lock_dir="$staging_root/.lock"
-  if ! mkdir "$lock_dir" 2>/dev/null; then
+  # Claim the mutex first; only record ownership (which cleanup removes) AFTER
+  # winning it, so a losing concurrent deploy can't rmdir the winner's lock.
+  if ! mkdir "$staging_root/.lock" 2>/dev/null; then
+    log "abort reason=lock-contention"
     echo "another Yaniv deploy gate is already using $staging_root" >&2
     exit 1
   fi
+  lock_dir="$staging_root/.lock"
 
   if [[ ! -d "$staging_dir/.git" && ! -f "$staging_dir/.git" ]]; then
     rm -rf "$staging_dir"
