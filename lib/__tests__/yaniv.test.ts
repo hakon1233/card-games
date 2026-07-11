@@ -400,6 +400,175 @@ describe("Yaniv scoring", () => {
   });
 });
 
+describe("elimination at exact score limit (GAM-124)", () => {
+  it("eliminates a player whose score lands exactly on the score limit", () => {
+    const state = dealGame(
+      "exact-limit-2p",
+      [
+        { id: "caller", name: "Caller", isBot: false },
+        { id: "target", name: "Target", isBot: true },
+      ],
+      { yanivThreshold: 7, scoreLimit: 150, quickDraw: false },
+    );
+
+    const scored = applyAction(
+      {
+        ...state,
+        currentPlayerIndex: 0,
+        players: [
+          { ...state.players[0], id: "caller", hand: [{ suit: "hearts", rank: "5" }], score: 0 },
+          {
+            ...state.players[1],
+            id: "target",
+            // 10 + 10 + 10 + 10 + 10 = 50 point hand
+            hand: [
+              { suit: "clubs", rank: "K" },
+              { suit: "spades", rank: "K" },
+              { suit: "diamonds", rank: "K" },
+              { suit: "hearts", rank: "Q" },
+              { suit: "clubs", rank: "10" },
+            ],
+            score: 100,
+          },
+        ],
+      },
+      { type: "CALL_YANIV", playerId: "caller" },
+    );
+
+    const target = scored.players.find((p) => p.id === "target");
+    expect(target?.score).toBe(150);
+    expect(target?.eliminated).toBe(true);
+    // Two-player game: the sole survivor wins and the game ends.
+    expect(scored.status).toBe("game_over");
+    expect(scored.winnerId).toBe("caller");
+  });
+
+  it("eliminates only the player who reaches the limit in a 3-player game", () => {
+    const state = dealGame(
+      "exact-limit-3p",
+      [
+        { id: "caller", name: "Caller", isBot: false },
+        { id: "target", name: "Target", isBot: true },
+        { id: "safe", name: "Safe", isBot: true },
+      ],
+      { yanivThreshold: 7, scoreLimit: 150, quickDraw: false },
+    );
+
+    const scored = applyAction(
+      {
+        ...state,
+        currentPlayerIndex: 0,
+        players: [
+          { ...state.players[0], id: "caller", hand: [{ suit: "hearts", rank: "5" }], score: 0 },
+          {
+            ...state.players[1],
+            id: "target",
+            hand: [
+              { suit: "clubs", rank: "K" },
+              { suit: "spades", rank: "K" },
+              { suit: "diamonds", rank: "K" },
+              { suit: "hearts", rank: "Q" },
+              { suit: "clubs", rank: "10" },
+            ],
+            score: 100,
+          },
+          {
+            ...state.players[2],
+            id: "safe",
+            hand: [{ suit: "spades", rank: "3" }],
+            score: 20,
+          },
+        ],
+      },
+      { type: "CALL_YANIV", playerId: "caller" },
+    );
+
+    expect(scored.players.find((p) => p.id === "target")?.eliminated).toBe(true);
+    expect(scored.players.find((p) => p.id === "safe")?.eliminated).toBe(false);
+    // Two players remain alive, so play continues rather than ending.
+    expect(scored.status).toBe("round_over");
+    expect(scored.winnerId).toBeNull();
+  });
+
+  it("save-100 rule protects a player who lands exactly on a limit of 100", () => {
+    const state = dealGame(
+      "save-100-at-limit",
+      [
+        { id: "caller", name: "Caller", isBot: false },
+        { id: "target", name: "Target", isBot: true },
+      ],
+      { yanivThreshold: 7, scoreLimit: 100, quickDraw: false },
+    );
+
+    const scored = applyAction(
+      {
+        ...state,
+        currentPlayerIndex: 0,
+        players: [
+          { ...state.players[0], id: "caller", hand: [{ suit: "hearts", rank: "5" }], score: 10 },
+          {
+            ...state.players[1],
+            id: "target",
+            // 10 + 10 + 10 + 10 = 40 point hand
+            hand: [
+              { suit: "clubs", rank: "K" },
+              { suit: "spades", rank: "Q" },
+              { suit: "diamonds", rank: "J" },
+              { suit: "hearts", rank: "10" },
+            ],
+            score: 60,
+          },
+        ],
+      },
+      { type: "CALL_YANIV", playerId: "caller" },
+    );
+
+    const target = scored.players.find((p) => p.id === "target");
+    // 60 + 40 = 100 → save rule drops to 50 → below the limit, so not eliminated.
+    expect(target?.score).toBe(50);
+    expect(target?.eliminated).toBe(false);
+    expect(scored.status).toBe("round_over");
+  });
+
+  it("save-50 rule still fires and protects a player landing exactly on 50", () => {
+    const state = dealGame(
+      "save-50",
+      [
+        { id: "caller", name: "Caller", isBot: false },
+        { id: "target", name: "Target", isBot: true },
+      ],
+      { yanivThreshold: 7, scoreLimit: 200, quickDraw: false },
+    );
+
+    const scored = applyAction(
+      {
+        ...state,
+        currentPlayerIndex: 0,
+        players: [
+          { ...state.players[0], id: "caller", hand: [{ suit: "hearts", rank: "5" }], score: 10 },
+          {
+            ...state.players[1],
+            id: "target",
+            // 10 + 10 + 10 = 30 point hand
+            hand: [
+              { suit: "clubs", rank: "K" },
+              { suit: "spades", rank: "Q" },
+              { suit: "diamonds", rank: "10" },
+            ],
+            score: 20,
+          },
+        ],
+      },
+      { type: "CALL_YANIV", playerId: "caller" },
+    );
+
+    const target = scored.players.find((p) => p.id === "target");
+    // 20 + 30 = 50 → save rule drops to 25.
+    expect(target?.score).toBe(25);
+    expect(target?.eliminated).toBe(false);
+  });
+});
+
 describe("full game simulation", () => {
   it("completes a 3-player bot game within turn limit", () => {
     let state = dealGame("sim-game", [

@@ -307,6 +307,9 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
 
     const grossScore = p.score + delta;
     let newScore = grossScore;
+    // Save rules apply *before* the elimination check: a score landing exactly
+    // on 50 drops to 25, and exactly on 100 drops to 50. So a player rescued by
+    // the save rule is already below the limit by the time we test elimination.
     if (grossScore === 50) newScore = 25;
     else if (grossScore === 100) newScore = 50;
 
@@ -314,7 +317,10 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
       savedScores[p.id] = { from: grossScore, to: newScore };
     }
     scoreDeltas[p.id] = newScore - p.score;
-    return { ...p, score: newScore, eliminated: newScore > scoreLimit };
+    // Elimination happens *at* the score limit, not just above it: a score equal
+    // to the limit (e.g. exactly 150/200/300) eliminates the player. The save
+    // rules above already protect the 50/100 landings, so this stays correct.
+    return { ...p, score: newScore, eliminated: newScore >= scoreLimit };
   });
 
   const alive = updatedPlayers.filter((p) => !p.eliminated);
