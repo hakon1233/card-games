@@ -35,7 +35,7 @@ async function run(label, vp) {
   const discardBtn = page.getByRole("button", { name: /Discard & Draw from Deck/i });
   for (let i = 0; i < 40 && !(await discardBtn.isVisible().catch(() => false)); i++) await sleep(150);
   if (await discardBtn.isVisible().catch(() => false)) {
-    const hand = page.getByRole("button", { name: / of (hearts|diamonds|clubs|spades)$/i });
+    const hand = page.getByRole("button", { name: /^Select ([A-Za-z0-9]+) of (hearts|diamonds|clubs|spades), card \d+ of \d+$/i });
     const n = await hand.count();
     let sel = 0;
     for (let c = 0; c < n && sel < 2; c++) {
