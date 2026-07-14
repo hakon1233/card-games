@@ -13,6 +13,7 @@
     "deploy:yaniv:dry-run": "bash scripts/deploy-yaniv.sh --dry-run",
     "test:deploy:yaniv": "bash scripts/deploy-yaniv.test.sh",
     "test:yaniv-edge": "node scripts/yaniv-edge-server.test.mjs",
+    "test:yaniv-rule-gates": "node tests/e2e/yaniv-rule-gates.mjs",
     "prepare": "sh scripts/install-git-hooks.sh"
   },
   "dependencies": {

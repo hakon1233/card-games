@@ -13,6 +13,11 @@ const log = (...a) => console.log(...a);
 const cardRe = /^Select ([A-Za-z0-9]+) of (hearts|diamonds|clubs|spades), card \d+ of \d+$/i;
 const HARD = setTimeout(() => { log("HARD-TIMEOUT"); process.exit(2); }, 110000);
 HARD.unref?.();
+const failed = [];
+const assert = (cond, name, extra = "") => {
+  if (cond) log(`PASS ${name}${extra ? " - " + extra : ""}`);
+  else { failed.push({ name, extra }); log(`FAIL ${name}${extra ? " - " + extra : ""}`); }
+};
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -88,7 +93,12 @@ HARD.unref?.();
   log("rounds:", rounds, "| human Yaniv calls:", calls, "| assaf:", assaf, "| save:", save, "| gameOver:", gameOver);
   log("headlines:", JSON.stringify(heads));
   log("console errors:", errors.length, errors.slice(0, 6).join(" | "));
+  assert(calls > 0, "human Call Yaniv path exercised", `calls=${calls}`);
+  assert(assaf > 0, "Assaf browser path observed", `assaf=${assaf}`);
+  assert(save > 0, "save-rule browser path observed", `save=${save}`);
+  assert(gameOver, "game reaches game-over screen");
+  assert(errors.length === 0, "console clean", errors.slice(0, 6).join(" | "));
   await browser.close();
   clearTimeout(HARD);
-  process.exit(0);
+  process.exit(failed.length ? 1 : 0);
 })().catch((e) => { console.error("CRASH", e); process.exit(1); });

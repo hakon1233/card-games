@@ -1,5 +1,6 @@
 // Fast Yaniv playthrough — GAM-113. High call-threshold so rounds end quickly,
-// driving round scoring, Assaf, save rule, and elimination within ~60s.
+// driving round scoring and elimination within ~60s. Deterministic save-rule
+// coverage lives in yaniv-rule-gates.mjs.
 // PW_LIB=<playwright> node tests/e2e/yaniv-quick.mjs
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -11,6 +12,11 @@ mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(...a);
 const cardRe = /^Select ([A-Za-z0-9]+) of (hearts|diamonds|clubs|spades), card \d+ of \d+$/i;
+const failed = [];
+const assert = (cond, name, extra = "") => {
+  if (cond) log(`PASS ${name}${extra ? " - " + extra : ""}`);
+  else { failed.push({ name, extra }); log(`FAIL ${name}${extra ? " - " + extra : ""}`); }
+};
 
 // hard kill so the process can never hang a heartbeat
 const HARD = setTimeout(() => { log("HARD-TIMEOUT"); process.exit(2); }, 110000);
@@ -38,7 +44,7 @@ HARD.unref?.();
   const rematch = page.getByRole("button", { name: /^Rematch$/i });
 
   const headlines = [];
-  let rounds = 0, calls = 0, discards = 0, gameOver = false, assaf = false, saveObserved = false;
+  let rounds = 0, calls = 0, discards = 0, gameOver = false, assaf = false;
   let lastReadout = "", elimMentioned = false;
   const readout = page.getByLabel(/Hand total \d+\. Yaniv threshold \d+/i);
 
@@ -95,7 +101,13 @@ HARD.unref?.();
   log("headlines:", JSON.stringify(headlines));
   log("last hand readout:", lastReadout);
   log("console errors:", errors.length, errors.slice(0, 5).join(" | "));
+  assert(rounds > 0, "round scoring path observed", `rounds=${rounds}`);
+  assert(calls > 0, "Call Yaniv path exercised", `calls=${calls}`);
+  assert(discards > 0, "discard path exercised", `discards=${discards}`);
+  assert(gameOver, "game reaches game-over screen");
+  assert(elimMentioned, "elimination/bust UI text observed");
+  assert(errors.length === 0, "console clean", errors.slice(0, 5).join(" | "));
   await browser.close();
   clearTimeout(HARD);
-  process.exit(0);
+  process.exit(failed.length ? 1 : 0);
 })().catch((e) => { console.error("CRASH", e); process.exit(1); });

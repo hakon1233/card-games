@@ -437,6 +437,34 @@ export default function YanivPage() {
   }, []);
 
   useEffect(() => {
+    if (gameState || typeof window === "undefined") return;
+    const qaGameId = new URLSearchParams(window.location.search).get("qaGameId");
+    if (!qaGameId) return;
+
+    let cancelled = false;
+    fetch(`/api/yaniv/${qaGameId}/action`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`QA fixture load failed: ${res.status}`))))
+      .then(({ state }) => {
+        if (cancelled) return;
+        setGameState(state);
+        setSelected([]);
+        setRoundsWon(0);
+        setRoundsLost(0);
+        setActionBadges({});
+        clearScoreFeedbackTimers();
+        setScoreFeedback({});
+        setRoundOverlayReady(true);
+        previousTurnPlayerIdRef.current = null;
+        setTurnPreview(null);
+      })
+      .catch((error) => console.error(error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameState]);
+
+  useEffect(() => {
     if (!gameState) return;
     const curr = gameState.deck.length;
     const prev = prevDeckLengthRef.current;
