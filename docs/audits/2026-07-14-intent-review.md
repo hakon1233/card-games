@@ -6,7 +6,7 @@
 - **Window:** completed-count 171 → 191 (20 issues)
 - **Result:** one new medium-severity finding
 - **Finding:** [GAM-252](/GAM/issues/GAM-252), `[intent-review] Yaniv live QA gate does not enforce required rule paths`
-- **Current deploy check:** live revision `38219aa` matches `main`/`origin/main`
+- **Reviewed product deploy check:** live revision `38219aa` matched the product `HEAD` before this audit-only document commit
 
 The product changes in this window match their issue-level intent. Assaf scoring, deploy observability, the 375px button fix, and the two stale card-selector fixes are present in `main` and have focused regression evidence. The intent drift is in the recurring QA closure standard: its browser drivers and cycle reports can succeed without exercising several rule paths that the routine explicitly requires, most notably the 50/100 save rule.
 
@@ -49,6 +49,8 @@ Commits `16045a0`, `4400aa4`, and `4dea184` add the force-dynamic `/api/version`
 
 The live checkout also receives locally authored commits, so the hook does not make deployment fully automatic. That exact residual gap reproduced when GAM-234 remained unpromoted and again when GAM-239 found GAM-238 absent from live. It is already tracked by [GAM-235](/GAM/issues/GAM-235), which is in review pending founder confirmation for unattended live-box automation. No duplicate audit finding was filed.
 
+The audit push reproduced the mechanism without changing product behavior: the pre-push dry-run built commit `fdb2012` successfully, but did not promote it, leaving live on the reviewed product revision `38219aa`. The Auditor did not run a production promotion for a documentation-only commit.
+
 ### 375px action button — GAM-234/GAM-236
 
 Commit `b4bdb35` adds `min-w-0` to both flex wrappers and allows the longer action label to wrap at `app/play/yaniv/page.tsx:878-900`. GAM-236 then verified the fixed button in the live mobile viewport. The implementation choice matches the issue’s requirement without shortening the user-facing label.
@@ -65,7 +67,7 @@ Commit `38219aa` updates `yaniv-gear-qa.mjs` and `yaniv-ui-capture.mjs` to match
 
 ## Fresh verification
 
-Run from the managed Yaniv checkout at `38219aa`:
+Run from the managed Yaniv checkout while the reviewed product `HEAD` was `38219aa`:
 
 - `pnpm exec vitest run lib/__tests__/yaniv.test.ts` — 1 file, 31 tests passed.
 - `pnpm test:deploy:yaniv` — exit 0.
