@@ -71,7 +71,7 @@ Run from the managed Yaniv checkout while the reviewed product `HEAD` was `38219
 
 - `pnpm exec vitest run lib/__tests__/yaniv.test.ts` — 1 file, 31 tests passed.
 - `pnpm test:deploy:yaniv` — exit 0.
-- `node scripts/qa/yaniv-version-check.mjs https://your-host.example:7842 --expect 38219aa` — live revision and `X-Yaniv-Revision` match `HEAD`.
+- `node scripts/qa/yaniv-version-check.mjs $LIVE_BASE_URL --expect 38219aa` — live revision and `X-Yaniv-Revision` match `HEAD`.
 - `node --check` on `yaniv-live-qa.mjs`, `yaniv-assaf-probe.mjs`, `yaniv-quick.mjs`, `yaniv-gear-qa.mjs`, and `yaniv-ui-capture.mjs` — all exit 0.
 
 No product code was changed by this audit.

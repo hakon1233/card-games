@@ -111,7 +111,7 @@ ensure_disk_headroom() {
   if [[ "$free_mb" -lt "$abort_mb" ]]; then
     log "abort reason=low-disk free_mb=${free_mb} need_mb=${abort_mb}"
     echo "aborting deploy: only ${free_mb} MiB free on the Data volume (need >= ${abort_mb} MiB to build safely)." >&2
-    echo "the build gate fails on ENOSPC when the disk is full; free space before retrying (old builds/caches, paperclip logs/transcripts). See GAM-114." >&2
+    echo "the build gate fails on ENOSPC when the disk is full; free space before retrying (old builds and caches). See GAM-114." >&2
     exit 1
   fi
 }

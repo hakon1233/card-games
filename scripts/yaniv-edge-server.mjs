@@ -8,7 +8,7 @@ import tls from "node:tls";
 const DEFAULT_LISTEN_HOST = "127.0.0.1";
 const DEFAULT_LISTEN_PORT = 3002;
 const DEFAULT_TARGET = "http://127.0.0.1:3001";
-const DEFAULT_PUBLIC_HOST = "your-host.example:7842";
+const DEFAULT_PUBLIC_HOST = "127.0.0.1:3001";
 
 function firstHeaderValue(value) {
   if (Array.isArray(value)) return value[0];

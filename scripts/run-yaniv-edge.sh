@@ -3,7 +3,7 @@
 set -euo pipefail
 
 app_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-domain="${YANIV_EDGE_DOMAIN:-your-host.example}"
+domain="${YANIV_EDGE_DOMAIN:-127.0.0.1}"
 state_dir="${YANIV_EDGE_STATE_DIR:-$HOME/Library/Application Support/Yaniv/edge}"
 cert_file="${YANIV_EDGE_CERT_FILE:-$state_dir/$domain.crt}"
 key_file="${YANIV_EDGE_KEY_FILE:-$state_dir/$domain.key}"

@@ -43,19 +43,19 @@ function loadSession(): BlackjackSession {
 
 export default function GamePage() {
   const { id: gameId } = useParams<{ id: string }>();
+  // Remount on game change so every piece of per-game state resets naturally.
+  // This replaces a reset-state-in-an-effect pass, which triggered cascading
+  // renders (see the React docs on "resetting state with a key").
+  return <GameView key={gameId} gameId={gameId} />;
+}
+
+function GameView({ gameId }: { gameId: string }) {
   const router = useRouter();
   const [state, setState] = useState<PublicGameState | null>(null);
   const [session, setSession] = useState<BlackjackSession>(() => loadSession());
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const prevTurnRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    prevTurnRef.current = undefined;
-    setState(null);
-    setError(null);
-    setActing(false);
-  }, [gameId]);
 
   useEffect(() => {
     const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";

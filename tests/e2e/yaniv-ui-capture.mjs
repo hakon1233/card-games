@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_LIB || "playwright");
-const BASE = process.env.LIVE_BASE_URL ?? "https://your-host.example:7842";
+const BASE = process.env.LIVE_BASE_URL ?? "http://127.0.0.1:3001";
 const SHOTS = "tests/e2e/.artifacts";
 mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

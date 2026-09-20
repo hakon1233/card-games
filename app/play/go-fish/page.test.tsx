@@ -20,7 +20,25 @@ import GoFishPage from "./page";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
+
+/**
+ * The deck is shuffled with Math.random(), so an unseeded run deals a different
+ * game every time and the bounded drive-loop below could occasionally fail to
+ * reach the win screen. Pin Math.random to a small deterministic PRNG so this
+ * test always plays the same game.
+ */
+function seedRandom(seed: number) {
+  let s = seed >>> 0;
+  vi.spyOn(Math, "random").mockImplementation(() => {
+    // xorshift32
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return ((s >>> 0) % 100000) / 100000;
+  });
+}
 
 /**
  * End-to-end UI smoke for GAM-99: the Go Fish route must deal, accept human
@@ -30,6 +48,7 @@ afterEach(() => {
  */
 describe("Go Fish page", () => {
   it("plays a full game from deal to a win screen", () => {
+    seedRandom(20260920);
     vi.useFakeTimers();
 
     render(<GoFishPage />);
