@@ -70,6 +70,8 @@ without any external service.
 ```bash
 pnpm test                 # 230 unit tests over the game rules
 pnpm test:yaniv-edge      # edge-case probe against the room server
+
+pnpm build                # the deploy-script tests need a production build first
 pnpm test:deploy:yaniv    # deploy script's own test suite
 ```
 
