@@ -20,11 +20,17 @@ export type RoomClaims = {
 
 const TOKEN_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
+/** Shorter secrets are guessable enough to forge tokens; refuse to sign or verify with them. */
+const MIN_SECRET_LENGTH = 32;
+
 export async function signRoomToken(
   claims: Omit<RoomClaims, "exp">,
   secret: string,
   now = Date.now(),
 ): Promise<string> {
+  if (secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(`ROOM_TOKEN_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
+  }
   const payload = encode(JSON.stringify({ ...claims, exp: now + TOKEN_LIFETIME_MS }));
   const signature = await crypto.subtle.sign("HMAC", await key(secret), bytes(payload));
   return `${payload}.${encode(new Uint8Array(signature))}`;
@@ -37,7 +43,7 @@ export async function verifyRoomToken(
   secret: string,
   now = Date.now(),
 ): Promise<RoomClaims | null> {
-  if (typeof token !== "string" || !secret) return null;
+  if (typeof token !== "string" || secret.length < MIN_SECRET_LENGTH) return null;
   const [payload, signature, ...rest] = token.split(".");
   if (!payload || !signature || rest.length > 0) return null;
 

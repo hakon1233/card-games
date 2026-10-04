@@ -3,7 +3,7 @@ import type * as Party from "partykit/server";
 import GameRoom from "./game-room";
 import { signRoomToken, type RoomGameType } from "@/lib/room-token";
 
-const SECRET = "test-room-secret";
+const SECRET = "a-room-token-secret-of-32-chars!!";
 const ROOM = "ROOM01";
 
 // A local stand-in for the PartyKit runtime: in-memory storage and connections
@@ -103,7 +103,7 @@ describe("joining a room", () => {
     const r = makeRoom("crazy_eights");
     await r.join("alice");
     for (const token of [
-      await r.tokenFor("bob", { secret: "wrong-secret" }),
+      await r.tokenFor("bob", { secret: "another-secret-also-32-chars-long" }),
       await r.tokenFor("bob", { room: "OTHER1" }),
     ]) {
       const conn = await r.connect();
@@ -116,7 +116,7 @@ describe("joining a room", () => {
     const r = makeRoom("crazy_eights");
     const lurker = await r.connect();
     const forger = await r.connect();
-    await r.send(forger, { type: "JOIN", token: await r.tokenFor("eve", { secret: "wrong" }) });
+    await r.send(forger, { type: "JOIN", token: await r.tokenFor("eve", { secret: "a-third-secret-that-is-32-chars!!" }) });
     const alice = await r.join("alice");
     await r.join("bob");
     await r.send(alice, { type: "START" });
