@@ -4,3 +4,9 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+
+# Transitive fixes (pnpm audit): both arrive via next > styled-jsx and the
+# lint/babel chains; the parents pin older, vulnerable ranges.
+overrides:
+  browserslist: ^4.29.0
+  baseline-browser-mapping: ^2.11.0
