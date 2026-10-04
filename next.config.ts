@@ -24,7 +24,17 @@ const buildTime = process.env.YANIV_BUILD_TIME || new Date().toISOString();
 const revisionShort =
   gitRev && gitRev !== "unknown" ? gitRev.slice(0, 7) : "unknown";
 
+// Baseline response headers for every route. No script CSP: the Supabase and
+// PartyKit origins are deploy-specific; this only forbids framing.
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   // Inlined into the server bundle so /api/version can read the deployed commit.
   env: {
     YANIV_GIT_REV: gitRev,
@@ -32,6 +42,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      { source: "/:path*", headers: securityHeaders },
       {
         // Surface the live revision on every page/asset response so *any*
         // request reveals what's deployed — a cheap QA canary. /api/version is
