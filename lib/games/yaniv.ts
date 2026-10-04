@@ -600,7 +600,6 @@ export function apply(
   return state;
 }
 
-/** Nobody is active while a Quick Draw window is open: it ends by a steal or by the clock, not by a turn. */
 /**
  * The move made for a player whose turn clock runs out: discard their highest-value card
  * (the first of equals) and draw from the draw pile. Null when it isn't their turn to act.
@@ -616,6 +615,7 @@ export function timeoutMove(state: YanivGameState, playerId: string): YanivActio
   return { type: "DISCARD_AND_DRAW", playerId, discardIndices: [highest], drawFromDiscard: false };
 }
 
+/** Nobody is active while a Quick Draw window is open: it ends by a steal or by the clock, not by a turn. */
 export function activePlayer(state: YanivGameState): string | null {
   return state.status === "in_progress" && !state.quickDrawWindow
     ? state.players[state.currentPlayerIndex].id
