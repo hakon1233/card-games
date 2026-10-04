@@ -11,7 +11,11 @@ export type BotFor<State, Action> = (playerId: string) => Bot<State, Action> | u
 /** The part of a rules engine that bot turns need. */
 export type TurnRules<State, Action> = Pick<RulesEngine<State, Action, unknown>, "apply" | "activePlayer">;
 
-/** Bot moves one call to playBotTurns may make, so a table of bots can never spin forever. */
+/**
+ * Bot moves one call to playBotTurns may make, so a single call always returns and the caller
+ * can show the table in between. It does not end a game: when a bot still has the move
+ * afterwards (a table of only bots), the caller must call playBotTurns again.
+ */
 export const MAX_BOT_TURNS = 20;
 
 /**
@@ -34,8 +38,9 @@ export function botTurn<State, Action>(
 }
 
 /**
- * Bot moves back to back until a human must act or nobody can, at most MAX_BOT_TURNS.
- * onMove sees every move as it is made, for per-move feedback.
+ * Bot moves back to back until a human must act or nobody can, at most MAX_BOT_TURNS; call it
+ * again while a bot still has the move. onMove sees every move as it is made, for per-move
+ * feedback.
  */
 export function playBotTurns<State, Action>(
   rules: TurnRules<State, Action>,

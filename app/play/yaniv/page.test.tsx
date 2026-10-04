@@ -211,6 +211,26 @@ describe("Yaniv page", () => {
     expect(tally("Rounds Won") + tally("Rounds Lost")).toBe(roundsSeen + 1);
   });
 
+  it("lets the bots finish the game after you are eliminated, then shows the final standings", async () => {
+    // Three bots outlive you: each round after you are out is bots only, longer than one batch
+    // of bot moves.
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ scoreLimit: 100, numBots: 3 }));
+    await openPage(1);
+    await click(screen.getByRole("button", { name: "Start Game" }));
+
+    // You never call Yaniv, so the bots' calls push you out first.
+    for (let step = 0; step < 600 && !screen.queryByText("Rounds Won"); step++) {
+      const next = screen.queryByRole("button", { name: "Next Round" });
+      if (next) await click(next);
+      else if (isYourTurn()) await discardFirstAndDraw();
+      else await advance(5000);
+    }
+
+    expect(screen.getByText("Game Complete")).toBeTruthy();
+    const yourRow = screen.getAllByText("You").map((el) => el.parentElement?.textContent);
+    expect(yourRow).toContain("Youout");
+  });
+
   it("plays a safe discard for you when your turn clock runs out", async () => {
     await openPage(PLAY_SEED);
     await click(screen.getByRole("button", { name: "Start Game" }));

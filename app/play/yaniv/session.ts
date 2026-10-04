@@ -78,6 +78,16 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
     }
   }
 
+  // playBotTurns stops after MAX_BOT_TURNS moves. Once you are eliminated a round is bots only
+  // and can run longer than that, so whenever a bot still has the move, play on.
+  useEffect(() => {
+    const active = gameState && activePlayer(gameState);
+    if (!gameState || !active || !botFor(active)) return;
+    const timeout = setTimeout(() => dispatch(gameState), 0);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
   useEffect(() => {
     if (!qdWindowKey) {
       queueMicrotask(() => setQdTimeLeft(null));
