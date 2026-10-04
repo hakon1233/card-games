@@ -25,8 +25,8 @@ import {
 } from "@/lib/games/crazy-eights";
 import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
 import { botTurn } from "@/lib/games/bot-turns";
-import type { Rank, Suit } from "@/lib/games/types";
-import type { ShellCard } from "@/lib/games/shell-types";
+import type { Suit } from "@/lib/games/types";
+import { toShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
 const PLAYER_NAME = "You";
@@ -55,10 +55,6 @@ const SUIT_LABEL: Record<Suit, string> = {
   spades: "Spades",
 };
 const ALL_SUITS: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
-
-function toShellCard(card: { suit: Suit; rank: Rank }, faceUp = true): ShellCard {
-  return { suit: card.suit, rank: card.rank, faceUp };
-}
 
 function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
   const defs = [{ id: PLAYER_ID, isBot: false }];
