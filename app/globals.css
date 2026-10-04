@@ -113,7 +113,7 @@
   --state-alert:       #E0533B;            /* STOP — illegal move / danger / out of time     */
   --state-idle:        var(--muted-foreground); /* OFF — inactive / eliminated (no hue)       */
 
-  /* ── Suit colour channels colorblind accessibility ───────────────
+  /* ── Suit colour channels — colorblind accessibility ───────────────
      Kept in the primary :root (not a trailing second :root block) because
      Tailwind v4 / Lightning CSS drops a duplicate top-level :root and the
      sibling rules that follow it under Turbopack dev — which silently made
@@ -224,7 +224,7 @@ html[data-animation-speed="reduced"] *::after {
 }
 
 /* Strong-intensity score landing (big swing / Assaf) gets a brief shake on top
-   of the pop — proportional feedback for the climax.. */
+   of the pop — proportional feedback for the climax. */
 @keyframes score-cascade-shake {
   0%, 100% { transform: translateX(0); }
   20%      { transform: translateX(-3px); }
@@ -234,7 +234,7 @@ html[data-animation-speed="reduced"] *::after {
 }
 
 /* Selected discard card: lifted + glowing in the reserved SELECTION hue (cream).
-   Selection is neutral to legality — it says only "you are holding this".. */
+   Selection is neutral to legality — it says only "you are holding this". */
 .card-selected-glow {
   box-shadow:
     0 0 0 2px var(--state-select),
@@ -298,7 +298,7 @@ html[data-animation-speed="reduced"] *::after {
   }
 }
 
-/* ── Suit colour channels colorblind accessibility ───────────────── */
+/* ── Suit colour channels — colorblind accessibility ───────────────── */
 /* Suits must be readable without relying on red/black alone. The suit glyph
    (♥♦♣♠) is the always-on shape channel; these rules add the colour channel.
    The four --pip-suit-* hues are defined in the primary :root block above

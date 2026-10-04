@@ -21,6 +21,6 @@ of this repository, not in a public issue. I aim to reply within a week.
 
 - The single-player games run entirely in the browser; their state is visible to that player's
   dev tools by design.
-- Anyone holding a room code can look up that room (game, host display name, status) through the
-  `room_by_code` database function; that is how invite links work. The `rooms` table itself is
-  readable only by the room's host.
+- Anyone holding a room code can look up that room (game, host's user id and display name,
+  status) through the `room_by_code` database function; that is how invite links work. The
+  `rooms` table itself is readable only by the room's host.
