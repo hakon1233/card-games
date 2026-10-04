@@ -2,42 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
-import { Button } from "@/components/ui/button";
 import { useAnimationSpeed } from "@/components/game/animation-preferences-control";
 import { useCardDeck } from "@/components/game/card-deck-control";
 import { TableDisplaySettings } from "@/components/game/table-display-settings";
 import { EndGameScreen } from "@/components/game/end-game-screen";
-import { CardHand } from "@/components/game/card-hand";
-import {
-  canCallYaniv,
-  describeSelection,
-  getDiscardTopGroup,
-  canAddToSelection,
-  getFinalStandings,
-  type YanivPlayer,
-} from "@/lib/games/yaniv";
-import { getYanivHandReadout } from "@/lib/games/yaniv-readout";
-import { toShellCard } from "@/lib/games/shell-types";
-import { ContextTooltip } from "./context-tooltip";
-import { PlayerRing, useYanivTableFormFactor } from "./player-ring";
+import { describeSelection, getDiscardTopGroup, getFinalStandings } from "@/lib/games/yaniv";
+import { PlayerRing } from "./player-ring";
 import { RoundEndOverlay } from "./round-end";
-import { SelectionSummary, suitSymbol } from "./selection-summary";
+import { HandPanel } from "./hand-panel";
 import { useYanivSettings, YanivSettingsScreen } from "./settings";
 import { PLAYER_ID, QUICK_DRAW_MS, useYanivSession } from "./session";
 import { formatQuickDrawTime, TurnCountdown } from "./turn-clock";
 
-function getNextActiveIdx(players: YanivPlayer[], currentIdx: number): number {
-  const N = players.length;
-  for (let step = 1; step < N; step++) {
-    const idx = (currentIdx + step) % N;
-    if (!players[idx].eliminated) return idx;
-  }
-  return -1;
-}
-
 export default function YanivPage() {
   const router = useRouter();
-  const formFactor = useYanivTableFormFactor();
   const {
     settings,
     loaded: settingsLoaded,
@@ -93,9 +71,6 @@ export default function YanivPage() {
     gameState.status === "in_progress" &&
     !gameState.quickDrawWindow &&
     gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID;
-  const handReadout = getYanivHandReadout(player.hand, gameState.settings.yanivThreshold);
-  const playerTotal = handReadout.total;
-  const canYaniv = isMyTurn && canCallYaniv(player.hand, gameState.settings.yanivThreshold);
   const selectedCards = selected.map((i) => player.hand[i]).filter(Boolean);
   const selection = describeSelection(selectedCards);
   const canDiscard = isMyTurn && selection.valid;
@@ -112,14 +87,6 @@ export default function YanivPage() {
     gameState.players.find((p) => p.id === qdWindow.discarderId)?.isBot === true;
   const qdTimerLabel = formatQuickDrawTime(qdTimeLeft ?? QUICK_DRAW_MS);
   const qdProgress = Math.max(0, Math.min(1, (qdTimeLeft ?? QUICK_DRAW_MS) / QUICK_DRAW_MS));
-
-  const cardDisabled = player.hand.map((card, i) => {
-    if (!isMyTurn) return true;
-    if (selected.includes(i)) return false;
-    return !canAddToSelection(selectedCards, card);
-  });
-
-  const nextPlayerIdx = getNextActiveIdx(gameState.players, gameState.currentPlayerIndex);
   const turnTimerActive = turnKey !== null;
 
   return (
@@ -165,7 +132,6 @@ export default function YanivPage() {
             players={gameState.players}
             humanId={PLAYER_ID}
             currentPlayerIndex={gameState.currentPlayerIndex}
-            nextPlayerIndex={nextPlayerIdx}
             turnTimerActive={turnTimerActive}
             idlePulses={idlePulses}
             actionBadges={actionBadges}
@@ -184,120 +150,19 @@ export default function YanivPage() {
         </TurnCountdown>
 
         <div className="yaniv-bottom-zone flex flex-col gap-2">
-        {/* Human player hand */}
-        <div className="pip-seat-panel rounded-xl p-3">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <span className="text-foreground text-sm font-medium">
-              {player.name}
-              {isMyTurn && <span className="ml-2 text-primary text-xs">— your turn</span>}
-            </span>
-            <div className="flex flex-wrap items-center justify-end gap-2 text-xs tabular-nums">
-              <span className="text-muted-foreground">Score: {player.score}</span>
-              <ContextTooltip
-                text={`Your hand total is ${handReadout.total}. You can call Yaniv at ${handReadout.threshold} or less.`}
-                className="rounded-md"
-              >
-                <span
-                  className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-black/15 px-2 py-1 font-medium text-foreground"
-                  aria-label={`Hand total ${handReadout.total}. Yaniv threshold ${handReadout.threshold}. ${
-                    handReadout.withinThreshold
-                      ? "You can call Yaniv on your turn."
-                      : `${handReadout.distanceToThreshold} points over the Yaniv threshold.`
-                  }`}
-                >
-                  <span>Hand {handReadout.total}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span
-                    className={
-                      handReadout.withinThreshold ? "text-emerald-300" : "text-amber-300"
-                    }
-                  >
-                    {handReadout.withinThreshold
-                      ? "Yaniv ready"
-                      : `${handReadout.distanceToThreshold} over Yaniv`}
-                  </span>
-                </span>
-              </ContextTooltip>
-            </div>
-          </div>
-          <CardHand
-            cards={player.hand.map((card) => toShellCard(card))}
-            gameType="yaniv"
-            formFactor={formFactor}
-            selectedIndices={selected}
-            disabledIndices={cardDisabled.map((isDisabled, i) => (isDisabled ? i : -1)).filter((i) => i >= 0)}
-            onCardClick={(_, i) => toggleCard(i)}
-            cardClassName={(_, i) => {
-              const isSelected = selected.includes(i);
-              const isDisabled = cardDisabled[i];
-              return isDisabled
-                ? "opacity-35 cursor-not-allowed"
-                : isSelected
-                  ? "-translate-y-4 card-selected-glow cursor-pointer"
-                  : isMyTurn
-                    ? "hover:-translate-y-1 cursor-pointer"
-                    : "cursor-default";
-            }}
-          />
-        </div>
-
-        {/* Action buttons */}
-        {isMyTurn && (
-          <div className="flex flex-col gap-2">
-            {canYaniv && (
-              <ContextTooltip
-                text="End the round now. If another player has an equal or lower hand, you take the Assaf penalty."
-                className="w-full"
-              >
-                <Button
-                  onClick={callYaniv}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
-                >
-                  Call Yaniv! (hand = {playerTotal})
-                </Button>
-              </ContextTooltip>
-            )}
-            {selected.length > 0 && (
-              <SelectionSummary cards={selectedCards} selection={selection} />
-            )}
-            <div className="flex gap-2">
-              <ContextTooltip
-                text="Discard your selected legal set, then draw one unknown card from the deck."
-                className="flex-1 min-w-0"
-              >
-                <Button
-                  onClick={() => discardAndDraw(false)}
-                  disabled={!canDiscard}
-                  className="w-full whitespace-normal text-center leading-tight py-2"
-                  variant="default"
-                >
-                  Discard &amp; Draw from Deck
-                </Button>
-              </ContextTooltip>
-              <ContextTooltip
-                text="Discard your selected legal set, then take one visible card from the top discard group."
-                className="flex-1 min-w-0"
-              >
-                <Button
-                  onClick={() => discardAndDraw(true)}
-                  disabled={!canDiscard || topGroup.length === 0}
-                  className="w-full"
-                  variant="outline"
-                >
-                  Discard &amp; Take{" "}
-                  {topGroup.length > 0
-                    ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
-                    : "pile"}
-                </Button>
-              </ContextTooltip>
-            </div>
-            {selected.length === 0 && !canYaniv && (
-              <p className="text-muted-foreground text-xs text-center">
-                Tap a card (or cards) to select, then discard
-              </p>
-            )}
-          </div>
-        )}
+        <HandPanel
+          player={player}
+          threshold={gameState.settings.yanivThreshold}
+          isMyTurn={isMyTurn}
+          selected={selected}
+          selectedCards={selectedCards}
+          selection={selection}
+          canDiscard={canDiscard}
+          topGroup={topGroup}
+          onToggleCard={toggleCard}
+          onCallYaniv={callYaniv}
+          onDiscardAndDraw={discardAndDraw}
+        />
 
         {qdActive && (
           <div className="flex items-center justify-center gap-2 text-sm font-medium text-amber-400">

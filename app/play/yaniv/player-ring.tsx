@@ -44,7 +44,6 @@ interface PlayerRingProps {
   players: YanivPlayer[];
   humanId: string;
   currentPlayerIndex: number;
-  nextPlayerIndex: number;
   turnTimerActive: boolean;
   idlePulses: boolean;
   actionBadges: Record<string, ActionBadge>;
@@ -61,11 +60,19 @@ interface PlayerRingProps {
   onSteal: () => void;
 }
 
+function getNextActiveIdx(players: YanivPlayer[], currentIdx: number): number {
+  const N = players.length;
+  for (let step = 1; step < N; step++) {
+    const idx = (currentIdx + step) % N;
+    if (!players[idx].eliminated) return idx;
+  }
+  return -1;
+}
+
 export function PlayerRing({
   players,
   humanId,
   currentPlayerIndex,
-  nextPlayerIndex,
   turnTimerActive,
   idlePulses,
   actionBadges,
@@ -86,6 +93,7 @@ export function PlayerRing({
     () => getYanivRingLayout(players.map((player) => player.id), humanId, formFactor),
     [players, humanId, formFactor],
   );
+  const nextPlayerIndex = getNextActiveIdx(players, currentPlayerIndex);
   const seats = players.map((player, i) => {
     const seatLayout = ringLayout.seats[i];
     const isActive = i === currentPlayerIndex;
