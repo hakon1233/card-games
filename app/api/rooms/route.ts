@@ -20,9 +20,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json()) as { gameType: "crazy_eights" | "go_fish" };
+  const body: unknown = await request.json().catch(() => null);
+  const gameType = typeof body === "object" && body !== null ? (body as Record<string, unknown>).gameType : null;
 
-  if (body.gameType !== "crazy_eights" && body.gameType !== "go_fish") {
+  if (gameType !== "crazy_eights" && gameType !== "go_fish") {
     return NextResponse.json({ error: "Invalid game type" }, { status: 400 });
   }
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     code = generateCode();
     const { error } = await supabase.from("rooms").insert({
       code,
-      game_type: body.gameType,
+      game_type: gameType,
       host_id: user.id,
       host_display_name: displayName,
     });
