@@ -43,7 +43,6 @@
     "jsdom": "^29.1.1",
     "partykit": "^0.0.115",
     "shadcn": "^4.10.0",
-    "supabase": "^2.104.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.8"
