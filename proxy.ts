@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const protectedPrefixes = ["/lobby", "/rooms"];
+  const protectedPrefixes = ["/rooms"];
   if (!user && protectedPrefixes.some((p) => pathname.startsWith(p))) {
     const dest = new URL("/auth/sign-in", request.url);
     dest.searchParams.set("next", pathname + request.nextUrl.search);
