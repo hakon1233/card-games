@@ -5,9 +5,9 @@ import {
   isPlayable,
   topCard,
   effectiveSuit,
-} from "@/lib/games/crazy-eights";
-import type { CrazyEightsState } from "@/lib/games/crazy-eights";
-import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
+} from "./crazy-eights";
+import type { CrazyEightsState } from "./crazy-eights";
+import { CrazyEightsBot } from "../bots/crazy-eights-bot";
 
 function makeState(overrides: Partial<CrazyEightsState> = {}): CrazyEightsState {
   return {

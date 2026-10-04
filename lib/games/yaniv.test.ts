@@ -8,9 +8,9 @@ import {
   yanivCardValue,
   describeSelection,
   getFinalStandings,
-} from "../games/yaniv";
+} from "./yaniv";
 import { YanivBot } from "../bots/yaniv-bot";
-import { seededRng } from "../games/engine";
+import { seededRng } from "./engine";
 
 const bot = new YanivBot();
 
