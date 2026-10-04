@@ -141,9 +141,11 @@ function findHighestValueCombo(hand: Card[]): number[] {
     }
   }
 
-  // Check straights (same suit, consecutive)
+  // Check straights (same suit, consecutive). Jokers have no place in RANK_ORDER, so they
+  // stay out of the search rather than sorting as rank -1.
   const bySuit = new Map<string, { card: Card; idx: number }[]>();
   hand.forEach((c, i) => {
+    if (c.rank === "Joker") return;
     const list = bySuit.get(c.suit) ?? [];
     list.push({ card: c, idx: i });
     bySuit.set(c.suit, list);
@@ -167,6 +169,10 @@ function findHighestValueCombo(hand: Card[]): number[] {
         const runLen = i - runStart;
         if (runLen >= 3) {
           const indices = sorted.slice(runStart, i).map((e) => e.idx);
+          if (!isValidDiscard(indices.map((idx) => hand[idx]))) {
+            runStart = i;
+            continue;
+          }
           const value = indices.reduce((s, idx) => s + yanivCardValue(hand[idx].rank), 0);
           if (value > bestValue) {
             bestValue = value;

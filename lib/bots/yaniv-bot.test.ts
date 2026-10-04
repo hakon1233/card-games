@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { YanivBot } from "./yaniv-bot";
-import { deal, type YanivSettings } from "../games/yaniv";
+import { deal, isValidDiscard, type YanivSettings } from "../games/yaniv";
 import type { Card } from "../games/types";
 
 // Build a 2-player (human + bot) game and drop a specific hand on the bot so we
@@ -90,5 +90,26 @@ describe("YanivBot pacing", () => {
     );
     const move = new YanivBot().getNextMove(state, "bot");
     expect(["CALL_YANIV", "DISCARD_AND_DRAW"]).toContain(move.type);
+  });
+});
+
+describe("YanivBot discards", () => {
+  it("never offers a run that uses a Joker as a rank (Joker♠ A♠ 2♠)", () => {
+    const state = botTurnWithHand(
+      [
+        { suit: "spades", rank: "Joker" },
+        { suit: "spades", rank: "A" },
+        { suit: "spades", rank: "2" },
+        { suit: "hearts", rank: "9" },
+        { suit: "clubs", rank: "K" },
+      ],
+      7,
+    );
+    const move = new YanivBot(HOLD).getNextMove(state, "bot");
+
+    expect(move.type).toBe("DISCARD_AND_DRAW");
+    if (move.type !== "DISCARD_AND_DRAW") return;
+    const cards = move.discardIndices.map((i) => state.players[1].hand[i]);
+    expect(isValidDiscard(cards)).toBe(true);
   });
 });
