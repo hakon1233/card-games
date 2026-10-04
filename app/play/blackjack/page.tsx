@@ -7,7 +7,7 @@ import { GameShell } from "@/components/game/shell";
 import { ScoreDisplay } from "@/components/game/score-display";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { Button } from "@/components/ui/button";
-import { dealInitialState, applyAction, handValue, isBlackjack } from "@/lib/games/blackjack";
+import { startGame, applyAction, handValue, isBlackjack } from "@/lib/games/blackjack";
 import { blackjackToShell, type BlackjackSession } from "@/lib/games/blackjack-to-shell";
 import type { GameState } from "@/lib/games/types";
 
@@ -61,10 +61,6 @@ export default function BlackjackPage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [session, setSession] = useState<BlackjackSession>({ wins: 0, losses: 0, pushes: 0 });
 
-  const startGame = useCallback(() => {
-    setGameState(dealInitialState(`game-${Date.now()}`, PLAYER_ID));
-  }, []);
-
   const recordResult = useCallback((result: GameState["result"]) => {
     setSession((s) => ({
       wins: s.wins + (result === "player_win" ? 1 : 0),
@@ -72,6 +68,13 @@ export default function BlackjackPage() {
       pushes: s.pushes + (result === "push" ? 1 : 0),
     }));
   }, []);
+
+  // startGame settles naturals at the deal, so a game can be over at once.
+  const deal = useCallback(() => {
+    const next = startGame(`game-${Date.now()}`, PLAYER_ID);
+    setGameState(next);
+    if (next.turn === "over") recordResult(next.result);
+  }, [recordResult]);
 
   const hit = useCallback(() => {
     if (!gameState) return;
@@ -117,7 +120,7 @@ export default function BlackjackPage() {
       />
       <div className="flex gap-2 flex-wrap">
         {!gameState ? (
-          <Button onClick={startGame} className="flex-1 sm:flex-none">
+          <Button onClick={deal} className="flex-1 sm:flex-none">
             Deal
           </Button>
         ) : (
@@ -176,7 +179,7 @@ export default function BlackjackPage() {
             { label: "Losses", value: session.losses },
             { label: "Pushes", value: session.pushes },
           ]}
-          onPlayAgain={startGame}
+          onPlayAgain={deal}
           onChangeGame={() => router.push("/")}
         />
       )}
