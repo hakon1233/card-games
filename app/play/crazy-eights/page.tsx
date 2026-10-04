@@ -16,6 +16,7 @@ import { scaleAnimationDuration } from "@/lib/animation-preferences";
 import {
   deal,
   apply,
+  activePlayer,
   isPlayable,
   topCard,
   effectiveSuit,
@@ -23,6 +24,7 @@ import {
   type CrazyEightsState,
 } from "@/lib/games/crazy-eights";
 import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
+import { botTurn } from "@/lib/games/bot-turns";
 import type { Rank, Suit } from "@/lib/games/types";
 import type { ShellCard } from "@/lib/games/shell-types";
 
@@ -32,6 +34,7 @@ const PLAYER_NAME = "You";
 // animation-speed preference (reduced collapses it to near-instant).
 const BOT_TURN_MS = 850;
 const bot = new CrazyEightsBot();
+const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
 
 const SUIT_SYMBOL: Record<Suit, string> = {
   hearts: "♥",
@@ -103,24 +106,15 @@ export default function CrazyEightsPage() {
   }, []);
 
   // ── Bot turn driver ───────────────────────────────────────────────────────
-  // After every state change, if the active seat is a bot, schedule exactly one
-  // move. Applying it produces a new state, which re-runs this effect and steps
-  // the next bot — so a chain of bots resolves one visible move at a time.
+  // After every state change, if the active seat is a bot, show its move after
+  // a pause. The new state re-runs this effect and steps the next bot — so a
+  // chain of bots resolves one visible move at a time. Any other state change
+  // first cancels the pending move.
   useEffect(() => {
-    const s = gameState;
-    if (!s || s.status !== "in_progress") return;
-    const current = s.players[s.currentPlayerIndex];
-    if (!current?.isBot) return;
-
+    const turn = gameState && botTurn({ apply, activePlayer }, gameState, botFor);
+    if (!turn) return;
     const delay = scaleAnimationDuration(BOT_TURN_MS, animationSpeed);
-    const timer = setTimeout(() => {
-      const cur = gameStateRef.current;
-      if (!cur || cur.status !== "in_progress") return;
-      const seat = cur.players[cur.currentPlayerIndex];
-      if (!seat?.isBot) return;
-      commitState(apply(cur, bot.getNextMove(cur, seat.id)));
-    }, delay);
-
+    const timer = setTimeout(() => commitState(turn.next), delay);
     return () => clearTimeout(timer);
   }, [gameState, animationSpeed, commitState]);
 

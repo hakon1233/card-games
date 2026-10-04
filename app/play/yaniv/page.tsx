@@ -29,6 +29,7 @@ import { scaleAnimationDuration } from "@/lib/animation-preferences";
 import {
   deal,
   apply,
+  activePlayer,
   canCallYaniv,
   yanivCardValue,
   describeSelection,
@@ -44,6 +45,7 @@ import {
   type SelectionDescription,
 } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
+import { playBotTurns } from "@/lib/games/bot-turns";
 import {
   buildYanivScoreCascade,
   type YanivFeedbackTone,
@@ -69,6 +71,8 @@ const TURN_SECONDS = 20;
 const TURN_MS = TURN_SECONDS * 1000;
 const LOW_TIME_CUE_MS = 6000;
 const bot = new YanivBot();
+const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
+const yanivRules = { apply, activePlayer };
 
 // Per-turn countdown value broadcast (CAR-182). The active player's turn timer
 // ticks ~10×/second; the ticking `remaining` lives in <TurnCountdown> and is
@@ -217,21 +221,6 @@ function useYanivTableFormFactor(): YanivTableFormFactor {
   }, []);
 
   return formFactor;
-}
-
-function runBotLoop(state: YanivGameState): YanivGameState {
-  let s = state;
-  let guard = 0;
-  while (
-    s.status === "in_progress" &&
-    !s.quickDrawWindow &&
-    s.players[s.currentPlayerIndex]?.isBot &&
-    guard < 20
-  ) {
-    s = apply(s, bot.getNextMove(s, s.players[s.currentPlayerIndex].id));
-    guard++;
-  }
-  return s;
 }
 
 export default function YanivPage() {
@@ -394,22 +383,7 @@ export default function YanivPage() {
       applyActionFeedback(triggerAction, previousState ?? state, state);
     }
 
-    let s = state;
-    let guard = 0;
-    while (
-      s.status === "in_progress" &&
-      !s.quickDrawWindow &&
-      s.players[s.currentPlayerIndex]?.isBot &&
-      guard < 20
-    ) {
-      const botId = s.players[s.currentPlayerIndex].id;
-      const action = bot.getNextMove(s, botId);
-      const beforeAction = s;
-      s = apply(s, action);
-      applyActionFeedback(action, beforeAction, s);
-      guard++;
-    }
-
+    const s = playBotTurns(yanivRules, state, botFor, applyActionFeedback);
     setGameState(s);
     setSelected([]);
     if (s.status === "round_over" || s.status === "game_over") {
@@ -557,7 +531,7 @@ export default function YanivPage() {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
     saveSettings({ ...settings, numBots, lowTimeSound, idlePulses, nextUpPreview });
     const initial = deal(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
-    setGameState(runBotLoop(initial));
+    setGameState(playBotTurns(yanivRules, initial, botFor));
     setSelected([]);
     setRoundsWon(0);
     setRoundsLost(0);
@@ -596,7 +570,7 @@ export default function YanivPage() {
 
   function nextRound() {
     if (!gameState) return;
-    const s = runBotLoop(apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
+    const s = playBotTurns(yanivRules, apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }), botFor);
     setGameState(s);
     setSelected([]);
     setActionBadges({});

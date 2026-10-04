@@ -8,6 +8,7 @@ import {
   isValidDiscard,
   discardPileTop,
 } from "@/lib/games/yaniv";
+import type { Bot } from "@/lib/games/bot-turns";
 
 /**
  * Hand total at or below which the bot always calls Yaniv the moment it can.
@@ -27,7 +28,7 @@ const SNAP_CALL_MAX = 3;
  */
 const CALL_PROBABILITY = 0.4;
 
-export class YanivBot {
+export class YanivBot implements Bot<YanivGameState, YanivAction> {
   private readonly rng: () => number;
 
   /**

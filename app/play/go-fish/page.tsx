@@ -10,11 +10,13 @@ import { RANKS } from "@/lib/games/deck-utils";
 import {
   deal,
   apply,
+  activePlayer,
   type GoFishGameState,
   type GoFishPlayer,
   type GoFishEvent,
 } from "@/lib/games/go-fish";
 import { GoFishBot } from "@/lib/bots/go-fish-bot";
+import { botTurn } from "@/lib/games/bot-turns";
 import type { Rank } from "@/lib/games/types";
 
 const HUMAN_ID = "you";
@@ -30,6 +32,7 @@ const BOT_TURN_DELAY_MS = 950;
 const SKIP_DELAY_MS = 700;
 
 const bot = new GoFishBot();
+const botFor = (playerId: string) => (playerId === HUMAN_ID ? undefined : bot);
 
 interface RankGroup {
   rank: Rank;
@@ -105,7 +108,6 @@ export default function GoFishPage() {
   const [selectedRank, setSelectedRank] = useState<Rank | null>(null);
   const [session, setSession] = useState({ wins: 0, losses: 0 });
   const recordedRef = useRef<string | null>(null);
-  const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startGame = useCallback(() => {
     setSelectedRank(null);
@@ -130,30 +132,18 @@ export default function GoFishPage() {
     // Skip their turn — deck depletion still ends the game. Matches the engine
     // test loop's manual advance for empty hands.
     if (active.hand.length === 0) {
-      botTimer.current = setTimeout(() => {
+      const timer = setTimeout(() => {
         setState((s) =>
           s ? { ...s, currentPlayerIndex: nextIndex(s), lastEvent: null } : s,
         );
       }, SKIP_DELAY_MS);
-      return () => {
-        if (botTimer.current) clearTimeout(botTimer.current);
-      };
+      return () => clearTimeout(timer);
     }
 
-    if (active.id === HUMAN_ID) return; // wait for the human to act
-
-    botTimer.current = setTimeout(() => {
-      setState((s) => {
-        if (!s || s.status !== "in_progress") return s;
-        const mover = s.players[s.currentPlayerIndex];
-        if (mover.id === HUMAN_ID || mover.hand.length === 0) return s;
-        return apply(s, bot.getNextMove(s, mover.id));
-      });
-    }, BOT_TURN_DELAY_MS);
-
-    return () => {
-      if (botTimer.current) clearTimeout(botTimer.current);
-    };
+    const turn = botTurn({ apply, activePlayer }, state, botFor);
+    if (!turn) return; // wait for the human to act
+    const timer = setTimeout(() => setState(turn.next), BOT_TURN_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [state]);
 
   // Record the session result exactly once when a game ends.
