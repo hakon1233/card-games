@@ -77,10 +77,8 @@ export default class GameRoom implements Party.Server {
         await this.handleStart(sender);
         break;
       case "CE_ACTION":
-        await this.handleCeAction(msg.payload, sender);
-        break;
       case "GF_ACTION":
-        await this.handleGfAction(msg.payload, sender);
+        await this.handleAction(msg, sender);
         break;
     }
   }
@@ -183,28 +181,19 @@ export default class GameRoom implements Party.Server {
     this.broadcastAll();
   }
 
-  private async handleCeAction(payload: CrazyEightsAction, sender: Party.Connection<ConnState>) {
-    if (!this.state || this.state.phase !== "crazy_eights") return;
+  /** A player's action in a running game; actions for someone else, or that the rules reject, change nothing. */
+  private async handleAction(msg: CeActionMsg | GfActionMsg, sender: Party.Connection<ConnState>) {
+    const room = this.state;
+    if (!room || sender.state?.userId !== msg.payload.playerId) return;
 
-    const cs = sender.state;
-    if (cs?.userId !== payload.playerId) return; // only act for yourself
+    const before = room.phase === "lobby" ? null : room.gameState;
+    if (msg.type === "CE_ACTION" && room.phase === "crazy_eights") {
+      room.gameState = crazyEights.apply(room.gameState, msg.payload, cryptoRng);
+    } else if (msg.type === "GF_ACTION" && room.phase === "go_fish") {
+      room.gameState = goFish.apply(room.gameState, msg.payload);
+    }
+    if (room.phase === "lobby" || room.gameState === before) return;
 
-    const next = crazyEights.apply(this.state.gameState, payload, cryptoRng);
-    if (next === this.state.gameState) return; // rejected by the rules
-    this.state.gameState = next;
-    await this.persist();
-    this.broadcastAll();
-  }
-
-  private async handleGfAction(payload: GoFishAskAction, sender: Party.Connection<ConnState>) {
-    if (!this.state || this.state.phase !== "go_fish") return;
-
-    const cs = sender.state;
-    if (cs?.userId !== payload.playerId) return;
-
-    const next = goFish.apply(this.state.gameState, payload);
-    if (next === this.state.gameState) return; // rejected by the rules
-    this.state.gameState = next;
     await this.persist();
     this.broadcastAll();
   }
