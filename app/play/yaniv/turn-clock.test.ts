@@ -3,7 +3,7 @@ import { apply, type YanivGameState } from "@/lib/games/yaniv";
 import {
   formatQuickDrawTime,
   getTurnClockKey,
-  getTurnTimerUrgency,
+  getTurnClockUrgency,
   shouldPlayLowTimeCue,
 } from "./turn-clock";
 
@@ -84,9 +84,9 @@ describe("getTurnClockKey", () => {
 
 describe("turn timer UI helpers", () => {
   it("escalates urgency as the turn clock depletes", () => {
-    expect(getTurnTimerUrgency(0.8)).toBe("normal");
-    expect(getTurnTimerUrgency(0.4)).toBe("warning");
-    expect(getTurnTimerUrgency(0.2)).toBe("critical");
+    expect(getTurnClockUrgency(0.8)).toBe("normal");
+    expect(getTurnClockUrgency(0.4)).toBe("warning");
+    expect(getTurnClockUrgency(0.2)).toBe("critical");
   });
 
   it("plays the low-time cue once when crossing the low-time threshold", () => {

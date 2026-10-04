@@ -58,7 +58,7 @@ export function handValue(cards: Card[]): number {
   return total;
 }
 
-export function isBlackjack(cards: Card[]): boolean {
+export function isNatural(cards: Card[]): boolean {
   return cards.length === 2 && handValue(cards) === 21;
 }
 
@@ -102,16 +102,16 @@ function dealInitialState(
 /** Deal a new game, settling naturals at once. */
 export function deal(gameId: string, playerId: string, rng: Rng = Math.random): BlackjackState {
   const state = dealInitialState(gameId, playerId, rng);
-  const playerBJ = isBlackjack(state.playerHand.cards);
+  const playerNatural = isNatural(state.playerHand.cards);
   const revealedDealer = state.dealerHand.map((c) => ({ ...c, hidden: false }));
-  const dealerBJ = isBlackjack(revealedDealer);
+  const dealerNatural = isNatural(revealedDealer);
 
-  if (!playerBJ && !dealerBJ) return state;
+  if (!playerNatural && !dealerNatural) return state;
 
-  if (playerBJ && dealerBJ) {
+  if (playerNatural && dealerNatural) {
     return { ...state, dealerHand: revealedDealer, status: "push", turn: "over", result: "push" };
   }
-  if (playerBJ) {
+  if (playerNatural) {
     return { ...state, dealerHand: revealedDealer, status: "player_win", turn: "over", result: "player_win" };
   }
   return { ...state, dealerHand: revealedDealer, status: "dealer_win", turn: "over", result: "dealer_win" };

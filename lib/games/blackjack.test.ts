@@ -4,7 +4,7 @@ import {
   cardValue,
   deal,
   handValue,
-  isBlackjack,
+  isNatural,
   isBust,
   type BlackjackState,
 } from "./blackjack";
@@ -63,12 +63,12 @@ describe("handValue", () => {
   });
 });
 
-describe("isBlackjack", () => {
+describe("isNatural", () => {
   it("detects ace + face card", () => {
-    expect(isBlackjack([card("A"), card("K")])).toBe(true);
+    expect(isNatural([card("A"), card("K")])).toBe(true);
   });
   it("rejects 21 with three cards", () => {
-    expect(isBlackjack([card("A"), card("5"), card("5")])).toBe(false);
+    expect(isNatural([card("A"), card("5"), card("5")])).toBe(false);
   });
 });
 
@@ -92,20 +92,20 @@ describe("deal", () => {
 
   it("settles a player natural at the deal as a win", () => {
     const state = deal("g1", "p1", seededRng(7));
-    expect(isBlackjack(state.playerHand.cards)).toBe(true);
+    expect(isNatural(state.playerHand.cards)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "player_win", result: "player_win" });
     expect(state.dealerHand.every((c) => !c.hidden)).toBe(true);
   });
 
   it("settles a dealer natural at the deal as a loss", () => {
     const state = deal("g1", "p1", seededRng(1));
-    expect(isBlackjack(state.dealerHand)).toBe(true);
+    expect(isNatural(state.dealerHand)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "dealer_win", result: "dealer_win" });
   });
 
   it("settles two naturals at the deal as a push", () => {
     const state = deal("g1", "p1", seededRng(26));
-    expect(isBlackjack(state.playerHand.cards)).toBe(true);
+    expect(isNatural(state.playerHand.cards)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "push", result: "push" });
   });
 

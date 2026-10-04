@@ -9,7 +9,7 @@ import { getYanivRingLayout, type YanivTableFormFactor } from "@/lib/games/yaniv
 import { ContextTooltip } from "./context-tooltip";
 import type { ActionBadge, ScoreFeedback } from "./feedback";
 import { DeckVisual, DiscardPileGroup, QuickDrawPile } from "./piles";
-import { LiveTurnCountdownRing, LiveTurnSeconds } from "./turn-clock";
+import { LiveTurnClockRing, LiveTurnSeconds } from "./turn-clock";
 
 
 export function useYanivTableFormFactor(): YanivTableFormFactor {
@@ -42,7 +42,7 @@ interface PlayerRingProps {
   players: YanivPlayer[];
   humanId: string;
   currentPlayerIndex: number;
-  turnTimerActive: boolean;
+  turnClockActive: boolean;
   idlePulses: boolean;
   actionBadges: Record<string, ActionBadge>;
   scoreFeedback: Record<string, ScoreFeedback>;
@@ -71,7 +71,7 @@ export function PlayerRing({
   players,
   humanId,
   currentPlayerIndex,
-  turnTimerActive,
+  turnClockActive,
   idlePulses,
   actionBadges,
   scoreFeedback,
@@ -161,7 +161,7 @@ export function PlayerRing({
           isHuman={player.id === humanId}
           isActive={isActive}
           isNext={isNext}
-          showTurnRing={isActive && turnTimerActive}
+          showTurnRing={isActive && turnClockActive}
           idlePulses={idlePulses}
           badge={actionBadges[player.id]}
           scoreFeedback={scoreFeedback[player.id]}
@@ -287,9 +287,9 @@ function PlayerSeatNode({
           className="rounded-full"
         >
           {/* Co-located turn countdown ring (time remaining this turn).
-              LiveTurnCountdownRing subscribes to TurnCountdownContext so only it
+              LiveTurnClockRing subscribes to TurnClockContext so only it
               re-renders per 10Hz tick, not this seat node. */}
-          {showTurnRing && <LiveTurnCountdownRing />}
+          {showTurnRing && <LiveTurnClockRing />}
           <div
             className={`
               w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold

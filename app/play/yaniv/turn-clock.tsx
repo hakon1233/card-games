@@ -35,9 +35,9 @@ export function getTurnClockKey(state: YanivGameState | null, playerId: string):
   ].join(":");
 }
 
-type TurnTimerUrgency = "normal" | "warning" | "critical";
+type TurnClockUrgency = "normal" | "warning" | "critical";
 
-export function getTurnTimerUrgency(progress: number): TurnTimerUrgency {
+export function getTurnClockUrgency(progress: number): TurnClockUrgency {
   const clamped = Math.max(0, Math.min(1, progress));
   if (clamped <= 0.25) return "critical";
   if (clamped <= 0.5) return "warning";
@@ -62,11 +62,11 @@ export function formatQuickDrawTime(timeLeftMs: number): string {
 }
 
 // Per-turn countdown value broadcast. The active player's turn timer
-// ticks ~10×/second; the ticking `remaining` lives in <TurnCountdown> and is
+// ticks ~10×/second; the ticking `remaining` lives in <TurnClock> and is
 // published through this context, so only the ring + the "Ns" readout re-render
 // each tick — not the whole /play/yaniv table.
-type TurnCountdownValue = { progress: number; secondsLeft: number };
-const TurnCountdownContext = createContext<TurnCountdownValue | null>(null);
+type TurnClockValue = { progress: number; secondsLeft: number };
+const TurnClockContext = createContext<TurnClockValue | null>(null);
 
 function playLowTimeCue() {
   const audioWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
@@ -87,18 +87,18 @@ function playLowTimeCue() {
   oscillator.addEventListener("ended", () => void audio.close());
 }
 
-// ── TurnCountdownRing ─────────────────────────────────────────────────────
+// ── TurnClockRing ─────────────────────────────────────────────────────
 // Thin ring co-located around the active avatar, depleting over the turn.
 // Colour shifts turn-hue → amber → vermilion as time runs low (colour as
 // information). Uses the reserved --state-* tokens from the colour
 // system, not decorative hues: turn (gold) → warn (amber) → alert (vermilion).
-function TurnCountdownRing({ progress }: { progress: number }) {
+function TurnClockRing({ progress }: { progress: number }) {
   const size = 52;
   const stroke = 3;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.max(0, Math.min(1, progress)));
-  const urgency = getTurnTimerUrgency(progress);
+  const urgency = getTurnClockUrgency(progress);
   const color =
     urgency === "normal"
       ? "var(--state-turn)"
@@ -141,15 +141,15 @@ function TurnCountdownRing({ progress }: { progress: number }) {
   );
 }
 
-// ── TurnCountdown (perf isolation) ───────────────────────────────
+// ── TurnClock (perf isolation) ───────────────────────────────
 // Owns the single per-turn 100ms interval, the ticking `remaining`, and every
 // side effect the old page-level effect had (low-time cue + auto-play on
 // expiry, with the generation guard). It publishes only
-// {progress, secondsLeft} through TurnCountdownContext, so a 10Hz tick
-// re-renders just LiveTurnCountdownRing / LiveTurnSeconds — never `children`
+// {progress, secondsLeft} through TurnClockContext, so a 10Hz tick
+// re-renders just LiveTurnClockRing / LiveTurnSeconds — never `children`
 // (the whole PlayerRing/table tree). Semantics are identical to before: same
 // TURN_MS / LOW_TIME_CUE_MS, same auto-play-safe-default-on-expiry.
-export function TurnCountdown({
+export function TurnClock({
   turnKey,
   lowTimeSound,
   turnClockGenerationRef,
@@ -210,26 +210,26 @@ export function TurnCountdown({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turnKey, lowTimeSound]);
 
-  const value = useMemo<TurnCountdownValue | null>(() => {
+  const value = useMemo<TurnClockValue | null>(() => {
     if (remaining === null) return null;
     return { progress: remaining / TURN_MS, secondsLeft: Math.ceil(remaining / 1000) };
   }, [remaining]);
 
   return (
-    <TurnCountdownContext.Provider value={value}>
+    <TurnClockContext.Provider value={value}>
       {children}
-    </TurnCountdownContext.Provider>
+    </TurnClockContext.Provider>
   );
 }
 
 // Leaf consumers — the only nodes that re-render on each 100ms tick.
-export function LiveTurnCountdownRing() {
-  const value = useContext(TurnCountdownContext);
-  return <TurnCountdownRing progress={value?.progress ?? 1} />;
+export function LiveTurnClockRing() {
+  const value = useContext(TurnClockContext);
+  return <TurnClockRing progress={value?.progress ?? 1} />;
 }
 
 export function LiveTurnSeconds() {
-  const value = useContext(TurnCountdownContext);
+  const value = useContext(TurnClockContext);
   if (value === null) return null;
   return <>{` · ${value.secondsLeft}s`}</>;
 }

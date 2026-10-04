@@ -11,7 +11,7 @@ import {
   deal,
   apply,
   handValue,
-  isBlackjack,
+  isNatural,
   type BlackjackState,
 } from "@/lib/games/blackjack";
 import { blackjackToShell, type BlackjackSession } from "@/lib/games/blackjack-to-shell";
@@ -28,7 +28,7 @@ function blackjackHeadline(state: BlackjackState): { headline: string; subline?:
     case "player_win":
       return {
         headline: "You Win!",
-        subline: isBlackjack(state.playerHand.cards) ? "Blackjack!" : undefined,
+        subline: isNatural(state.playerHand.cards) ? "Blackjack!" : undefined,
       };
     case "dealer_win":
       return { headline: "Dealer Wins" };
@@ -49,7 +49,7 @@ function blackjackLiveCue(state: BlackjackState, playerValue: number | null): st
     case "dealer_bust":
       return "You win — dealer busted.";
     case "player_win":
-      return isBlackjack(state.playerHand.cards) ? "Blackjack — you win!" : "You win.";
+      return isNatural(state.playerHand.cards) ? "Blackjack — you win!" : "You win.";
     case "dealer_win":
       return "Dealer wins.";
     case "push":

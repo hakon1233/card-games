@@ -148,7 +148,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   }, []);
 
   // The countdown itself (its interval, the low-time cue, calling autoPlayTurnTimeout at
-  // zero) runs in <TurnCountdown>, so its 10Hz tick re-renders only the ring — see.
+  // zero) runs in <TurnClock>, so its 10Hz tick re-renders only the ring — see.
 
   function start(table: YanivSettings & { numBots: number }) {
     const { yanivThreshold, scoreLimit, quickDraw, numBots } = table;

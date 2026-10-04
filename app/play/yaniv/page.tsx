@@ -12,7 +12,7 @@ import { RoundEndOverlay } from "./round-end";
 import { HandPanel } from "./hand-panel";
 import { useYanivSettings, YanivSettingsScreen } from "./settings";
 import { PLAYER_ID, QUICK_DRAW_MS, useYanivSession } from "./session";
-import { formatQuickDrawTime, TurnCountdown } from "./turn-clock";
+import { formatQuickDrawTime, TurnClock } from "./turn-clock";
 
 export default function YanivPage() {
   const router = useRouter();
@@ -72,7 +72,7 @@ export default function YanivPage() {
     gameState.players.find((p) => p.id === qdWindow.discarderId)?.isBot === true;
   const qdTimerLabel = formatQuickDrawTime(qdTimeLeft ?? QUICK_DRAW_MS);
   const qdProgress = Math.max(0, Math.min(1, (qdTimeLeft ?? QUICK_DRAW_MS) / QUICK_DRAW_MS));
-  const turnTimerActive = turnKey !== null;
+  const turnClockActive = turnKey !== null;
 
   return (
     <div className="dark flex flex-col min-h-screen bg-[var(--pip-table)] text-foreground">
@@ -104,10 +104,10 @@ export default function YanivPage() {
           />
         )}
 
-        {/* Circular player ring. Wrapped in <TurnCountdown> so the per-turn
+        {/* Circular player ring. Wrapped in <TurnClock> so the per-turn
             10Hz tick re-renders only the countdown ring + seconds readout via
             context, never PlayerRing itself. */}
-        <TurnCountdown
+        <TurnClock
           turnKey={turnKey}
           lowTimeSound={lowTimeSound}
           turnClockGenerationRef={session.turnClockGenerationRef}
@@ -117,7 +117,7 @@ export default function YanivPage() {
             players={gameState.players}
             humanId={PLAYER_ID}
             currentPlayerIndex={gameState.currentPlayerIndex}
-            turnTimerActive={turnTimerActive}
+            turnClockActive={turnClockActive}
             idlePulses={idlePulses}
             actionBadges={actionBadges}
             scoreFeedback={scoreFeedback}
@@ -132,7 +132,7 @@ export default function YanivPage() {
             onPickDiscardCard={(idx) => session.discardAndDraw(true, idx)}
             onSteal={session.stealFromDiscard}
           />
-        </TurnCountdown>
+        </TurnClock>
 
         <div className="yaniv-bottom-zone flex flex-col gap-2">
         <HandPanel
