@@ -8,8 +8,13 @@ export interface Bot<State, Action> {
 /** The bot that plays as this player, or undefined when a human does. */
 export type BotFor<State, Action> = (playerId: string) => Bot<State, Action> | undefined;
 
-/** The part of a rules engine that bot turns need. */
-export type TurnRules<State, Action> = Pick<RulesEngine<State, Action, unknown>, "apply" | "activePlayer">;
+/**
+ * The part of a rules engine that bot turns need, plus an optional fallbackMove: a move the
+ * rules always accept for that player, made when the rules reject the bot's own choice.
+ */
+export type TurnRules<State, Action> = Pick<RulesEngine<State, Action, unknown>, "apply" | "activePlayer"> & {
+  fallbackMove?: (state: State, playerId: string) => Action | null;
+};
 
 /**
  * Bot moves one call to playBotTurns may make, so a single call always returns and the caller
@@ -34,7 +39,15 @@ export function botTurn<State, Action>(
   if (!bot) return null;
   const action = bot.getNextMove(state, playerId);
   if (action === null) return null;
-  return { action, next: rules.apply(state, action, rng) };
+  const next = rules.apply(state, action, rng);
+  if (next !== state) return { action, next };
+
+  // The rules rejected the bot's move: make the fallback move, or report no move rather than
+  // one that changed nothing (which would leave the table waiting on that bot forever).
+  const fallback = rules.fallbackMove?.(state, playerId) ?? null;
+  if (fallback === null) return null;
+  const afterFallback = rules.apply(state, fallback, rng);
+  return afterFallback === state ? null : { action: fallback, next: afterFallback };
 }
 
 /**

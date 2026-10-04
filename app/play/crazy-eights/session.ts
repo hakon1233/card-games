@@ -31,6 +31,13 @@ function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
   return defs;
 }
 
+// Drawing is always legal on your turn, so a bot move the rules reject falls back to a draw.
+const crazyEightsRules = {
+  apply,
+  activePlayer,
+  fallbackMove: (_: unknown, playerId: string) => ({ type: "DRAW_CARD" as const, playerId }),
+};
+
 export function botName(id: string): string {
   const match = /^bot-(\d+)$/.exec(id);
   return match ? `Bot ${match[1]}` : id;
@@ -67,7 +74,7 @@ export function useCrazyEightsSession(animationSpeed: AnimationSpeed) {
   // chain of bots resolves one visible move at a time. Any other state change
   // first cancels the pending move.
   useEffect(() => {
-    const turn = gameState && botTurn({ apply, activePlayer }, gameState, botFor);
+    const turn = gameState && botTurn(crazyEightsRules, gameState, botFor);
     if (!turn) return;
     const delay = scaleAnimationDuration(BOT_TURN_MS, animationSpeed);
     const timer = setTimeout(() => commitState(turn.next), delay);

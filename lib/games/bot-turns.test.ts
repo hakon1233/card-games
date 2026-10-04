@@ -106,3 +106,29 @@ describe("playBotTurns", () => {
     expect(yaniv.activePlayer(end)).toBeNull();
   });
 });
+
+describe("a bot move the rules reject", () => {
+  // A bot that always asks to draw out of turn: crazy-eights rejects it unchanged.
+  const stubborn: Bot<crazyEights.CrazyEightsState, crazyEights.CrazyEightsAction> = {
+    getNextMove: () => ({ type: "PLAY_CARD", playerId: "p2", cardIndex: 99 }),
+  };
+  const stubbornFor = (id: string) => (id === HUMAN ? undefined : stubborn);
+
+  it("falls back to the rules' fallback move so the table keeps going", () => {
+    const state = crazyEightsAfterHumanDraw(4);
+    const rules = {
+      apply: crazyEights.apply,
+      activePlayer: crazyEights.activePlayer,
+      fallbackMove: (_: unknown, playerId: string) => ({ type: "DRAW_CARD" as const, playerId }),
+    };
+    const turn = botTurn(rules, state, stubbornFor, seededRng(1));
+
+    expect(turn?.action).toEqual({ type: "DRAW_CARD", playerId: "p2" });
+    expect(crazyEights.activePlayer(turn!.next)).toBe("p3");
+  });
+
+  it("without a fallback, reports no move instead of a move that changed nothing", () => {
+    const state = crazyEightsAfterHumanDraw(4);
+    expect(botTurn(crazyEights, state, stubbornFor, seededRng(1))).toBeNull();
+  });
+});

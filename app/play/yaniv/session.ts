@@ -23,7 +23,8 @@ import { getTurnClockKey } from "./turn-clock";
 export const QUICK_DRAW_MS = 2000;
 const bot = new YanivBot();
 const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
-const yanivRules = { apply, activePlayer };
+// A bot move the rules reject falls back to the turn clock's default move.
+const yanivRules = { apply, activePlayer, fallbackMove: timeoutMove };
 
 function buildPlayerDefs(numBots: number) {
   const defs: { id: string; name: string; isBot: boolean }[] = [
