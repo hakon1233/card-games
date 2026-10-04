@@ -9,6 +9,8 @@ import {
   type GoFishPlayer,
 } from "./go-fish";
 import { GoFishBot } from "../bots/go-fish-bot";
+import { botTurn } from "./bot-turns";
+import { seededRng } from "./engine";
 import type { Card, Rank } from "./types";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -399,23 +401,31 @@ describe("game end", () => {
 // ── AC: bot validity ──────────────────────────────────────────────────────────
 
 describe("GoFishBot", () => {
+  it("passes instead of crashing when its hand is empty", () => {
+    const bot = new GoFishBot(seededRng(1));
+    const state = stateWith([makePlayer("bot", [], [], true), makePlayer("p2", [card("K")])]);
+
+    expect(bot.getNextMove(state, "bot")).toBeNull();
+    expect(botTurn({ apply, activePlayer }, state, () => bot)).toBeNull();
+  });
+
   it("only asks for ranks it holds in hand", () => {
-    const bot = new GoFishBot();
+    const bot = new GoFishBot(seededRng(1));
     const state = deal("g-bot", [
       { id: "human", name: "Human", isBot: false },
       { id: "bot", name: "Bot", isBot: true },
-    ]);
+    ], seededRng(2));
     const botPlayer = state.players.find((p) => p.id === "bot")!;
     const botRanks = new Set(botPlayer.hand.map((c) => c.rank));
 
     const move = bot.getNextMove(state, "bot");
 
-    expect(move.type).toBe("ASK");
-    expect(botRanks.has(move.rank)).toBe(true);
+    expect(move?.type).toBe("ASK");
+    expect(move && botRanks.has(move.rank)).toBe(true);
   });
 
   it("targets an opponent known to have the rank", () => {
-    const bot = new GoFishBot();
+    const bot = new GoFishBot(seededRng(1));
     const botPlayer: GoFishPlayer = {
       id: "bot",
       name: "Bot",
@@ -433,24 +443,24 @@ describe("GoFishBot", () => {
 
     const move = bot.getNextMove(state, "bot");
 
-    expect(move.targetPlayerId).toBe("p2");
-    expect(move.rank).toBe("A");
+    expect(move?.targetPlayerId).toBe("p2");
+    expect(move?.rank).toBe("A");
   });
 
-  it("does not ask for a rank it doesn't hold (fuzz over 100 random deals)", () => {
-    const bot = new GoFishBot();
+  it("does not ask for a rank it doesn't hold (fuzz over 100 seeded deals)", () => {
+    const bot = new GoFishBot(seededRng(1));
     for (let i = 0; i < 100; i++) {
       const state = deal(`g-${i}`, [
         { id: "p1", name: "Human", isBot: false },
         { id: "bot", name: "Bot", isBot: true },
-      ]);
+      ], seededRng(i));
       // Force bot to move
       const botState = { ...state, currentPlayerIndex: 1 };
       const botPlayer = botState.players.find((p) => p.id === "bot")!;
       if (botPlayer.hand.length === 0) continue;
       const move = bot.getNextMove(botState, "bot");
       const botRanks = new Set(botPlayer.hand.map((c) => c.rank));
-      expect(botRanks.has(move.rank)).toBe(true);
+      expect(move && botRanks.has(move.rank)).toBe(true);
     }
   });
 });
@@ -459,27 +469,46 @@ describe("GoFishBot", () => {
 
 describe("full game simulation", () => {
   it("plays a complete 2-player bot vs bot game to completion", () => {
-    const bot = new GoFishBot();
+    const bot = new GoFishBot(seededRng(7));
     let state = deal("sim", [
       { id: "p1", name: "Bot1", isBot: true },
       { id: "p2", name: "Bot2", isBot: true },
-    ]);
+    ], seededRng(7));
 
     let turns = 0;
     const MAX_TURNS = 500; // safety ceiling
 
     while (state.status === "in_progress" && turns < MAX_TURNS) {
-      const current = state.players[state.currentPlayerIndex];
-      const move = bot.getNextMove(state, current.id);
-      state = apply(state, move);
+      const turn = botTurn({ apply, activePlayer }, state, () => bot);
+      if (!turn) break;
+      state = turn.next;
       turns++;
     }
 
     expect(state.status).toBe("over");
     expect(state.winners.length).toBeGreaterThan(0);
     const totalBks = state.players.reduce((s, p) => s + p.books.length, 0);
-    // All books accounted for
     expect(totalBks).toBeGreaterThan(0);
+  });
+
+  it("every seeded 3-bot game ends, with a bot to move until it does", () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const bot = new GoFishBot(seededRng(seed));
+      let state = deal(`sim-${seed}`, [
+        { id: "p1", name: "Bot1", isBot: true },
+        { id: "p2", name: "Bot2", isBot: true },
+        { id: "p3", name: "Bot3", isBot: true },
+      ], seededRng(seed));
+
+      for (let turns = 0; turns < 500 && state.status === "in_progress"; turns++) {
+        const turn = botTurn({ apply, activePlayer }, state, () => bot);
+        expect(turn).not.toBeNull();
+        if (!turn) break;
+        state = turn.next;
+      }
+
+      expect(state.status).toBe("over");
+    }
   });
 
   it("playerView hides opponent hands", () => {

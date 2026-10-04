@@ -1,8 +1,8 @@
 import type { Rng, RulesEngine } from "./engine";
 
-/** A bot chooses the action for the player it plays as. */
+/** A bot chooses the action for the player it plays as; null when it has no move to make. */
 export interface Bot<State, Action> {
-  getNextMove(state: State, playerId: string): Action;
+  getNextMove(state: State, playerId: string): Action | null;
 }
 
 /** The bot that plays as this player, or undefined when a human does. */
@@ -16,7 +16,7 @@ export const MAX_BOT_TURNS = 20;
 
 /**
  * One bot move: when the active player is a bot, its action and the state after it;
- * null when a human must act or nobody can.
+ * null when a human must act, nobody can, or the bot has no move.
  */
 export function botTurn<State, Action>(
   rules: TurnRules<State, Action>,
@@ -29,6 +29,7 @@ export function botTurn<State, Action>(
   const bot = botFor(playerId);
   if (!bot) return null;
   const action = bot.getNextMove(state, playerId);
+  if (action === null) return null;
   return { action, next: rules.apply(state, action, rng) };
 }
 
