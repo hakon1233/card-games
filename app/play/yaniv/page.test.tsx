@@ -184,7 +184,7 @@ describe("Yaniv page", () => {
     expect(screen.getByText("Game Complete")).toBeTruthy();
     expect(screen.getByText("Bot 1 outlasted the table.")).toBeTruthy();
     expect(screen.getByText("Rounds Won").parentElement?.textContent).toBe("1Rounds Won");
-    expect(screen.getByText("Rounds Lost").parentElement?.textContent).toBe("3Rounds Lost");
+    expect(screen.getByText("Rounds Lost").parentElement?.textContent).toBe("4Rounds Lost");
   });
 
   it("counts every round in rounds won and lost, including one a bot ends on its opening moves", async () => {
