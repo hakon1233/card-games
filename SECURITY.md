@@ -10,9 +10,9 @@ of this repository, not in a public issue. I aim to reply within a week.
 - **Hidden cards stay on the server.** In multiplayer rooms the room server keeps the full game
   state and sends each player only their own view: their hand, opponents' hand sizes and the size
   of the draw pile. Shuffles on the server use the platform's cryptographic random source.
-- **Identity is signed, not claimed.** A player joins a room with a short-lived token that the
-  Next.js server signs (HMAC-SHA256, `ROOM_TOKEN_SECRET`) from the Supabase session. The room
-  ignores any identity a client asserts, sends nothing to sockets that have not joined, and drops
+- **Identity is signed, not claimed.** A player joins a room with a 24-hour token that the
+  Next.js server signs (HMAC-SHA256, `ROOM_TOKEN_SECRET` of 32+ characters) from the Supabase
+  session. The room ignores any identity a client asserts, sends nothing to sockets that have not joined, and drops
   malformed messages.
 - **Secrets stay server-side.** Only the Supabase URL and anon key are public (`NEXT_PUBLIC_*`);
   access to data is governed by Supabase row-level security. `ROOM_TOKEN_SECRET` is server-only.

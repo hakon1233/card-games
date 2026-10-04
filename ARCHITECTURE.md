@@ -38,7 +38,7 @@ flowchart LR
 | Game pages: `app/play/<game>/` | React routes | Pacing, animation, the win/loss tally; Yaniv's table is split into session, feedback, settings and presentational modules |
 | Room server: `partykit/game-room.ts` | PartyKit room; client messages `JOIN`, `START`, `CE_ACTION`, `GF_ACTION` | Lobby, host-only start, message parsing, per-player redaction, storage |
 | Room tokens: `lib/room-token.ts` | `signRoomToken`, `verifyRoomToken` | HMAC-SHA256 signing (WebCrypto), expiry, claim parsing |
-| Auth: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/server.ts` | Supabase session refresh, sign-in/up actions | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
+| Auth and data: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/*` | Supabase session refresh, sign-in/up actions, `findRoom(code)` | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
 | Card UI kit: `components/game/*` | Cards, hands, end-game screen, display settings | Layout per form factor, animation and colour preferences |
 
 ## Randomness
@@ -52,10 +52,13 @@ Engines take an `Rng` (`() => number`, like `Math.random`). Pages use the defaul
 1. The Next.js room page (`app/rooms/[code]/page.tsx`) knows the signed-in user and the room row.
    It signs `{room, userId, displayName, hostId, gameType, exp}` with `ROOM_TOKEN_SECRET`.
 2. The lobby sends `JOIN {token}`. The room verifies the signature, room code and expiry and takes
-   identity only from the claims; the host's first valid join opens the lobby. HTTP requests to the
+   identity only from the claims; the first valid join opens the lobby with the host and game its
+   token carries. HTTP requests to the
    room get `405`.
 3. Sockets that have not joined receive nothing. Joined players receive `LOBBY_STATE`, then each
    gets `playerView` for themselves: their own hand, opponents' hand sizes, the draw pile's size.
+   (Blackjack, which is never played in a room, flags the dealer's hole card face-down in its view
+   rather than removing it.)
 4. Every client message is parsed before it reaches an engine; malformed ones are dropped.
 
 The multiplayer game table is not built yet: after the host starts, the lobby shows "Full game UI
