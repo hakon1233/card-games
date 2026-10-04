@@ -1,9 +1,13 @@
-import type { Suit, Rank } from "./types";
+import type { Card, Suit, Rank } from "./types";
 
 export interface ShellCard {
   suit: Suit;
   rank: Rank;
   faceUp: boolean;
+}
+
+export function toShellCard(card: Card, faceUp = true): ShellCard {
+  return { suit: card.suit, rank: card.rank, faceUp };
 }
 
 export interface SeatScore {
