@@ -41,6 +41,13 @@ flowchart LR
 | Auth and data: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/*` | Supabase session refresh, sign-in/up actions, `findRoom(supabase, code)` | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
 | Card UI kit: `components/game/*` | Cards, hands, end-game screen, display settings | Layout per form factor, animation and colour preferences |
 
+## House rules worth knowing
+
+- Go Fish: a player with an empty hand doesn't draw a new one; their turn is skipped (the game page
+  does the skipping, after a short pause) and the game ends when the draw pile runs out.
+- Yaniv: when your turn clock runs out, the table discards your highest card and draws from the
+  draw pile for you (`timeoutMove` in `lib/games/yaniv.ts`).
+
 ## Randomness
 
 Engines take an `Rng` (`() => number`, like `Math.random`). Pages use the default; tests pass

@@ -245,6 +245,10 @@ function eventSeenBy(event: GoFishEvent | null, forPlayerId: string): GoFishEven
   return { ...event, drew: null };
 }
 
+/**
+ * Who asks next. House rule: a player whose hand is empty has nothing to ask with and does not
+ * draw a new hand; the table skips their turn, and the game ends when the draw pile runs out.
+ */
 export function activePlayer(state: GoFishGameState): string | null {
   return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;
 }
