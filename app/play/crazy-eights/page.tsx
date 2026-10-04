@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { CardHand } from "@/components/game/card-hand";
-import { PlayingCard, SUIT_COLOR_CLASS, SUIT_SYMBOL } from "@/components/game/card";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import {
   AnimationPreferencesControl,
@@ -27,8 +26,9 @@ import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
 import { botTurn } from "@/lib/games/bot-turns";
 import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import type { Suit } from "@/lib/games/types";
-import { SUITS } from "@/lib/games/deck-utils";
 import { toShellCard } from "@/lib/games/shell-types";
+import { CrazyEightsSettingsScreen } from "./settings";
+import { OpponentSeat, Piles, SuitPicker } from "./table";
 
 const PLAYER_NAME = "You";
 // Base pause between bot moves so plays are watchable; scaled by the
@@ -36,13 +36,6 @@ const PLAYER_NAME = "You";
 const BOT_TURN_MS = 850;
 const bot = new CrazyEightsBot();
 const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
-
-const SUIT_LABEL: Record<Suit, string> = {
-  hearts: "Hearts",
-  diamonds: "Diamonds",
-  clubs: "Clubs",
-  spades: "Spades",
-};
 
 function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
   const defs = [{ id: HUMAN_PLAYER_ID, isBot: false }];
@@ -140,58 +133,15 @@ export default function CrazyEightsPage() {
   // ── Settings / pre-game screen ────────────────────────────────────────────
   if (!gameState) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <BrandHeader title="Crazy Eights" backLabel="Back" />
-        <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-card/70 p-5 shadow-sm">
-            <div className="text-center">
-              <p className="pip-eyebrow text-xs">Crazy Eights table</p>
-              <h2 className="mt-2 font-heading text-2xl font-bold text-foreground">
-                Game Settings
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Match the suit or rank of the top card. Eights are wild — play one to
-                choose the suit. First to empty their hand wins.
-              </p>
-            </div>
-
-            <SettingRow label="Number of Bots">
-              <div className="flex gap-2">
-                {[1, 2, 3].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setNumBots(n)}
-                    aria-pressed={numBots === n}
-                    className={`h-9 w-9 rounded-lg text-sm font-semibold transition-colors ${
-                      numBots === n
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </SettingRow>
-
-            <SettingRow label="Animation Speed">
-              <AnimationPreferencesControl value={animationSpeed} onChange={setAnimationSpeed} />
-            </SettingRow>
-
-            <SettingRow label="Card Colors">
-              <CardDeckControl value={cardDeck} onChange={setCardDeck} />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Four-color gives each suit its own color. Suit symbols always show too.
-              </p>
-            </SettingRow>
-
-            <Button onClick={startGame} size="lg" className="mt-2 h-12 w-full text-base font-bold">
-              Start Game
-            </Button>
-          </div>
-        </div>
-      </div>
+      <CrazyEightsSettingsScreen
+        numBots={numBots}
+        onNumBotsChange={setNumBots}
+        animationSpeed={animationSpeed}
+        onAnimationSpeedChange={setAnimationSpeed}
+        cardDeck={cardDeck}
+        onCardDeckChange={setCardDeck}
+        onStart={startGame}
+      />
     );
   }
 
@@ -265,40 +215,14 @@ export default function CrazyEightsPage() {
             ))}
           </div>
 
-          {/* Center board: draw pile + discard + suit-to-match */}
-          <div className="flex flex-1 items-center justify-center gap-6 py-2 md:gap-10">
-            <div className="flex flex-col items-center gap-1.5">
-              <button
-                type="button"
-                onClick={humanDraw}
-                disabled={!isMyTurn}
-                aria-label={`Draw a card. ${gameState.deck.length} in the draw pile.`}
-                className="rounded-lg outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring enabled:hover:-translate-y-1 disabled:cursor-default"
-              >
-                <FaceDownStack count={gameState.deck.length} />
-              </button>
-              <div className="flex flex-col items-center leading-none">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Draw
-                </span>
-                <span className="text-[9px] tabular-nums text-muted-foreground/70">
-                  {gameState.deck.length} left
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="flex min-h-[112px] items-center justify-center">
-                <PlayingCard card={toShellCard(discardTop)} size="lg" />
-              </div>
-              <div className="flex flex-col items-center gap-1 leading-none">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Discard
-                </span>
-                <SuitChip suit={matchSuit} declared={declaredActive} />
-              </div>
-            </div>
-          </div>
+          <Piles
+            drawCount={gameState.deck.length}
+            canDraw={isMyTurn}
+            onDraw={humanDraw}
+            discardTop={discardTop}
+            matchSuit={matchSuit}
+            declared={declaredActive}
+          />
 
           {/* Human hand + actions */}
           <div className="pip-seat-panel rounded-xl bg-black/20 p-3">
@@ -374,153 +298,6 @@ export default function CrazyEightsPage() {
           onChangeGame={() => router.push("/")}
         />
       )}
-    </div>
-  );
-}
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-function OpponentSeat({
-  name,
-  cardCount,
-  isActive,
-}: {
-  name: string;
-  cardCount: number;
-  isActive: boolean;
-}) {
-  return (
-    <div
-      className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all ${
-        isActive ? "bg-primary/[0.12] ring-2 ring-primary/50" : "opacity-70"
-      }`}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs font-medium text-foreground">{name}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          BOT
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <FaceDownStack count={cardCount} mini />
-        <span
-          className="min-w-[20px] rounded-full bg-foreground px-1 text-center text-[11px] font-bold leading-5 tabular-nums text-background"
-          aria-label={`${cardCount} card${cardCount === 1 ? "" : "s"} in hand`}
-        >
-          {cardCount}
-        </span>
-      </div>
-      {isActive && <span className="text-[9px] font-semibold text-primary">↑ turn</span>}
-    </div>
-  );
-}
-
-function FaceDownStack({ count, mini = false }: { count: number; mini?: boolean }) {
-  const w = mini ? 28 : 80;
-  const h = mini ? 40 : 112;
-  if (count === 0) {
-    return (
-      <div
-        className="flex items-center justify-center rounded-lg border-2 border-dashed border-white/20 text-[9px] text-muted-foreground/50"
-        style={{ width: w, height: h }}
-        aria-label="empty pile"
-      >
-        {mini ? "" : "empty"}
-      </div>
-    );
-  }
-  const layers = Math.min(count, mini ? 2 : 4);
-  return (
-    <div className="relative" style={{ width: w, height: h }} role="img" aria-hidden={mini}>
-      {Array.from({ length: layers }, (_, i) => (
-        <div
-          key={i}
-          className="absolute flex items-center justify-center rounded-lg border border-white/20 bg-[#1a6b3c] shadow-md"
-          style={{
-            width: w,
-            height: h,
-            top: i * (mini ? 1.5 : 2.5),
-            left: i * (mini ? 1.5 : 2.5),
-            zIndex: i,
-          }}
-        >
-          {i === layers - 1 && (
-            <div className="rounded border border-white/30" style={{ width: "80%", height: "80%" }} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SuitChip({ suit, declared }: { suit: Suit; declared: boolean }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] font-semibold"
-      aria-label={`Suit to match: ${SUIT_LABEL[suit]}${declared ? ", declared by an eight" : ""}`}
-    >
-      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
-        {declared ? "Declared" : "Match"}
-      </span>
-      <span className={`${SUIT_COLOR_CLASS[suit]} text-sm`} aria-hidden="true">
-        {SUIT_SYMBOL[suit]}
-      </span>
-      <span className="text-foreground">{SUIT_LABEL[suit]}</span>
-    </span>
-  );
-}
-
-function SuitPicker({
-  onPick,
-  onCancel,
-}: {
-  onPick: (suit: Suit) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Choose a suit"
-    >
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        aria-hidden="true"
-        onClick={onCancel}
-      />
-      <div className="relative z-10 w-full max-w-xs rounded-2xl border border-border bg-card p-5 shadow-2xl">
-        <p className="text-center text-sm font-semibold text-card-foreground">
-          You played an 8 — choose the new suit
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {SUITS.map((suit) => (
-            <button
-              key={suit}
-              type="button"
-              onClick={() => onPick(suit)}
-              className="flex flex-col items-center gap-1 rounded-xl border border-border bg-background/40 py-4 transition-colors hover:bg-accent"
-            >
-              <span className={`${SUIT_COLOR_CLASS[suit]} text-3xl`} aria-hidden="true">
-                {SUIT_SYMBOL[suit]}
-              </span>
-              <span className="text-xs font-medium text-foreground">{SUIT_LABEL[suit]}</span>
-            </button>
-          ))}
-        </div>
-        <Button variant="ghost" className="mt-4 w-full" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
     </div>
   );
 }
