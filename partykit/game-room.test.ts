@@ -240,4 +240,15 @@ describe("Go Fish room", () => {
 
     expect(alice.last()).toBe(before);
   });
+
+  it("an action the rules reject changes nothing and sends nothing", async () => {
+    const { alice, bob, send } = await startedGame("go_fish");
+    const sentBefore = [alice.sent.length, bob.sent.length];
+    await send(bob, {
+      type: "GF_ACTION",
+      payload: { type: "ASK", playerId: "bob", targetPlayerId: "alice", rank: "A" },
+    });
+
+    expect([alice.sent.length, bob.sent.length]).toEqual(sentBefore);
+  });
 });

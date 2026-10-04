@@ -200,7 +200,9 @@ export default class GameRoom implements Party.Server {
     const cs = sender.state as ConnState | null;
     if (cs?.userId !== payload.playerId) return; // only act for yourself
 
-    this.state.gameState = crazyEights.apply(this.state.gameState, payload, cryptoRng);
+    const next = crazyEights.apply(this.state.gameState, payload, cryptoRng);
+    if (next === this.state.gameState) return; // rejected by the rules
+    this.state.gameState = next;
     await this.persist();
     this.broadcastAll();
   }
@@ -211,7 +213,9 @@ export default class GameRoom implements Party.Server {
     const cs = sender.state as ConnState | null;
     if (cs?.userId !== payload.playerId) return;
 
-    this.state.gameState = goFish.apply(this.state.gameState, payload);
+    const next = goFish.apply(this.state.gameState, payload);
+    if (next === this.state.gameState) return; // rejected by the rules
+    this.state.gameState = next;
     await this.persist();
     this.broadcastAll();
   }
