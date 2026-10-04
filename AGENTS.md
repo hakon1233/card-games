@@ -28,8 +28,8 @@ rooms that stop at the lobby. Domain words: `CONTEXT.md`. Module map and data fl
 
 ## Rules of the codebase
 
-- Rules engines stay pure: no React, I/O or `Math.random`. Randomness comes in as an `Rng`
-  argument; tests pass `seededRng(n)`, the room server passes `cryptoRng`.
+- Rules engines stay pure: no React or I/O. Randomness comes in as an `Rng` argument (default
+  `Math.random`); tests pass `seededRng(n)`, the room server passes `cryptoRng`.
 - Every engine exports `deal`, `apply`, `playerView`, `activePlayer` (`RulesEngine` in
   `lib/games/engine.ts`). An illegal action returns the same state object.
 - The room server trusts identity only from a verified room token, and sends each player only

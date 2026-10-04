@@ -38,7 +38,7 @@ flowchart LR
 | Game pages: `app/play/<game>/` | React routes | Pacing, animation, the win/loss tally; Yaniv's table is split into session, feedback, settings and presentational modules |
 | Room server: `partykit/game-room.ts` | PartyKit room; client messages `JOIN`, `START`, `CE_ACTION`, `GF_ACTION` | Lobby, host-only start, message parsing, per-player redaction, storage |
 | Room tokens: `lib/room-token.ts` | `signRoomToken`, `verifyRoomToken` | HMAC-SHA256 signing (WebCrypto), expiry, claim parsing |
-| Auth and data: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/*` | Supabase session refresh, sign-in/up actions, `findRoom(code)` | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
+| Auth and data: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/*` | Supabase session refresh, sign-in/up actions, `findRoom(supabase, code)` | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
 | Card UI kit: `components/game/*` | Cards, hands, end-game screen, display settings | Layout per form factor, animation and colour preferences |
 
 ## Randomness
