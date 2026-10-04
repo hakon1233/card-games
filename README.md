@@ -34,7 +34,8 @@ That is enough to play all four games against bots: no account, database or othe
 
 1. A Supabase project (free tier works). Put its URL and anon key in `.env.local`, then apply
    `supabase/migrations/` with the Supabase CLI (`npx supabase link`, `npx supabase db push`).
-2. A random `ROOM_TOKEN_SECRET` in `.env.local` (e.g. `openssl rand -hex 32`).
+2. A random `ROOM_TOKEN_SECRET` of at least 32 characters in `.env.local` (e.g.
+   `openssl rand -hex 32`). In a deployment, also list your site in `ALLOWED_ORIGINS`.
 3. The room server in a second terminal: `pnpm dev:party` (PartyKit on :1999, reads `.env.local`).
 
 ## Testing
@@ -42,6 +43,7 @@ That is enough to play all four games against bots: no account, database or othe
 ```bash
 pnpm check                       # typecheck, lint, unit tests, production build
 pnpm test                        # unit tests only (Vitest)
+pnpm exec playwright install chromium   # once, for the e2e test
 pnpm build && pnpm test:e2e      # headless Playwright smoke test on port 7121
 ```
 
@@ -87,6 +89,10 @@ and the redaction design; [CONTEXT.md](CONTEXT.md) defines the game terms.
 
 A portfolio project, finished as single-player against bots (2026). The multiplayer table for
 rooms is not built; there is no public deployment. Not actively developed.
+
+Known limits: there is no script Content-Security-Policy yet (the app sends nosniff, a referrer
+policy and anti-framing headers; a script CSP depends on the deployment's Supabase and PartyKit
+origins). More in [SECURITY.md](SECURITY.md).
 
 ## How this was built
 
