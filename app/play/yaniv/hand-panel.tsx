@@ -229,8 +229,6 @@ function SelectionSummary({
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-
 const SUIT_SYMBOLS: Record<Suit, string> = {
   hearts: "♥",
   diamonds: "♦",

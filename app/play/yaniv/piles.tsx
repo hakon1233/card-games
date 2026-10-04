@@ -9,8 +9,6 @@ import type { Card } from "@/lib/games/types";
 import { ContextTooltip } from "./context-tooltip";
 import { formatQuickDrawTime } from "./turn-clock";
 
-// ── QuickDrawPile ─────────────────────────────────────────────────────────
-
 export function QuickDrawPile({
   cards,
   progress,
@@ -102,8 +100,6 @@ export function QuickDrawPile({
   );
 }
 
-// ── DiscardPileGroup ──────────────────────────────────────────────────────
-
 export function DiscardPileGroup({
   group,
   canDraw,
@@ -163,8 +159,6 @@ export function DiscardPileGroup({
     </ContextTooltip>
   );
 }
-
-// ── DeckVisual ────────────────────────────────────────────────────────────
 
 export function DeckVisual({ count }: { count: number }) {
   if (count === 0) {

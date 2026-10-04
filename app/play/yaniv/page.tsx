@@ -25,28 +25,13 @@ export default function YanivPage() {
   const { lowTimeSound, idlePulses, nextUpPreview } = settings;
   const [animationSpeed, setAnimationSpeed] = useAnimationSpeed();
   const [cardDeck, setCardDeck] = useCardDeck();
-  const {
-    gameState,
-    selected,
-    roundsWon,
-    roundsLost,
-    qdTimeLeft,
-    feedback,
-    turnKey,
-    turnClockGenerationRef,
-    autoPlayTurnTimeout,
-    start,
-    callYaniv,
-    discardAndDraw,
-    stealFromDiscard,
-    nextRound,
-    toggleCard,
-  } = useYanivSession(animationSpeed, nextUpPreview);
-  const { actionBadges, scoreFeedback, roundOverlayReady, reshuffled, turnPreview } = feedback;
+  const session = useYanivSession(animationSpeed, nextUpPreview);
+  const { gameState, selected, qdTimeLeft, turnKey } = session;
+  const { actionBadges, scoreFeedback, roundOverlayReady, reshuffled, turnPreview } = session.feedback;
 
   function startGame() {
     saveSettings();
-    start(settings);
+    session.start(settings);
   }
 
   // ── Settings screen ──────────────────────────────────────────────────────
@@ -125,8 +110,8 @@ export default function YanivPage() {
         <TurnCountdown
           turnKey={turnKey}
           lowTimeSound={lowTimeSound}
-          turnClockGenerationRef={turnClockGenerationRef}
-          onExpire={autoPlayTurnTimeout}
+          turnClockGenerationRef={session.turnClockGenerationRef}
+          onExpire={session.autoPlayTurnTimeout}
         >
           <PlayerRing
             players={gameState.players}
@@ -144,8 +129,8 @@ export default function YanivPage() {
             deckCount={gameState.deck.length}
             discardTopGroup={topGroup}
             canDrawFromDiscard={canDiscard}
-            onPickDiscardCard={(idx) => discardAndDraw(true, idx)}
-            onSteal={stealFromDiscard}
+            onPickDiscardCard={(idx) => session.discardAndDraw(true, idx)}
+            onSteal={session.stealFromDiscard}
           />
         </TurnCountdown>
 
@@ -159,9 +144,9 @@ export default function YanivPage() {
           selection={selection}
           canDiscard={canDiscard}
           topGroup={topGroup}
-          onToggleCard={toggleCard}
-          onCallYaniv={callYaniv}
-          onDiscardAndDraw={discardAndDraw}
+          onToggleCard={session.toggleCard}
+          onCallYaniv={session.callYaniv}
+          onDiscardAndDraw={session.discardAndDraw}
         />
 
         {qdActive && (
@@ -190,7 +175,7 @@ export default function YanivPage() {
         <RoundEndOverlay
           state={gameState}
           playerId={PLAYER_ID}
-          onNextRound={nextRound}
+          onNextRound={session.nextRound}
           onChangeGame={() => router.push("/")}
         />
       )}
@@ -212,8 +197,8 @@ export default function YanivPage() {
             isWinner: row.isWinner,
           }))}
           sessionRows={[
-            { label: "Rounds Won", value: roundsWon },
-            { label: "Rounds Lost", value: roundsLost },
+            { label: "Rounds Won", value: session.roundsWon },
+            { label: "Rounds Lost", value: session.roundsLost },
           ]}
           onPlayAgain={startGame}
           onChangeGame={() => router.push("/")}

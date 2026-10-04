@@ -9,8 +9,6 @@ import { toShellCard } from "@/lib/games/shell-types";
 import type { YanivGameState, YanivPlayer } from "@/lib/games/yaniv";
 import { getYanivScoreboardRows, type YanivScoreboardRow } from "@/lib/games/yaniv-scoreboard";
 
-// ── RoundEndOverlay ───────────────────────────────────────────────────────
-
 export function RoundEndOverlay({
   state,
   playerId,

@@ -209,8 +209,6 @@ export function YanivSettingsScreen({
   );
 }
 
-// ── SettingRow ────────────────────────────────────────────────────────────
-
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">

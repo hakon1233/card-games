@@ -38,8 +38,6 @@ export function useYanivTableFormFactor(): YanivTableFormFactor {
   return formFactor;
 }
 
-// ── PlayerRing ────────────────────────────────────────────────────────────
-
 interface PlayerRingProps {
   players: YanivPlayer[];
   humanId: string;
@@ -238,8 +236,6 @@ export function PlayerRing({
     </div>
   );
 }
-
-// ── PlayerSeatNode ────────────────────────────────────────────────────────
 
 function PlayerSeatNode({
   player,
