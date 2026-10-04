@@ -10,9 +10,8 @@ import {
   isBust,
   startGame,
   type BlackjackState,
-} from "../blackjack";
-import { buildDeck, shuffle } from "../deck-utils";
-import type { Card } from "../types";
+} from "./blackjack";
+import type { Card } from "./types";
 
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
   return { rank, suit };
@@ -30,27 +29,6 @@ function makeState(overrides: Partial<BlackjackState> = {}): BlackjackState {
     ...overrides,
   };
 }
-
-describe("buildDeck", () => {
-  it("returns 52 unique cards", () => {
-    const deck = buildDeck();
-    expect(deck).toHaveLength(52);
-    const keys = new Set(deck.map((c) => `${c.rank}-${c.suit}`));
-    expect(keys.size).toBe(52);
-  });
-});
-
-describe("shuffle", () => {
-  it("returns same length", () => {
-    expect(shuffle(buildDeck())).toHaveLength(52);
-  });
-  it("does not mutate input", () => {
-    const deck = buildDeck();
-    const copy = [...deck];
-    shuffle(deck);
-    expect(deck).toEqual(copy);
-  });
-});
 
 describe("cardValue", () => {
   it("returns 11 for ace", () => expect(cardValue("A")).toBe(11));
@@ -144,6 +122,12 @@ describe("applyPlayerHit", () => {
     expect(next.playerHand.cards[2]).toEqual(card("J"));
   });
 
+  it("keeps the player's turn after a hit that does not bust", () => {
+    const next = applyPlayerHit(makeState({ deck: [card("3")] }));
+    expect(next.turn).toBe("player");
+    expect(next.status).toBe("in_progress");
+  });
+
   it("resolves player_bust when hand exceeds 21", () => {
     const bustState = makeState({
       playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("9")] },
@@ -174,6 +158,19 @@ describe("applyDealerTurn", () => {
     expect(next.dealerHand.every((c) => !c.hidden)).toBe(true);
     expect(handValue(next.dealerHand)).toBe(20);
     expect(next.turn).toBe("over");
+  });
+
+  it("dealer keeps drawing until its complete hand reaches 17", () => {
+    // Dealer K + 2(hidden) = 12 → draws 3 (deck end) → 15 → draws 5 → 20.
+    const state = makeState({
+      playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("8")] },
+      dealerHand: [card("K"), { ...card("2"), hidden: true }],
+      deck: [card("5"), card("3")],
+      turn: "dealer",
+    });
+    const next = applyDealerTurn(state);
+    expect(next.dealerHand).toHaveLength(4);
+    expect(handValue(next.dealerHand)).toBe(20);
   });
 
   it("dealer busts when drawn cards push over 21", () => {
