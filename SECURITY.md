@@ -21,7 +21,6 @@ of this repository, not in a public issue. I aim to reply within a week.
 
 - The single-player games run entirely in the browser; their state is visible to that player's
   dev tools by design.
-- `supabase/migrations/0001_initial_schema.sql` creates `games`, `game_players` and `game_moves`
-  tables the app no longer uses; their row-level security is permissive. Don't apply that
-  migration to a new project without dropping or locking down those tables. The `rooms` table is
-  readable by anyone with the anon key, so room codes and host display names are not secret.
+- Anyone holding a room code can look up that room (game, host display name, status) through the
+  `room_by_code` database function; that is how invite links work. The `rooms` table itself is
+  readable only by the room's host.

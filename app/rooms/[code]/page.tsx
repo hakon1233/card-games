@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { findRoom } from "@/lib/supabase/rooms";
 import { signRoomToken } from "@/lib/room-token";
 import { LobbyClient } from "./lobby-client";
 
@@ -17,14 +18,10 @@ export default async function RoomPage({
     {
       data: { user },
     },
-    { data: room },
+    room,
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase
-      .from("rooms")
-      .select("code, game_type, host_id, host_display_name, status")
-      .eq("code", code.toUpperCase())
-      .single(),
+    findRoom(supabase, code),
   ]);
 
   if (!user) {
@@ -46,8 +43,8 @@ export default async function RoomPage({
       room: room.code,
       userId: user.id,
       displayName,
-      hostId: room.host_id,
-      gameType: room.game_type,
+      hostId: room.hostId,
+      gameType: room.gameType,
     },
     secret,
   );
@@ -58,7 +55,7 @@ export default async function RoomPage({
         code={room.code}
         userId={user.id}
         token={token}
-        hostId={room.host_id}
+        hostId={room.hostId}
         partyHost={partyHost}
       />
     </main>

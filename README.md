@@ -34,7 +34,6 @@ That is enough to play all four games against bots: no account, database or othe
 
 1. A Supabase project (free tier works). Put its URL and anon key in `.env.local`, then apply
    `supabase/migrations/` with the Supabase CLI (`npx supabase link`, `npx supabase db push`).
-   Read the note in [SECURITY.md](SECURITY.md) about the first migration first.
 2. A random `ROOM_TOKEN_SECRET` in `.env.local` (e.g. `openssl rand -hex 32`).
 3. The room server in a second terminal: `pnpm dev:party` (PartyKit on :1999, reads `.env.local`).
 

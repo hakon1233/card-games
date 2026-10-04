@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { findRoom } from "@/lib/supabase/rooms";
+import type { RoomGameType } from "@/lib/room-token";
 
-const GAME_LABELS: Record<string, string> = {
+const GAME_LABELS: Record<RoomGameType, string> = {
   crazy_eights: "Crazy Eights",
   go_fish: "Go Fish",
 };
@@ -15,15 +17,11 @@ export default async function JoinPage({
   const { code } = await params;
   const supabase = await createClient();
 
-  const { data: room } = await supabase
-    .from("rooms")
-    .select("code, game_type, host_display_name, status")
-    .eq("code", code.toUpperCase())
-    .single();
+  const room = await findRoom(supabase, code);
 
   if (!room) notFound();
 
-  const gameLabel = GAME_LABELS[room.game_type] ?? room.game_type;
+  const gameLabel = GAME_LABELS[room.gameType];
   const nextPath = `/rooms/${room.code}`;
 
   return (
@@ -32,7 +30,7 @@ export default async function JoinPage({
         <div className="mb-8">
           <p className="text-5xl mb-4">🃏</p>
           <h1 className="text-2xl font-bold text-foreground">
-            {room.host_display_name} invited you to play {gameLabel}
+            {room.hostDisplayName} invited you to play {gameLabel}
           </h1>
           {room.status !== "waiting" && (
             <p className="mt-2 text-sm text-muted-foreground">
