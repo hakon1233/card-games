@@ -20,11 +20,3 @@ export interface Card {
   rank: Rank;
   hidden?: boolean;
 }
-
-export type StoredGameType = "blackjack" | "go_fish" | "crazy_eights";
-
-export interface BaseGameState {
-  gameId: string;
-  status: string;
-  gameType?: StoredGameType;
-}

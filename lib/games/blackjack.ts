@@ -1,6 +1,6 @@
 import { buildDeck, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
-import type { BaseGameState, Card, Rank } from "./types";
+import type { Card, Rank } from "./types";
 
 export type BlackjackStatus =
   | "waiting"
@@ -17,13 +17,13 @@ export interface BlackjackHand {
   cards: Card[];
 }
 
-export interface BlackjackState extends BaseGameState {
-  gameType?: "blackjack";
+export interface BlackjackState {
   gameId: string;
   status: BlackjackStatus;
   playerHand: BlackjackHand;
+  /** The hole card is flagged hidden until the dealer's turn. */
   dealerHand: Card[];
-  /** Public view — dealer hole card is hidden until dealer's turn */
+  /** The draw pile; cards are drawn from the end. */
   deck: Card[];
   turn: "player" | "dealer" | "over";
   result?: "player_win" | "dealer_win" | "push";
@@ -36,10 +36,6 @@ export interface BlackjackAction {
 
 /** What the player may see: no draw pile; the dealer's hole card stays face-down (hidden). */
 export type BlackjackPlayerView = Omit<BlackjackState, "deck">;
-
-export function createDeck(): Card[] {
-  return shuffle(buildDeck());
-}
 
 export function cardValue(rank: Rank): number {
   if (rank === "A") return 11;

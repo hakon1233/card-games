@@ -355,7 +355,7 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
   };
 }
 
-export function startNextRound(state: YanivGameState, rng: Rng = Math.random): YanivGameState {
+function startNextRound(state: YanivGameState, rng: Rng = Math.random): YanivGameState {
   if (state.status !== "round_over") return state;
 
   const activePlayers = state.players.filter((p) => !p.eliminated);

@@ -1,6 +1,6 @@
 import { buildDeck, RANKS, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
-import type { BaseGameState, Card, Rank } from "./types";
+import type { Card, Rank } from "./types";
 
 export interface GoFishPlayer {
   id: string;
@@ -37,8 +37,7 @@ export interface GoFishEvent {
   drew: Card | null;     // card drawn from deck (null if target gave cards or deck was empty)
 }
 
-export interface GoFishGameState extends BaseGameState {
-  gameType?: "go_fish";
+export interface GoFishGameState {
   gameId: string;
   status: GoFishStatus;
   players: GoFishPlayer[];
@@ -53,16 +52,6 @@ export type GoFishPlayerView = Omit<GoFishGameState, "deck" | "players"> & {
   players: (Omit<GoFishPlayer, "hand" | "knownOpponentCards"> & { handSize: number })[];
   ownHand: Card[];
 };
-
-export type GoFishClientMessage =
-  | { type: "JOIN"; playerId: string; playerName: string }
-  | { type: "START" }
-  | { type: "ASK"; playerId: string; targetPlayerId: string; rank: Rank };
-
-export type GoFishServerMessage =
-  | { type: "STATE_UPDATE"; state: GoFishPlayerView }
-  | { type: "PLAYER_JOINED"; playerId: string; playerName: string }
-  | { type: "GAME_OVER"; winners: string[] };
 
 export function extractBooks(player: GoFishPlayer): GoFishPlayer {
   const counts = new Map<Rank, number>();

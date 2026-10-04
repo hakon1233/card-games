@@ -1,4 +1,4 @@
-import type { BaseGameState, Card, Suit } from "./types";
+import type { Card, Suit } from "./types";
 import { buildDeck, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
 
@@ -11,8 +11,7 @@ export interface CrazyEightsPlayer {
   roundWins: number;
 }
 
-export interface CrazyEightsState extends BaseGameState {
-  gameType?: "crazy_eights";
+export interface CrazyEightsState {
   gameId: string;
   status: CrazyEightsStatus;
   players: CrazyEightsPlayer[];
