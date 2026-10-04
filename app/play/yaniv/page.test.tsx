@@ -187,6 +187,30 @@ describe("Yaniv page", () => {
     expect(screen.getByText("Rounds Lost").parentElement?.textContent).toBe("3Rounds Lost");
   });
 
+  it("counts every round in rounds won and lost, including one a bot ends on its opening moves", async () => {
+    // With three bots and this seed, bots open several rounds and call Yaniv before you act.
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ scoreLimit: 100, yanivThreshold: 15, numBots: 3 }));
+    await openPage(4);
+    await click(screen.getByRole("button", { name: "Start Game" }));
+
+    let roundsSeen = 0;
+    for (let step = 0; step < 600 && !screen.queryByText("Rounds Won"); step++) {
+      const heading = screen.queryByText(/^Round \d+ complete$/);
+      if (heading) roundsSeen = Math.max(roundsSeen, Number(/\d+/.exec(heading.textContent ?? "")?.[0]));
+      const call = screen.queryByRole("button", { name: /^Call Yaniv!/ });
+      const next = screen.queryByRole("button", { name: "Next Round" });
+      if (call) await click(call);
+      else if (next) await click(next);
+      else if (isYourTurn()) await discardFirstAndDraw();
+      else await advance(5000);
+    }
+
+    const tally = (label: string) =>
+      Number(screen.getByText(label).parentElement?.textContent?.replace(label, ""));
+    // Every completed round plus the final one.
+    expect(tally("Rounds Won") + tally("Rounds Lost")).toBe(roundsSeen + 1);
+  });
+
   it("plays a safe discard for you when your turn clock runs out", async () => {
     await openPage(PLAY_SEED);
     await click(screen.getByRole("button", { name: "Start Game" }));

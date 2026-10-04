@@ -153,12 +153,11 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   function start(table: YanivSettings & { numBots: number }) {
     const { yanivThreshold, scoreLimit, quickDraw, numBots } = table;
     const rules: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
-    const initial = deal(`game-${Date.now()}`, buildPlayerDefs(numBots), rules);
-    setGameState(playBotTurns(yanivRules, initial, botFor));
-    setSelected([]);
     setRoundsWon(0);
     setRoundsLost(0);
     resetGame();
+    // Through dispatch, so a round a bot ends on its opening moves is counted too.
+    dispatch(deal(`game-${Date.now()}`, buildPlayerDefs(numBots), rules));
   }
 
   function callYaniv() {
@@ -187,10 +186,8 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
 
   function nextRound() {
     if (!gameState) return;
-    const s = playBotTurns(yanivRules, apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }), botFor);
-    setGameState(s);
-    setSelected([]);
     feedback.resetRound();
+    dispatch(apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
   }
 
   function toggleCard(idx: number) {
