@@ -74,7 +74,7 @@ export default class GameRoom implements Party.Server {
     this.state = (await this.room.storage.get<RoomState>("state")) ?? null;
   }
 
-  async onMessage(raw: string, sender: Party.Connection) {
+  async onMessage(raw: string, sender: Party.Connection<ConnState>) {
     const msg = parseClientMessage(raw);
     if (!msg) return;
 
@@ -94,9 +94,9 @@ export default class GameRoom implements Party.Server {
     }
   }
 
-  async onClose(connection: Party.Connection) {
+  async onClose(connection: Party.Connection<ConnState>) {
     if (!this.state) return;
-    const cs = connection.state as ConnState | null;
+    const cs = connection.state;
     if (!cs?.userId) return;
 
     const player = this.state.players.find((p) => p.userId === cs.userId);
@@ -114,7 +114,7 @@ export default class GameRoom implements Party.Server {
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
-  private async handleJoin(msg: JoinMsg, sender: Party.Connection) {
+  private async handleJoin(msg: JoinMsg, sender: Party.Connection<ConnState>) {
     const secret = this.room.env.ROOM_TOKEN_SECRET;
     const claims = await verifyRoomToken(
       msg.token,
@@ -153,10 +153,10 @@ export default class GameRoom implements Party.Server {
     this.broadcastAll();
   }
 
-  private async handleStart(sender: Party.Connection) {
+  private async handleStart(sender: Party.Connection<ConnState>) {
     if (!this.state || this.state.phase !== "lobby") return;
 
-    const cs = sender.state as ConnState | null;
+    const cs = sender.state;
     if (cs?.userId !== this.state.hostId) {
       const err: ErrorMsg = { type: "ERROR", message: "Only the host can start the game" };
       sender.send(JSON.stringify(err));
@@ -194,10 +194,10 @@ export default class GameRoom implements Party.Server {
     this.broadcastAll();
   }
 
-  private async handleCeAction(payload: CrazyEightsAction, sender: Party.Connection) {
+  private async handleCeAction(payload: CrazyEightsAction, sender: Party.Connection<ConnState>) {
     if (!this.state || this.state.phase !== "crazy_eights") return;
 
-    const cs = sender.state as ConnState | null;
+    const cs = sender.state;
     if (cs?.userId !== payload.playerId) return; // only act for yourself
 
     const next = crazyEights.apply(this.state.gameState, payload, cryptoRng);
@@ -207,10 +207,10 @@ export default class GameRoom implements Party.Server {
     this.broadcastAll();
   }
 
-  private async handleGfAction(payload: GoFishAskAction, sender: Party.Connection) {
+  private async handleGfAction(payload: GoFishAskAction, sender: Party.Connection<ConnState>) {
     if (!this.state || this.state.phase !== "go_fish") return;
 
-    const cs = sender.state as ConnState | null;
+    const cs = sender.state;
     if (cs?.userId !== payload.playerId) return;
 
     const next = goFish.apply(this.state.gameState, payload);
@@ -225,7 +225,7 @@ export default class GameRoom implements Party.Server {
   /** Only sockets that joined with a valid room token ever receive room state. */
   private broadcastAll() {
     for (const conn of this.room.getConnections<ConnState>()) {
-      const userId = (conn.state as ConnState | null)?.userId;
+      const userId = conn.state?.userId;
       if (userId) this.sendStateTo(conn, userId);
     }
   }

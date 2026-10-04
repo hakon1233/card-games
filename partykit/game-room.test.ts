@@ -41,7 +41,7 @@ function makeRoom(gameType: RoomGameType, hostId = "alice") {
   const server = new GameRoom(room as unknown as Party.Room);
 
   const send = async (conn: FakeConnection, msg: unknown) => {
-    await server.onMessage(JSON.stringify(msg), conn as unknown as Party.Connection);
+    await server.onMessage(JSON.stringify(msg), conn as unknown as Parameters<GameRoom["onMessage"]>[1]);
   };
 
   return {

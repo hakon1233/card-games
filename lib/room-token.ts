@@ -8,6 +8,10 @@
 
 export type RoomGameType = "crazy_eights" | "go_fish";
 
+export function isRoomGameType(value: unknown): value is RoomGameType {
+  return value === "crazy_eights" || value === "go_fish";
+}
+
 export type RoomClaims = {
   room: string;
   userId: string;
@@ -67,13 +71,14 @@ function parseClaims(text: string): RoomClaims | null {
     return null;
   }
   if (typeof value !== "object" || value === null) return null;
-  const { room, userId, displayName, hostId, gameType, exp } = value as Record<string, unknown>;
+  const fields: Record<string, unknown> = { ...value };
+  const { room, userId, displayName, hostId, gameType, exp } = fields;
   if (
     typeof room !== "string" ||
     typeof userId !== "string" ||
     typeof displayName !== "string" ||
     typeof hostId !== "string" ||
-    (gameType !== "crazy_eights" && gameType !== "go_fish") ||
+    !isRoomGameType(gameType) ||
     typeof exp !== "number"
   ) {
     return null;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isRoomGameType } from "@/lib/room-token";
 
 // 32 symbols, so each random byte maps evenly onto the alphabet (256 % 32 === 0).
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -21,9 +22,10 @@ export async function POST(request: Request) {
   }
 
   const body: unknown = await request.json().catch(() => null);
-  const gameType = typeof body === "object" && body !== null ? (body as Record<string, unknown>).gameType : null;
+  const fields: Record<string, unknown> = typeof body === "object" && body !== null ? { ...body } : {};
+  const gameType = fields.gameType;
 
-  if (gameType !== "crazy_eights" && gameType !== "go_fish") {
+  if (!isRoomGameType(gameType)) {
     return NextResponse.json({ error: "Invalid game type" }, { status: 400 });
   }
 
