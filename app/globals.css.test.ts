@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Regression guard for the "white-on-white card" bug class (GAM-41 / GAM-42,
- * GAM-55; original incident fixed in commit bef07af).
+ * Regression guard for the "white-on-white card" bug class
+ * (original incident fixed in commit bef07af).
  *
  * Root cause: the suit-colour custom properties (`--pip-suit-*`) lived in a
  * SECOND top-level `:root { ... }` block. Tailwind v4 / Lightning CSS merges

@@ -27,7 +27,7 @@ const PLAYER_DEFS = [
   { id: "bot-pearl", name: "Pearl", isBot: true },
 ];
 
-// Pacing for bot turns so a human can follow the table chatter (GAM-99).
+// Pacing for bot turns so a human can follow the table chatter.
 const BOT_TURN_DELAY_MS = 950;
 const SKIP_DELAY_MS = 700;
 
@@ -211,7 +211,7 @@ export default function GoFishPage() {
   // Dedicated screen-reader status. Unlike the visible table-status (which keeps
   // echoing the last bot event for sighted players), this region must always
   // reflect turn state so assistive tech announces "your turn" when control
-  // returns to the human — mirrors the Crazy Eights pattern (GAM-117). On the
+  // returns to the human — mirrors the Crazy Eights pattern. On the
   // human's turn we lead with the turn cue, then append the prior bot event for
   // context; otherwise we surface the bot event / dealing / end-of-game state.
   const liveStatus = isOver
@@ -278,7 +278,7 @@ export default function GoFishPage() {
         </section>
 
         {/* Screen-reader turn announcer — always reflects turn state so a
-            keyboard/SR player hears a cue when control returns to them (GAM-117). */}
+            keyboard/SR player hears a cue when control returns to them. */}
         <p className="sr-only" role="status" aria-live="polite">
           {liveStatus}
         </p>

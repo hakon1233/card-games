@@ -41,7 +41,7 @@ function seedRandom(seed: number) {
 }
 
 /**
- * End-to-end UI smoke for GAM-99: the Go Fish route must deal, accept human
+ * End-to-end UI smoke: the Go Fish route must deal, accept human
  * asks against the bots, let the bots play their turns, and reach a win
  * screen — proving the engine is actually wired into the page (not the old
  * "coming soon" stub).

@@ -97,14 +97,12 @@
   --sidebar-ring: #C9A24B;
 
   /* ====================================================================
-     STATE COLOR SYSTEM — GAM-54  (color as a strict information system)
+     STATE COLOR SYSTEM  (color as a strict information system)
      --------------------------------------------------------------------
      Each channel below has ONE fixed hue and ONE meaning. These signal
      hues are reserved: they must NEVER be used for decoration. Whenever
      a player sees one, it is the table answering a game question (whose
-     turn? is this legal? what did I pick? am I out of time?). Conforms
-     to Court & Tin (GAM-39). Spec + reuse-ban rules:
-     design/gam-54-state-color-system/state-colors.md
+     turn? is this legal? what did I pick? am I out of time?).
      ==================================================================== */
   --state-turn:        var(--pip-gold);    /* WHO  — active seat / your turn       (#C9A24B) */
   --state-turn-glow:   color-mix(in oklab, var(--pip-gold) 40%, transparent);
@@ -115,7 +113,7 @@
   --state-alert:       #E0533B;            /* STOP — illegal move / danger / out of time     */
   --state-idle:        var(--muted-foreground); /* OFF — inactive / eliminated (no hue)       */
 
-  /* ── Suit colour channels — GAM-55 colorblind accessibility ───────────────
+  /* ── Suit colour channels colorblind accessibility ───────────────
      Kept in the primary :root (not a trailing second :root block) because
      Tailwind v4 / Lightning CSS drops a duplicate top-level :root and the
      sibling rules that follow it under Turbopack dev — which silently made
@@ -213,7 +211,7 @@ html[data-animation-speed="reduced"] *::after {
   100% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
 }
 
-/* Active seat pulse — TURN channel (gold). See GAM-54 state color system. */
+/* Active seat pulse — TURN channel (gold). See the state colour system. */
 @keyframes seat-glow-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--state-turn) 40%, transparent); }
   50%       { box-shadow: 0 0 12px 4px var(--state-turn-glow); }
@@ -226,7 +224,7 @@ html[data-animation-speed="reduced"] *::after {
 }
 
 /* Strong-intensity score landing (big swing / Assaf) gets a brief shake on top
-   of the pop — proportional feedback for the climax. GAM-56. */
+   of the pop — proportional feedback for the climax.. */
 @keyframes score-cascade-shake {
   0%, 100% { transform: translateX(0); }
   20%      { transform: translateX(-3px); }
@@ -236,7 +234,7 @@ html[data-animation-speed="reduced"] *::after {
 }
 
 /* Selected discard card: lifted + glowing in the reserved SELECTION hue (cream).
-   Selection is neutral to legality — it says only "you are holding this". GAM-54. */
+   Selection is neutral to legality — it says only "you are holding this".. */
 .card-selected-glow {
   box-shadow:
     0 0 0 2px var(--state-select),
@@ -265,7 +263,7 @@ html[data-animation-speed="reduced"] *::after {
 
   .yaniv-player-ring {
     max-width: min(100%, 430px);
-    /* GAM-96: the square (aspect-ratio:1/1) ring is too tall for short phones
+    /* The square (aspect-ratio:1/1) ring is too tall for short phones
        (iPhone SE = 375x667). The sticky bottom-zone then pins up over the ring's
        centred pile, overlapping the "Discard" pile label and the hand-total
        readout into a garbled string. Cap the ring height to viewport height so
@@ -279,7 +277,7 @@ html[data-animation-speed="reduced"] *::after {
     bottom: max(0.75rem, env(safe-area-inset-bottom));
     z-index: 5;
     margin-top: auto;
-    /* GAM-96: opaque felt backing so the sticky panel cleanly covers the
+    /* Opaque felt backing so the sticky panel cleanly covers the
        redundant own-seat node that tucks behind it on short phones, instead of
        letting its "your turn" label bleed through the translucent panel. */
     background: #171210;
@@ -300,7 +298,7 @@ html[data-animation-speed="reduced"] *::after {
   }
 }
 
-/* ── Suit colour channels — GAM-55 colorblind accessibility ───────────────── */
+/* ── Suit colour channels colorblind accessibility ───────────────── */
 /* Suits must be readable without relying on red/black alone. The suit glyph
    (♥♦♣♠) is the always-on shape channel; these rules add the colour channel.
    The four --pip-suit-* hues are defined in the primary :root block above

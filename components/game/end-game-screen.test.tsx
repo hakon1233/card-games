@@ -12,7 +12,7 @@ const noop = () => {};
 describe("EndGameScreen", () => {
   afterEach(cleanup);
 
-  it("renders session stats alongside final standings (GAM-226 regression)", () => {
+  it("renders session stats alongside final standings", () => {
     // Yaniv/Go Fish pass BOTH standings and sessionRows. The session stats
     // must not be swallowed by the presence of standings.
     render(

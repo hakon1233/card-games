@@ -33,10 +33,10 @@ function applyCardDeck(deck: CardDeck) {
 // The persisted deck lives in localStorage — a client-only value, so the hook
 // must stay hydration-safe.
 //
-// GAM-87 first moved this to `useSyncExternalStore` to silence the hydration
+// An earlier fix moved this to `useSyncExternalStore` to silence the hydration
 // *warning*: `getServerSnapshot` returned the "two-color" fallback to match the
 // server HTML, and `getSnapshot` read localStorage for the real value. That
-// killed the warning but left the original user-facing bug (GAM-94): after a
+// killed the warning but left the original user-facing bug: after a
 // reload with `four-color` persisted, the toggle stayed stuck on "two-color".
 // `useSyncExternalStore`'s post-hydration re-render to the client snapshot did
 // not flip the value the control binds to, so `aria-pressed` lied about the

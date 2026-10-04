@@ -61,7 +61,7 @@ export function formatQuickDrawTime(timeLeftMs: number): string {
   return `${(Math.max(0, timeLeftMs) / 1000).toFixed(1)}s`;
 }
 
-// Per-turn countdown value broadcast (CAR-182). The active player's turn timer
+// Per-turn countdown value broadcast. The active player's turn timer
 // ticks ~10×/second; the ticking `remaining` lives in <TurnCountdown> and is
 // published through this context, so only the ring + the "Ns" readout re-render
 // each tick — not the whole /play/yaniv table.
@@ -90,7 +90,7 @@ function playLowTimeCue() {
 // ── TurnCountdownRing ─────────────────────────────────────────────────────
 // Thin ring co-located around the active avatar, depleting over the turn.
 // Colour shifts turn-hue → amber → vermilion as time runs low (colour as
-// information). Uses the reserved --state-* tokens from the GAM-54 colour
+// information). Uses the reserved --state-* tokens from the colour
 // system, not decorative hues: turn (gold) → warn (amber) → alert (vermilion).
 function TurnCountdownRing({ progress }: { progress: number }) {
   const size = 52;
@@ -141,10 +141,10 @@ function TurnCountdownRing({ progress }: { progress: number }) {
   );
 }
 
-// ── TurnCountdown (perf isolation, CAR-182) ───────────────────────────────
+// ── TurnCountdown (perf isolation) ───────────────────────────────
 // Owns the single per-turn 100ms interval, the ticking `remaining`, and every
 // side effect the old page-level effect had (low-time cue + auto-play on
-// expiry, with the BUG-GAM-76 generation guard). It publishes only
+// expiry, with the generation guard). It publishes only
 // {progress, secondsLeft} through TurnCountdownContext, so a 10Hz tick
 // re-renders just LiveTurnCountdownRing / LiveTurnSeconds — never `children`
 // (the whole PlayerRing/table tree). Semantics are identical to before: same

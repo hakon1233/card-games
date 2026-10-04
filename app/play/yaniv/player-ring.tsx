@@ -288,7 +288,7 @@ function PlayerSeatNode({
         >
           {/* Co-located turn countdown ring (time remaining this turn).
               LiveTurnCountdownRing subscribes to TurnCountdownContext so only it
-              re-renders per 10Hz tick, not this seat node (CAR-182). */}
+              re-renders per 10Hz tick, not this seat node. */}
           {showTurnRing && <LiveTurnCountdownRing />}
           <div
             className={`
@@ -363,7 +363,7 @@ function PlayerSeatNode({
         {/* Score cascade — the Yaniv-call climax. A proportional count-up of the
             new running total, glow + shake scaled to how many points landed, and
             a +delta chip coloured by outcome (green = stayed safe, red = took
-            points). Sound is fired alongside in scheduleScoreCascade. GAM-56. */}
+            points). Sound is fired alongside in scheduleScoreCascade.. */}
         {scoreFeedback && <ScoreCascadeBadge feedback={scoreFeedback} />}
       </div>
 
@@ -410,7 +410,7 @@ function PlayerSeatNode({
 // ── ScoreCascadeBadge ─────────────────────────────────────────────────────
 // The Yaniv-call climax, rendered per seat. The running total counts up from
 // scoreBefore → scoreAfter; glow + shake scale with how many points landed
-// (intensity), and colour follows the GAM-54 state channels: legal-green when a
+// (intensity), and colour follows the state channels: legal-green when a
 // seat stays safe (delta 0), alert-red when it takes points. durationMs is
 // already animation-speed scaled by the caller, so a "reduced" setting collapses
 // the count-up to its final value instantly.

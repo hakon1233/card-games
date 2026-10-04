@@ -13,7 +13,7 @@ const SUIT_SYMBOL: Record<string, string> = {
 // Suit colour is driven by CSS so the four-color accessibility deck can override
 // it globally (see `.pip-suit-*` rules + `html[data-card-deck]` in globals.css).
 // The suit *glyph* (♥♦♣♠) is an always-on shape channel that distinguishes suits
-// without any reliance on colour — critical for colorblind players (GAM-55).
+// without any reliance on colour — critical for colorblind players.
 const SUIT_COLOR_CLASS: Record<string, string> = {
   hearts: "pip-suit-hearts",
   diamonds: "pip-suit-diamonds",
@@ -24,9 +24,9 @@ const SUIT_COLOR_CLASS: Record<string, string> = {
 type CardSize = "sm" | "md" | "lg";
 
 // Per-size geometry + typography. `lg` exists for the top discard card, which is a
-// primary decision input and must stay legible at a glance (GAM-46). `cornerTL`,
+// primary decision input and must stay legible at a glance. `cornerTL`,
 // `cornerBR`, `cornerSuit` and `pip` drive the always-visible corner index added
-// for GAM-42 (see CARD_DIMENSIONS below). All class fragments are written as
+// so cards stay identifiable when the hand overlaps (see CARD_DIMENSIONS below). All class fragments are written as
 // literal strings so Tailwind's JIT scanner can see them.
 const SIZE_STYLES: Record<
   CardSize,
@@ -43,7 +43,7 @@ const SIZE_STYLES: Record<
  * `cornerWidth` is the width of the always-visible top-left index strip
  * (rank + suit). Hands compress cards *toward* this strip and never overlap
  * past it, so every card's index stays readable no matter how tightly the
- * hand is packed (GAM-42). Keep these in sync with the `box` Tailwind classes
+ * hand is packed. Keep these in sync with the `box` Tailwind classes
  * in SIZE_STYLES — `cornerWidth` must be wide enough to clear the widest
  * rank ("10").
  */
@@ -100,7 +100,7 @@ export const PlayingCard = memo(function PlayingCard({ card, size = "md" }: Card
       `}
       aria-label={`${card.rank} of ${card.suit}`}
     >
-      {/* Top-left corner index — kept inside cornerWidth so it survives overlap (GAM-42) */}
+      {/* Top-left corner index — kept inside cornerWidth so it survives overlap */}
       <span className={`absolute flex flex-col items-center font-bold leading-none ${style.cornerTL}`}>
         <span>{card.rank}</span>
         <span className={style.cornerSuit} aria-hidden="true">

@@ -106,7 +106,7 @@ export default function YanivPage() {
 
         {/* Circular player ring. Wrapped in <TurnCountdown> so the per-turn
             10Hz tick re-renders only the countdown ring + seconds readout via
-            context, never PlayerRing itself (CAR-182). */}
+            context, never PlayerRing itself. */}
         <TurnCountdown
           turnKey={turnKey}
           lowTimeSound={lowTimeSound}

@@ -20,7 +20,7 @@ const SNAP_CALL_MAX = 3;
 /**
  * When the bot is eligible to call Yaniv but its hand is above SNAP_CALL_MAX, it
  * only calls this fraction of the time and otherwise keeps playing. This is the
- * GAM-154 pacing fix: the old bot called Yaniv the instant `canCallYaniv` was
+ * pacing fix: the old bot called Yaniv the instant `canCallYaniv` was
  * true, so in a 1-bot game it won the race to call every round and a human never
  * got a realistic window to call Yaniv, trigger Assaf, or reach the save rule.
  * Holding eligible-but-not-locked hands keeps rounds alive long enough for the
@@ -92,7 +92,7 @@ export class YanivBot implements Bot<YanivGameState, YanivAction> {
    * Given the bot is *eligible* to call Yaniv, decide whether it actually does.
    * Near-lock hands (<= SNAP_CALL_MAX) are always called; otherwise the bot
    * holds most of the time so a human gets a realistic window to call first.
-   * See CALL_PROBABILITY for the full GAM-154 rationale.
+   * See CALL_PROBABILITY for the full rationale.
    */
   private shouldCallYaniv(hand: Card[]): boolean {
     if (handTotal(hand) <= SNAP_CALL_MAX) return true;

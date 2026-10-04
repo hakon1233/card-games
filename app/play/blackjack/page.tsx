@@ -41,7 +41,7 @@ function blackjackHeadline(state: BlackjackState): { headline: string; subline?:
 
 // Screen-reader cue that LEADS with the current turn/result so assistive tech
 // announces the outcome (not a stale visual state) after deal, hit, stand, bust,
-// dealer result, and rematch. Mirrors the Go Fish GAM-117 pattern (GAM-122).
+// dealer result, and rematch. Mirrors the Go Fish page.
 function blackjackLiveCue(state: BlackjackState, playerValue: number | null): string {
   switch (state.status) {
     case "player_bust":
@@ -157,7 +157,7 @@ export default function BlackjackPage() {
 
   // Dedicated sr-only polite live region. The route otherwise has no
   // role=status / aria-live node, so turn and result cues are silent to
-  // assistive tech; this announces them on every state change (GAM-122).
+  // assistive tech; this announces them on every state change.
   const liveStatus = gameState ? blackjackLiveCue(gameState, playerValue) : "";
 
   return (
@@ -165,7 +165,7 @@ export default function BlackjackPage() {
       <BrandHeader title="Blackjack" backLabel="Back" />
       {/* Screen-reader turn/result announcer — always leads with the current
           cue so a keyboard/SR player hears the outcome after deal, hit, stand,
-          bust, dealer result, and rematch (GAM-122). */}
+          bust, dealer result, and rematch. */}
       <p className="sr-only" role="status" aria-live="polite">
         {liveStatus}
       </p>

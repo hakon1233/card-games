@@ -27,7 +27,7 @@ function botTurnWithHand(hand: Card[], threshold: number) {
 const HOLD = () => 0.99; // above CALL_PROBABILITY -> bot holds
 const CALL = () => 0.0; // below CALL_PROBABILITY -> bot calls
 
-describe("YanivBot pacing (GAM-154)", () => {
+describe("YanivBot pacing", () => {
   it("always calls a near-lock hand (total <= 3) even when rng says hold", () => {
     // A=1 + 2 = 3: unbeatable, no reason to sit on it.
     const state = botTurnWithHand(

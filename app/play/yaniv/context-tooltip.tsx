@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 // ── ContextTooltip ────────────────────────────────────────────────────────
-// Progressive-disclosure teaching tooltip (GAM-60). Rules surface in context —
+// Progressive-disclosure teaching tooltip. Rules surface in context —
 // on hover or keyboard focus (desktop) and on long-press (touch) — instead of a
 // blocking upfront tutorial. Wraps any element; the tooltip is announced to
 // assistive tech via role="tooltip" + aria-describedby.

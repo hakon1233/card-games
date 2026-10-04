@@ -41,7 +41,7 @@ describe("PlayingCard sizing", () => {
   });
 });
 
-describe("PlayingCard suit accessibility (GAM-55)", () => {
+describe("PlayingCard suit accessibility", () => {
   it("tags each suit with a CSS class so the four-color deck can recolor it", () => {
     for (const [suit, cls] of [
       ["hearts", "pip-suit-hearts"],

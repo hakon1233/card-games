@@ -188,12 +188,12 @@ describe("apply: STAND (the dealer's turn)", () => {
     expect(next.result).toBe("player_win");
   });
 
-  // Regression for GAM-123: the dealer must stand on a made two-card 17–20 when
+  // Regression: the dealer must stand on a made two-card 17–20 when
   // the hole card is counted. The original bug evaluated handValue() over only the
   // visible up-card (hidden cards are filtered out), so the dealer overdrew on pat
   // hands like A+7=18 and J+9=19. The deck is stacked so that ANY draw would be
   // detectable — a correct dealer must not touch it.
-  describe("stands on a pat two-card hand including the hole card (GAM-123)", () => {
+  describe("stands on a pat two-card hand including the hole card", () => {
     const patHands: Array<[string, Card, Card, number]> = [
       ["hard 17 (K + 7)", card("K"), card("7"), 17],
       ["soft 18 (A + 7)", card("A"), card("7"), 18],

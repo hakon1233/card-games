@@ -49,7 +49,7 @@ describe("calculateHandLayout", () => {
     expect(layout.needsScroll).toBe(true);
   });
 
-  it("defaults to the standard fan when no form factor is given (GAM-50 baseline)", () => {
+  it("defaults to the standard fan when no form factor is given", () => {
     const explicit = calculateHandLayout({
       count: 7,
       handWidth: 720,

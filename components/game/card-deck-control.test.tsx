@@ -11,14 +11,14 @@ import { CardDeckControl, useCardDeck } from "./card-deck-control";
 /**
  * Regression guards for the Card Colors toggle.
  *
- * GAM-87: the toggle showed "Two-color" selected even when "four-color" was the
- * saved preference. The first fix silenced the hydration *warning* but GAM-94
- * found the user-facing symptom survived: after a reload with `four-color`
+ * Bug 1: the toggle showed "Two-color" selected even when "four-color" was the
+ * saved preference. The first fix silenced the hydration *warning* but a
+ * later report found the user-facing symptom survived: after a reload with `four-color`
  * persisted, the rendered toggle still highlighted "Two-color" — `aria-pressed`
  * lied about the active deck (the very thing colour-blind users rely on).
  *
  * The bug only reproduces on the *hydration* path (`hydrateRoot` over
- * server-rendered HTML), not a fresh client `render()`, so the GAM-94 test
+ * server-rendered HTML), not a fresh client `render()`, so the test
  * below hydrates real SSR markup — exactly what a browser reload does.
  *
  * Two things must hold:
@@ -53,7 +53,7 @@ function pressedDeckIn(container: HTMLElement): "two-color" | "four-color" | nul
   return null;
 }
 
-describe("useCardDeck hydration baseline (GAM-87)", () => {
+describe("useCardDeck hydration baseline", () => {
   it("renders the two-color fallback in the initial (hydration) render", () => {
     // renderToStaticMarkup captures exactly the initial render (effects do not
     // run) — i.e. the hydration baseline that must match the server HTML.
@@ -62,7 +62,7 @@ describe("useCardDeck hydration baseline (GAM-87)", () => {
   });
 });
 
-describe("useCardDeck post-hydration adoption (GAM-94)", () => {
+describe("useCardDeck post-hydration adoption", () => {
   let container: HTMLElement;
   let root: { unmount: () => void } | null = null;
 

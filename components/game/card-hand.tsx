@@ -22,7 +22,7 @@ const FAN_LIFT_CURVE = 0.9;
 // being clipped or shifting layout. Must cover the largest -translate-y used.
 const LIFT_HEADROOM = 14;
 
-// The hand re-shapes — not just re-scales — across device form factors (GAM-50):
+// The hand re-shapes — not just re-scales — across device form factors:
 //   • portrait   — a compact arc that stays low and thumb-reachable.
 //   • standard   — the baseline desktop-window fan (identity, unchanged).
 //   • widescreen — a visibly wider arc: cards spread apart (larger gap) and the
@@ -91,7 +91,7 @@ export function calculateHandLayout({
 /**
  * Measure the live pixel width of an element. Drives the overlap math so the
  * hand always fits the available width while keeping every corner index
- * visible (GAM-42).
+ * visible.
  */
 function useMeasuredWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -185,7 +185,7 @@ export function CardHand({
   const dims = CARD_DIMENSIONS[size];
 
   // How far apart consecutive cards sit (the "stride"). The layout helper also
-  // adds the gentle fan/arc and preserves the GAM-42 corner-index floor.
+  // adds the gentle fan/arc and preserves the corner-index floor.
   const count = sortedCards.length;
   const layout = calculateHandLayout({
     count,

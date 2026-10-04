@@ -74,7 +74,7 @@ describe("YanivBot threshold settings", () => {
     ];
 
     // A hand of 15 is eligible but not a near-lock, so the bot only calls it
-    // some of the time (GAM-154 pacing). Force the call branch deterministically
+    // some of the time (bot pacing). Force the call branch deterministically
     // to assert it *can* call at the top of the threshold.
     const callingBot = new YanivBot(() => 0);
     expect(callingBot.getNextMove(state, "bot")).toEqual({ type: "CALL_YANIV", playerId: "bot" });
@@ -419,7 +419,7 @@ describe("Yaniv scoring", () => {
   });
 });
 
-describe("elimination at exact score limit (GAM-124)", () => {
+describe("elimination at exact score limit", () => {
   it("eliminates a player whose score lands exactly on the score limit", () => {
     const state = deal(
       "exact-limit-2p",
@@ -593,7 +593,7 @@ describe("full game simulation", () => {
     // This simulation only terminates reliably if the whole game is deterministic.
     // Two things feed randomness into it: the deck shuffle (reshuffled every
     // round) and the bot's
-    // Yaniv-call decision (GAM-154's CALL_PROBABILITY). Under real randomness ~8%
+    // Yaniv-call decision (CALL_PROBABILITY). Under real randomness ~8%
     // of deals drive this loop into a state that NEVER reaches game_over: the
     // scripted human below only ever discards a single card, so it keeps 5 cards
     // and can essentially never reach a Yaniv-eligible total — termination is left

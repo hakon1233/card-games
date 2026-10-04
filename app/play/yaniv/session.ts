@@ -57,7 +57,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   }, [gameState]);
 
   function dispatch(state: YanivGameState, triggerAction?: YanivAction, previousState?: YanivGameState) {
-    // BUG-GAM-76: invalidate this clock synchronously. React cleans up effects
+    // Invalidate this clock synchronously. React cleans up effects
     // after the state transition, so an expiring interval can otherwise tick
     // once more and apply its 0s result to the next human turn.
     turnClockGenerationRef.current += 1;
@@ -148,7 +148,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   }, []);
 
   // The countdown itself (its interval, the low-time cue, calling autoPlayTurnTimeout at
-  // zero) runs in <TurnCountdown>, so its 10Hz tick re-renders only the ring — see CAR-182.
+  // zero) runs in <TurnCountdown>, so its 10Hz tick re-renders only the ring — see.
 
   function start(table: YanivSettings & { numBots: number }) {
     const { yanivThreshold, scoreLimit, quickDraw, numBots } = table;
