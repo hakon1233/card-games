@@ -5,8 +5,9 @@
 
 import { Button } from "@/components/ui/button";
 import { CardHand } from "@/components/game/card-hand";
+import { SUIT_SYMBOL } from "@/components/game/card";
 import { toShellCard } from "@/lib/games/shell-types";
-import type { Card, Suit } from "@/lib/games/types";
+import type { Card } from "@/lib/games/types";
 import {
   canAddToSelection,
   canCallYaniv,
@@ -156,7 +157,7 @@ export function HandPanel({
               >
                 Discard &amp; Take{" "}
                 {topGroup.length > 0
-                  ? `${topGroup[topGroup.length - 1].rank}${suitSymbol(topGroup[topGroup.length - 1].suit)}`
+                  ? `${topGroup[topGroup.length - 1].rank}${SUIT_SYMBOL[topGroup[topGroup.length - 1].suit]}`
                   : "pile"}
               </Button>
             </ContextTooltip>
@@ -206,7 +207,7 @@ function SelectionSummary({
               }`}
             >
               {c.rank}
-              {suitSymbol(c.suit)}
+              {SUIT_SYMBOL[c.suit]}
             </span>
           ))}
         </div>
@@ -227,15 +228,4 @@ function SelectionSummary({
       </div>
     </div>
   );
-}
-
-const SUIT_SYMBOLS: Record<Suit, string> = {
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-  spades: "♠",
-};
-
-function suitSymbol(suit: Suit): string {
-  return SUIT_SYMBOLS[suit];
 }

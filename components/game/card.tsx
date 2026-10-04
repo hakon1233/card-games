@@ -2,8 +2,9 @@
 
 import { memo } from "react";
 import type { ShellCard } from "@/lib/games/shell-types";
+import type { Suit } from "@/lib/games/types";
 
-const SUIT_SYMBOL: Record<string, string> = {
+export const SUIT_SYMBOL: Record<Suit, string> = {
   hearts: "♥",
   diamonds: "♦",
   clubs: "♣",
@@ -14,7 +15,7 @@ const SUIT_SYMBOL: Record<string, string> = {
 // it globally (see `.pip-suit-*` rules + `html[data-card-deck]` in globals.css).
 // The suit *glyph* (♥♦♣♠) is an always-on shape channel that distinguishes suits
 // without any reliance on colour — critical for colorblind players.
-const SUIT_COLOR_CLASS: Record<string, string> = {
+export const SUIT_COLOR_CLASS: Record<Suit, string> = {
   hearts: "pip-suit-hearts",
   diamonds: "pip-suit-diamonds",
   clubs: "pip-suit-clubs",

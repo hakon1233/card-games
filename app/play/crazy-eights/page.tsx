@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { CardHand } from "@/components/game/card-hand";
-import { PlayingCard } from "@/components/game/card";
+import { PlayingCard, SUIT_COLOR_CLASS, SUIT_SYMBOL } from "@/components/game/card";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import {
   AnimationPreferencesControl,
@@ -26,6 +26,7 @@ import {
 import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
 import { botTurn } from "@/lib/games/bot-turns";
 import type { Suit } from "@/lib/games/types";
+import { SUITS } from "@/lib/games/deck-utils";
 import { toShellCard } from "@/lib/games/shell-types";
 
 const PLAYER_ID = "player-1";
@@ -36,25 +37,12 @@ const BOT_TURN_MS = 850;
 const bot = new CrazyEightsBot();
 const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
 
-const SUIT_SYMBOL: Record<Suit, string> = {
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-  spades: "♠",
-};
-const SUIT_COLOR_CLASS: Record<Suit, string> = {
-  hearts: "pip-suit-hearts",
-  diamonds: "pip-suit-diamonds",
-  clubs: "pip-suit-clubs",
-  spades: "pip-suit-spades",
-};
 const SUIT_LABEL: Record<Suit, string> = {
   hearts: "Hearts",
   diamonds: "Diamonds",
   clubs: "Clubs",
   spades: "Spades",
 };
-const ALL_SUITS: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
 
 function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
   const defs = [{ id: PLAYER_ID, isBot: false }];
@@ -515,7 +503,7 @@ function SuitPicker({
           You played an 8 — choose the new suit
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          {ALL_SUITS.map((suit) => (
+          {SUITS.map((suit) => (
             <button
               key={suit}
               type="button"
