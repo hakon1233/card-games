@@ -8,8 +8,8 @@ import { ScoreDisplay } from "@/components/game/score-display";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { Button } from "@/components/ui/button";
 import {
-  startGame,
-  applyAction,
+  deal,
+  apply,
   handValue,
   isBlackjack,
   type BlackjackState,
@@ -74,23 +74,23 @@ export default function BlackjackPage() {
     }));
   }, []);
 
-  // startGame settles naturals at the deal, so a game can be over at once.
-  const deal = useCallback(() => {
-    const next = startGame(`game-${Date.now()}`, PLAYER_ID);
+  // deal settles naturals at the deal, so a game can be over at once.
+  const startGame = useCallback(() => {
+    const next = deal(`game-${Date.now()}`, PLAYER_ID);
     setGameState(next);
     if (next.turn === "over") recordResult(next.result);
   }, [recordResult]);
 
   const hit = useCallback(() => {
     if (!gameState) return;
-    const next = applyAction(gameState, { type: "HIT", playerId: PLAYER_ID });
+    const next = apply(gameState, { type: "HIT", playerId: PLAYER_ID });
     setGameState(next);
     if (next.turn === "over") recordResult(next.result);
   }, [gameState, recordResult]);
 
   const stand = useCallback(() => {
     if (!gameState) return;
-    const next = applyAction(gameState, { type: "STAND", playerId: PLAYER_ID });
+    const next = apply(gameState, { type: "STAND", playerId: PLAYER_ID });
     setGameState(next);
     recordResult(next.result);
   }, [gameState, recordResult]);
@@ -125,7 +125,7 @@ export default function BlackjackPage() {
       />
       <div className="flex gap-2 flex-wrap">
         {!gameState ? (
-          <Button onClick={deal} className="flex-1 sm:flex-none">
+          <Button onClick={startGame} className="flex-1 sm:flex-none">
             Deal
           </Button>
         ) : (
@@ -184,7 +184,7 @@ export default function BlackjackPage() {
             { label: "Losses", value: session.losses },
             { label: "Pushes", value: session.pushes },
           ]}
-          onPlayAgain={deal}
+          onPlayAgain={startGame}
           onChangeGame={() => router.push("/")}
         />
       )}

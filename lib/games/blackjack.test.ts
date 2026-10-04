@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyAction,
-  applyDealerTurn,
-  applyPlayerHit,
+  apply,
   cardValue,
-  dealInitialState,
+  deal,
   handValue,
   isBlackjack,
   isBust,
-  startGame,
   type BlackjackState,
 } from "./blackjack";
 import { seededRng } from "./engine";
 import type { Card } from "./types";
+
+const HIT = { type: "HIT", playerId: "p1" } as const;
+const STAND = { type: "STAND", playerId: "p1" } as const;
 
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
   return { rank, suit };
@@ -81,65 +81,51 @@ describe("isBust", () => {
   });
 });
 
-describe("dealInitialState", () => {
-  it("deals 2 cards to player and 2 to dealer", () => {
-    const state = dealInitialState("g1", "p1");
+describe("deal", () => {
+  // Seeds found by search: seed 2 deals no natural; 7, 1 and 26 deal the named natural(s).
+  it("deals 2 cards to the player and 2 to the dealer, leaving 48 in the draw pile", () => {
+    const state = deal("g1", "p1", seededRng(2));
     expect(state.playerHand.cards).toHaveLength(2);
     expect(state.dealerHand).toHaveLength(2);
-  });
-  it("dealer hole card is hidden", () => {
-    const state = dealInitialState("g1", "p1");
-    expect(state.dealerHand.filter((c) => c.hidden)).toHaveLength(1);
-  });
-  it("leaves 48 cards in deck", () => {
-    const state = dealInitialState("g1", "p1");
     expect(state.deck).toHaveLength(48);
   });
-  it("always starts as player turn", () => {
-    for (let i = 0; i < 10; i++) {
-      expect(dealInitialState("g", "p").turn).toBe("player");
-    }
-  });
-});
 
-describe("startGame", () => {
-  // Seeds found by search: each deals the named natural(s).
   it("settles a player natural at the deal as a win", () => {
-    const state = startGame("g1", "p1", seededRng(7));
+    const state = deal("g1", "p1", seededRng(7));
     expect(isBlackjack(state.playerHand.cards)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "player_win", result: "player_win" });
     expect(state.dealerHand.every((c) => !c.hidden)).toBe(true);
   });
 
   it("settles a dealer natural at the deal as a loss", () => {
-    const state = startGame("g1", "p1", seededRng(1));
+    const state = deal("g1", "p1", seededRng(1));
     expect(isBlackjack(state.dealerHand)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "dealer_win", result: "dealer_win" });
   });
 
   it("settles two naturals at the deal as a push", () => {
-    const state = startGame("g1", "p1", seededRng(26));
+    const state = deal("g1", "p1", seededRng(26));
     expect(isBlackjack(state.playerHand.cards)).toBe(true);
     expect(state).toMatchObject({ turn: "over", status: "push", result: "push" });
   });
 
   it("leaves a deal without a natural in progress with the hole card hidden", () => {
-    const state = startGame("g1", "p1", seededRng(2));
+    const state = deal("g1", "p1", seededRng(2));
     expect(state).toMatchObject({ turn: "player", status: "in_progress" });
     expect(state.dealerHand.filter((c) => c.hidden)).toHaveLength(1);
   });
 });
 
-describe("applyPlayerHit", () => {
+describe("apply: HIT", () => {
   it("adds a card to player hand (pops from deck end)", () => {
     const state = makeState({ deck: [card("2"), card("J")] }); // J drawn first (end)
-    const next = applyPlayerHit(state);
+    const next = apply(state, HIT);
     expect(next.playerHand.cards).toHaveLength(3);
     expect(next.playerHand.cards[2]).toEqual(card("J"));
   });
 
   it("keeps the player's turn after a hit that does not bust", () => {
-    const next = applyPlayerHit(makeState({ deck: [card("3")] }));
+    const next = apply(makeState({ deck: [card("3")] }), HIT);
     expect(next.turn).toBe("player");
     expect(next.status).toBe("in_progress");
   });
@@ -149,7 +135,7 @@ describe("applyPlayerHit", () => {
       playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("9")] },
       deck: [card("5")],
     });
-    const next = applyPlayerHit(bustState);
+    const next = apply(bustState, HIT);
     expect(next.status).toBe("player_bust");
     expect(next.result).toBe("dealer_win");
     expect(next.turn).toBe("over");
@@ -157,11 +143,11 @@ describe("applyPlayerHit", () => {
 
   it("ignores HIT when game is over", () => {
     const over = makeState({ turn: "over", status: "player_win", result: "player_win" });
-    expect(applyPlayerHit(over)).toBe(over);
+    expect(apply(over, HIT)).toBe(over);
   });
 });
 
-describe("applyDealerTurn", () => {
+describe("apply: STAND (the dealer's turn)", () => {
   it("dealer draws on a sub-17 complete hand (hole card included), then reveals", () => {
     // Dealer 9 + 6(hidden) = 15 complete < 17 → draw 5 (deck end) → 9+6+5 = 20 ≥ 17 → stop.
     const state = makeState({
@@ -170,7 +156,7 @@ describe("applyDealerTurn", () => {
       deck: [card("2"), card("5")],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.dealerHand.every((c) => !c.hidden)).toBe(true);
     expect(handValue(next.dealerHand)).toBe(20);
     expect(next.turn).toBe("over");
@@ -184,7 +170,7 @@ describe("applyDealerTurn", () => {
       deck: [card("5"), card("3")],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.dealerHand).toHaveLength(4);
     expect(handValue(next.dealerHand)).toBe(20);
   });
@@ -197,7 +183,7 @@ describe("applyDealerTurn", () => {
       deck: [card("K")],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.status).toBe("dealer_bust");
     expect(next.result).toBe("player_win");
   });
@@ -224,7 +210,7 @@ describe("applyDealerTurn", () => {
           deck: [card("2"), card("3"), card("4")],
           turn: "dealer",
         });
-        const next = applyDealerTurn(state);
+        const next = apply(state, STAND);
         expect(next.dealerHand).toHaveLength(2);
         expect(next.dealerHand.every((c) => !c.hidden)).toBe(true);
         expect(handValue(next.dealerHand)).toBe(total);
@@ -241,7 +227,7 @@ describe("applyDealerTurn", () => {
       deck: [],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.status).toBe("push");
     expect(next.result).toBe("push");
   });
@@ -254,7 +240,7 @@ describe("applyDealerTurn", () => {
       deck: [],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.status).toBe("player_win");
     expect(next.result).toBe("player_win");
   });
@@ -266,37 +252,25 @@ describe("applyDealerTurn", () => {
       deck: [],
       turn: "dealer",
     });
-    const next = applyDealerTurn(state);
+    const next = apply(state, STAND);
     expect(next.status).toBe("dealer_win");
     expect(next.result).toBe("dealer_win");
   });
 });
 
-describe("applyAction", () => {
-  it("HIT delegates to applyPlayerHit", () => {
-    const state = makeState({ deck: [card("2"), card("3")] });
-    const next = applyAction(state, { type: "HIT", playerId: "p1" });
-    expect(next.playerHand.cards).toHaveLength(3);
-  });
-
-  it("STAND runs dealer turn and ends game", () => {
+describe("apply: STAND and START", () => {
+  it("STAND on the player's turn runs the dealer's turn and ends the game", () => {
     const state = makeState({
       playerHand: { playerId: "p1", isBot: false, cards: [card("K"), card("8")] },
       dealerHand: [card("K"), { ...card("8"), hidden: true }],
       deck: [],
     });
-    const next = applyAction(state, { type: "STAND", playerId: "p1" });
-    expect(next.turn).toBe("over");
+    expect(apply(state, STAND).turn).toBe("over");
   });
 
-  it("START creates a fresh game", () => {
+  it("START deals a fresh game", () => {
     const over = makeState({ turn: "over", status: "player_win", result: "player_win" });
-    const next = applyAction(over, { type: "START", playerId: "p1" });
+    const next = apply(over, { type: "START", playerId: "p1" });
     expect(next.playerHand.cards).toHaveLength(2);
-  });
-
-  it("no-op when game is over for HIT", () => {
-    const over = makeState({ turn: "over", status: "player_win", result: "player_win" });
-    expect(applyAction(over, { type: "HIT", playerId: "p1" })).toBe(over);
   });
 });

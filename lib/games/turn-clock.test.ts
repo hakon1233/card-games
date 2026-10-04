@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyAction, type YanivGameState } from "./yaniv";
+import { apply, type YanivGameState } from "./yaniv";
 import { getTurnClockKey } from "./turn-clock";
 
 function card(suit: "hearts" | "diamonds" | "clubs" | "spades", rank: string) {
@@ -58,13 +58,13 @@ describe("getTurnClockKey", () => {
     const firstHumanTurn = headsUpState();
     const firstKey = getTurnClockKey(firstHumanTurn, "player-1");
 
-    const afterHuman = applyAction(firstHumanTurn, {
+    const afterHuman = apply(firstHumanTurn, {
       type: "DISCARD_AND_DRAW",
       playerId: "player-1",
       discardIndices: [0],
       drawFromDiscard: false,
     });
-    const backToHuman = applyAction(afterHuman, {
+    const backToHuman = apply(afterHuman, {
       type: "DISCARD_AND_DRAW",
       playerId: "bot-1",
       discardIndices: [0],

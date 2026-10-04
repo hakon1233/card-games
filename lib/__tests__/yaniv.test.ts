@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  dealGame,
-  applyAction,
+  deal,
+  apply,
   handTotal,
   canCallYaniv,
   isValidDiscard,
@@ -41,7 +41,7 @@ describe("handTotal / canCallYaniv", () => {
 
 describe("YanivBot threshold settings", () => {
   it("does not call Yaniv below the configured minimum threshold", () => {
-    const state = dealGame(
+    const state = deal(
       "bot-threshold-low",
       [
         { id: "player", name: "Player", isBot: false },
@@ -59,7 +59,7 @@ describe("YanivBot threshold settings", () => {
   });
 
   it("can call Yaniv up to the configured maximum threshold", () => {
-    const state = dealGame(
+    const state = deal(
       "bot-threshold-high",
       [
         { id: "player", name: "Player", isBot: false },
@@ -201,9 +201,9 @@ describe("isValidDiscard", () => {
   });
 });
 
-describe("dealGame", () => {
+describe("deal", () => {
   it("deals 5 cards to each player from a Yaniv deck with two Jokers", () => {
-    const state = dealGame("g1", [
+    const state = deal("g1", [
       { id: "p1", name: "P1", isBot: false },
       { id: "p2", name: "P2", isBot: true },
     ]);
@@ -221,13 +221,13 @@ describe("dealGame", () => {
 
 describe("Yaniv scoring", () => {
   it("adds the caller's hand total plus the penalty when an opponent beats the Yaniv caller", () => {
-    const state = dealGame("assaf-scoring", [
+    const state = deal("assaf-scoring", [
       { id: "caller", name: "Caller", isBot: false },
       { id: "winner", name: "Winner", isBot: true },
       { id: "other", name: "Other", isBot: true },
     ]);
 
-    const scored = applyAction({
+    const scored = apply({
       ...state,
       currentPlayerIndex: 0,
       players: [
@@ -260,14 +260,14 @@ describe("Yaniv scoring", () => {
   });
 
   it("awards 0 to each opponent tied for the lowest Assaf hand", () => {
-    const state = dealGame("assaf-tie", [
+    const state = deal("assaf-tie", [
       { id: "caller", name: "Caller", isBot: false },
       { id: "winner-1", name: "Winner 1", isBot: true },
       { id: "winner-2", name: "Winner 2", isBot: true },
       { id: "other", name: "Other", isBot: true },
     ]);
 
-    const scored = applyAction({
+    const scored = apply({
       ...state,
       currentPlayerIndex: 0,
       players: [
@@ -306,13 +306,13 @@ describe("Yaniv scoring", () => {
   });
 
   it("counts an opponent tied with the caller as the Assaf winner", () => {
-    const state = dealGame("assaf-caller-tie", [
+    const state = deal("assaf-caller-tie", [
       { id: "caller", name: "Caller", isBot: false },
       { id: "winner", name: "Winner", isBot: true },
       { id: "other", name: "Other", isBot: true },
     ]);
 
-    const scored = applyAction({
+    const scored = apply({
       ...state,
       currentPlayerIndex: 0,
       players: [
@@ -344,12 +344,12 @@ describe("Yaniv scoring", () => {
   });
 
   it("records savedScores when a player lands exactly on 50 (halved to 25)", () => {
-    const state = dealGame("save-rule-50", [
+    const state = deal("save-rule-50", [
       { id: "caller", name: "Caller", isBot: false },
       { id: "other", name: "Other", isBot: true },
     ]);
 
-    const scored = applyAction({
+    const scored = apply({
       ...state,
       currentPlayerIndex: 0,
       players: [
@@ -382,7 +382,7 @@ describe("Yaniv scoring", () => {
   });
 
   it("caller wins round: scores 0, loser adds hand total", () => {
-    const state = dealGame("g2", [
+    const state = deal("g2", [
       { id: "p1", name: "P1", isBot: false },
       { id: "p2", name: "P2", isBot: true },
     ]);
@@ -396,7 +396,7 @@ describe("Yaniv scoring", () => {
       const curr = s.players[s.currentPlayerIndex];
       if (curr.id === "p1") {
         if (canCallYaniv(s.players[0].hand)) {
-          s = applyAction(s, { type: "CALL_YANIV", playerId: "p1" });
+          s = apply(s, { type: "CALL_YANIV", playerId: "p1" });
           break;
         }
         let maxV = -1, maxIdx = 0;
@@ -404,9 +404,9 @@ describe("Yaniv scoring", () => {
           const v = yanivCardValue(c.rank);
           if (v > maxV) { maxV = v; maxIdx = i; }
         });
-        s = applyAction(s, { type: "DISCARD_AND_DRAW", playerId: "p1", discardIndices: [maxIdx], drawFromDiscard: false });
+        s = apply(s, { type: "DISCARD_AND_DRAW", playerId: "p1", discardIndices: [maxIdx], drawFromDiscard: false });
       } else {
-        s = applyAction(s, bot.getNextMove(s, curr.id));
+        s = apply(s, bot.getNextMove(s, curr.id));
       }
       turns++;
     }
@@ -421,7 +421,7 @@ describe("Yaniv scoring", () => {
 
 describe("elimination at exact score limit (GAM-124)", () => {
   it("eliminates a player whose score lands exactly on the score limit", () => {
-    const state = dealGame(
+    const state = deal(
       "exact-limit-2p",
       [
         { id: "caller", name: "Caller", isBot: false },
@@ -430,7 +430,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
       { yanivThreshold: 7, scoreLimit: 150, quickDraw: false },
     );
 
-    const scored = applyAction(
+    const scored = apply(
       {
         ...state,
         currentPlayerIndex: 0,
@@ -463,7 +463,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
   });
 
   it("eliminates only the player who reaches the limit in a 3-player game", () => {
-    const state = dealGame(
+    const state = deal(
       "exact-limit-3p",
       [
         { id: "caller", name: "Caller", isBot: false },
@@ -473,7 +473,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
       { yanivThreshold: 7, scoreLimit: 150, quickDraw: false },
     );
 
-    const scored = applyAction(
+    const scored = apply(
       {
         ...state,
         currentPlayerIndex: 0,
@@ -510,7 +510,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
   });
 
   it("save-100 rule protects a player who lands exactly on a limit of 100", () => {
-    const state = dealGame(
+    const state = deal(
       "save-100-at-limit",
       [
         { id: "caller", name: "Caller", isBot: false },
@@ -519,7 +519,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
       { yanivThreshold: 7, scoreLimit: 100, quickDraw: false },
     );
 
-    const scored = applyAction(
+    const scored = apply(
       {
         ...state,
         currentPlayerIndex: 0,
@@ -550,7 +550,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
   });
 
   it("save-50 rule still fires and protects a player landing exactly on 50", () => {
-    const state = dealGame(
+    const state = deal(
       "save-50",
       [
         { id: "caller", name: "Caller", isBot: false },
@@ -559,7 +559,7 @@ describe("elimination at exact score limit (GAM-124)", () => {
       { yanivThreshold: 7, scoreLimit: 200, quickDraw: false },
     );
 
-    const scored = applyAction(
+    const scored = apply(
       {
         ...state,
         currentPlayerIndex: 0,
@@ -608,7 +608,7 @@ describe("full game simulation", () => {
     const rng = seededRng(43);
     const simBot = new YanivBot(rng);
 
-    let state = dealGame(
+    let state = deal(
       "sim-game",
       [
         { id: "player-1", name: "You", isBot: false },
@@ -625,23 +625,23 @@ describe("full game simulation", () => {
 
     while (state.status !== "game_over" && turns < MAX_TURNS) {
       if (state.status === "round_over") {
-        state = applyAction(state, { type: "NEXT_ROUND", playerId: "player-1" }, rng);
+        state = apply(state, { type: "NEXT_ROUND", playerId: "player-1" }, rng);
         continue;
       }
 
       const curr = state.players[state.currentPlayerIndex];
       if (curr.isBot) {
-        state = applyAction(state, simBot.getNextMove(state, curr.id), rng);
+        state = apply(state, simBot.getNextMove(state, curr.id), rng);
       } else {
         if (canCallYaniv(state.players[0].hand)) {
-          state = applyAction(state, { type: "CALL_YANIV", playerId: "player-1" }, rng);
+          state = apply(state, { type: "CALL_YANIV", playerId: "player-1" }, rng);
         } else {
           let maxV = -1, maxIdx = 0;
           state.players[0].hand.forEach((c, i) => {
             const v = yanivCardValue(c.rank);
             if (v > maxV) { maxV = v; maxIdx = i; }
           });
-          state = applyAction(state, {
+          state = apply(state, {
             type: "DISCARD_AND_DRAW",
             playerId: "player-1",
             discardIndices: [maxIdx],
@@ -662,7 +662,7 @@ describe("full game simulation", () => {
 
 describe("getFinalStandings", () => {
   it("places the winner first, then orders the final table by score", () => {
-    const state = dealGame("standings", [
+    const state = deal("standings", [
       { id: "player-1", name: "You", isBot: false },
       { id: "bot-1", name: "Bot 1", isBot: true },
       { id: "bot-2", name: "Bot 2", isBot: true },

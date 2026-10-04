@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  dealGoFish,
-  applyAsk,
+  deal,
+  apply,
   extractBooks,
-  publicStateFor,
+  playerView,
   type GoFishGameState,
   type GoFishPlayer,
 } from "./go-fish";
@@ -43,9 +43,9 @@ function stateWith(
 
 // ── AC: full deal ────────────────────────────────────────────────────────────
 
-describe("dealGoFish", () => {
+describe("deal", () => {
   it("deals 7 cards to each player for a 2-player game", () => {
-    const state = dealGoFish("g1", [
+    const state = deal("g1", [
       { id: "p1", name: "Alice", isBot: false },
       { id: "p2", name: "Bob", isBot: false },
     ]);
@@ -55,7 +55,7 @@ describe("dealGoFish", () => {
   });
 
   it("deals 5 cards to each player for a 4-player game", () => {
-    const state = dealGoFish("g2", [
+    const state = deal("g2", [
       { id: "p1", name: "A", isBot: false },
       { id: "p2", name: "B", isBot: false },
       { id: "p3", name: "C", isBot: false },
@@ -68,7 +68,7 @@ describe("dealGoFish", () => {
   });
 
   it("starts in in_progress status", () => {
-    const state = dealGoFish("g3", [
+    const state = deal("g3", [
       { id: "p1", name: "A", isBot: false },
       { id: "p2", name: "B", isBot: false },
     ]);
@@ -78,13 +78,13 @@ describe("dealGoFish", () => {
 
 // ── AC: ask/give mechanic ────────────────────────────────────────────────────
 
-describe("applyAsk — gave_cards", () => {
+describe("apply — gave_cards", () => {
   it("transfers all matching cards from target to asker", () => {
     const p1 = makePlayer("p1", [card("A", "hearts"), card("A", "clubs")]);
     const p2 = makePlayer("p2", [card("A", "diamonds"), card("K", "spades")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -104,7 +104,7 @@ describe("applyAsk — gave_cards", () => {
     const p2 = makePlayer("p2", [card("K", "hearts")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -119,7 +119,7 @@ describe("applyAsk — gave_cards", () => {
     const p2 = makePlayer("p2", [card("A")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -132,14 +132,14 @@ describe("applyAsk — gave_cards", () => {
 
 // ── AC: go fish draw ─────────────────────────────────────────────────────────
 
-describe("applyAsk — go_fish", () => {
+describe("apply — go_fish", () => {
   it("draws a card when target has no matching cards", () => {
     const p1 = makePlayer("p1", [card("A")]);
     const p2 = makePlayer("p2", [card("K")]);
     const topOfDeck = card("2");
     const state = stateWith([p1, p2], [topOfDeck]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -157,7 +157,7 @@ describe("applyAsk — go_fish", () => {
     const p2 = makePlayer("p2", [card("K")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -172,7 +172,7 @@ describe("applyAsk — go_fish", () => {
     const p2 = makePlayer("p2", [card("K")]);
     const state = stateWith([p1, p2], [card("A", "diamonds")]); // matching card on deck top
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -188,7 +188,7 @@ describe("applyAsk — go_fish", () => {
     const p2 = makePlayer("p2", [card("K")]);
     const state = stateWith([p1, p2], []); // empty deck
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -226,7 +226,7 @@ describe("book detection", () => {
     const p2 = makePlayer("p2", [card("A", "spades"), card("K")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -247,7 +247,7 @@ describe("book detection", () => {
     const p2 = makePlayer("p2", [card("K")]);
     const state = stateWith([p1, p2], [card("Q", "spades")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -267,7 +267,7 @@ describe("game end", () => {
     const p2 = makePlayer("p2", [card("K")]);
     const state = stateWith([p1, p2], []); // deck already empty
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -290,7 +290,7 @@ describe("game end", () => {
     const p2 = makePlayer("p2", [card("K", "spades"), card("3")]);
     const state = stateWith([p1, p2], [card("2")]);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -307,7 +307,7 @@ describe("game end", () => {
     const p2 = makePlayer("p2", [card("J")], ["10"]);
     const state = stateWith([p1, p2], []);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -323,7 +323,7 @@ describe("game end", () => {
     const p2 = makePlayer("p2", [card("J")], ["Q"]);
     const state = stateWith([p1, p2], []);
 
-    const next = applyAsk(state, {
+    const next = apply(state, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -337,14 +337,14 @@ describe("game end", () => {
     const p1 = makePlayer("p1", [card("A")]);
     const p2 = makePlayer("p2", [card("K")]);
     const over = stateWith([p1, p2], []);
-    const afterFirst = applyAsk(over, {
+    const afterFirst = apply(over, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
       rank: "A",
     });
     // Apply a second action — state should be returned unchanged
-    const afterSecond = applyAsk(afterFirst, {
+    const afterSecond = apply(afterFirst, {
       type: "ASK",
       playerId: "p1",
       targetPlayerId: "p2",
@@ -359,7 +359,7 @@ describe("game end", () => {
 describe("GoFishBot", () => {
   it("only asks for ranks it holds in hand", () => {
     const bot = new GoFishBot();
-    const state = dealGoFish("g-bot", [
+    const state = deal("g-bot", [
       { id: "human", name: "Human", isBot: false },
       { id: "bot", name: "Bot", isBot: true },
     ]);
@@ -398,7 +398,7 @@ describe("GoFishBot", () => {
   it("does not ask for a rank it doesn't hold (fuzz over 100 random deals)", () => {
     const bot = new GoFishBot();
     for (let i = 0; i < 100; i++) {
-      const state = dealGoFish(`g-${i}`, [
+      const state = deal(`g-${i}`, [
         { id: "p1", name: "Human", isBot: false },
         { id: "bot", name: "Bot", isBot: true },
       ]);
@@ -418,7 +418,7 @@ describe("GoFishBot", () => {
 describe("full game simulation", () => {
   it("plays a complete 2-player bot vs bot game to completion", () => {
     const bot = new GoFishBot();
-    let state = dealGoFish("sim", [
+    let state = deal("sim", [
       { id: "p1", name: "Bot1", isBot: true },
       { id: "p2", name: "Bot2", isBot: true },
     ]);
@@ -439,7 +439,7 @@ describe("full game simulation", () => {
         continue;
       }
       const move = bot.getNextMove(state, current.id);
-      state = applyAsk(state, move);
+      state = apply(state, move);
       turns++;
     }
 
@@ -450,12 +450,12 @@ describe("full game simulation", () => {
     expect(totalBks).toBeGreaterThan(0);
   });
 
-  it("publicStateFor hides opponent hands", () => {
-    const state = dealGoFish("pub", [
+  it("playerView hides opponent hands", () => {
+    const state = deal("pub", [
       { id: "p1", name: "Alice", isBot: false },
       { id: "p2", name: "Bob", isBot: false },
     ]);
-    const pub = publicStateFor(state, "p1");
+    const pub = playerView(state, "p1");
     expect(pub.ownHand).toEqual(state.players[0].hand); // p1's own hand visible
     const p2Public = pub.players.find((p) => p.id === "p2")!;
     expect((p2Public as { hand?: Card[] }).hand).toBeUndefined();

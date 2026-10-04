@@ -24,7 +24,7 @@ export interface CrazyEightsState extends BaseGameState {
 }
 
 /** What one player may see: own hand, opponents' hand sizes, draw-pile size. */
-export type CrazyEightsPublicState = Omit<CrazyEightsState, "deck" | "players"> & {
+export type CrazyEightsPlayerView = Omit<CrazyEightsState, "deck" | "players"> & {
   deckSize: number;
   players: (Omit<CrazyEightsPlayer, "hand"> & { handSize: number })[];
   ownHand: Card[];
@@ -53,7 +53,7 @@ export function playableCards(hand: Card[], state: CrazyEightsState): Card[] {
   return hand.filter((c) => isPlayable(c, state));
 }
 
-export function dealGame(
+export function deal(
   gameId: string,
   playerIds: string[],
   botFlags: boolean[],
@@ -111,7 +111,7 @@ function reshuffleDiscardIntoDeck(state: CrazyEightsState, rng: Rng): CrazyEight
   return { ...state, deck: [...state.deck, ...reshuffled], discardPile: [top] };
 }
 
-export function applyPlayCard(
+function applyPlayCard(
   state: CrazyEightsState,
   playerId: string,
   cardIndex: number,
@@ -147,7 +147,7 @@ export function applyPlayCard(
   };
 }
 
-export function applyDrawCard(
+function applyDrawCard(
   state: CrazyEightsState,
   playerId: string,
   rng: Rng = Math.random,
@@ -179,7 +179,7 @@ export function applyDrawCard(
   };
 }
 
-export function applyAction(
+export function apply(
   state: CrazyEightsState,
   action: CrazyEightsAction,
   rng: Rng = Math.random,
@@ -196,10 +196,14 @@ export function applyAction(
   }
 }
 
-export function publicStateFor(
+export function activePlayer(state: CrazyEightsState): string | null {
+  return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;
+}
+
+export function playerView(
   state: CrazyEightsState,
   forPlayerId: string,
-): CrazyEightsPublicState {
+): CrazyEightsPlayerView {
   const { deck, players, ...shared } = state;
   return {
     ...shared,

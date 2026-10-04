@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { YanivBot } from "./yaniv-bot";
-import { dealGame, type YanivSettings } from "../games/yaniv";
+import { deal, type YanivSettings } from "../games/yaniv";
 import type { Card } from "../games/types";
 
 // Build a 2-player (human + bot) game and drop a specific hand on the bot so we
@@ -11,7 +11,7 @@ function botTurnWithHand(hand: Card[], threshold: number) {
     scoreLimit: 100,
     quickDraw: false,
   };
-  const state = dealGame(
+  const state = deal(
     "bot-pacing",
     [
       { id: "player", name: "Player", isBot: false },

@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  dealGame,
+  deal,
+  apply,
   isPlayable,
-  applyPlayCard,
-  applyDrawCard,
   topCard,
   effectiveSuit,
 } from "@/lib/games/crazy-eights";
@@ -27,29 +26,29 @@ function makeState(overrides: Partial<CrazyEightsState> = {}): CrazyEightsState 
   };
 }
 
-describe("dealGame", () => {
+describe("deal", () => {
   it("deals 7 cards per player", () => {
-    const state = dealGame("g1", ["p1", "p2"], [false, true]);
+    const state = deal("g1", ["p1", "p2"], [false, true]);
     expect(state.players[0].hand).toHaveLength(7);
     expect(state.players[1].hand).toHaveLength(7);
   });
 
   it("discard pile starts with a non-8 card", () => {
     for (let i = 0; i < 20; i++) {
-      const state = dealGame("g1", ["p1", "p2"], [false, true]);
+      const state = deal("g1", ["p1", "p2"], [false, true]);
       expect(topCard(state).rank).not.toBe("8");
     }
   });
 
   it("supports 2–4 players", () => {
-    const s2 = dealGame("g1", ["p1", "p2"], [false, false]);
-    const s4 = dealGame("g1", ["p1", "p2", "p3", "p4"], [false, false, false, false]);
+    const s2 = deal("g1", ["p1", "p2"], [false, false]);
+    const s4 = deal("g1", ["p1", "p2", "p3", "p4"], [false, false, false, false]);
     expect(s2.players).toHaveLength(2);
     expect(s4.players).toHaveLength(4);
   });
 
   it("total dealt cards + deck + discard = 52", () => {
-    const state = dealGame("g1", ["p1", "p2"], [false, false]);
+    const state = deal("g1", ["p1", "p2"], [false, false]);
     const inHands = state.players.reduce((sum, p) => sum + p.hand.length, 0);
     expect(inHands + state.deck.length + state.discardPile.length).toBe(52);
   });
@@ -111,7 +110,7 @@ describe("effectiveSuit", () => {
   });
 });
 
-describe("applyPlayCard", () => {
+describe("apply: playing a card", () => {
   it("plays a valid card and advances turn", () => {
     const state = makeState({
       players: [
@@ -126,7 +125,7 @@ describe("applyPlayCard", () => {
       discardPile: [{ suit: "hearts", rank: "5" }],
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(topCard(next)).toEqual({ suit: "hearts", rank: "3" });
     expect(next.players[0].hand).toHaveLength(1);
     expect(next.currentPlayerIndex).toBe(1);
@@ -141,7 +140,7 @@ describe("applyPlayCard", () => {
       currentPlayerIndex: 0,
     });
 
-    const next = applyPlayCard(state, "p2", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p2", cardIndex: 0 });
     expect(next).toBe(state);
   });
 
@@ -154,7 +153,7 @@ describe("applyPlayCard", () => {
       discardPile: [{ suit: "hearts", rank: "5" }],
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(next).toBe(state);
   });
 
@@ -167,7 +166,7 @@ describe("applyPlayCard", () => {
       discardPile: [{ suit: "hearts", rank: "3" }],
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(next.status).toBe("round_over");
     expect(next.winnerId).toBe("p1");
     expect(next.players[0].roundWins).toBe(1);
@@ -182,7 +181,7 @@ describe("applyPlayCard", () => {
       discardPile: [{ suit: "clubs", rank: "5" }],
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(next).toBe(state);
   });
 
@@ -195,7 +194,7 @@ describe("applyPlayCard", () => {
       discardPile: [{ suit: "clubs", rank: "5" }],
     });
 
-    const next = applyPlayCard(state, "p1", 0, "spades");
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0, declaredSuit: "spades" });
     expect(next.declaredSuit).toBe("spades");
     expect(topCard(next).rank).toBe("8");
   });
@@ -210,7 +209,7 @@ describe("applyPlayCard", () => {
       declaredSuit: "clubs",
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(next.declaredSuit).toBeNull();
   });
 
@@ -223,12 +222,12 @@ describe("applyPlayCard", () => {
       ],
     });
 
-    const next = applyPlayCard(state, "p1", 0);
+    const next = apply(state, { type: "PLAY_CARD", playerId: "p1", cardIndex: 0 });
     expect(next).toBe(state);
   });
 });
 
-describe("applyDrawCard", () => {
+describe("apply: drawing a card", () => {
   it("adds a card to player hand and advances turn", () => {
     const state = makeState({
       players: [
@@ -239,7 +238,7 @@ describe("applyDrawCard", () => {
       discardPile: [{ suit: "hearts", rank: "5" }],
     });
 
-    const next = applyDrawCard(state, "p1");
+    const next = apply(state, { type: "DRAW_CARD", playerId: "p1" });
     expect(next.players[0].hand).toHaveLength(1);
     expect(next.deck).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(1);
@@ -259,7 +258,7 @@ describe("applyDrawCard", () => {
       ],
     });
 
-    const next = applyDrawCard(state, "p1");
+    const next = apply(state, { type: "DRAW_CARD", playerId: "p1" });
     expect(next.players[0].hand).toHaveLength(1);
     expect(next.discardPile).toHaveLength(1);
     expect(next.discardPile[0]).toEqual({ suit: "spades", rank: "5" });
@@ -275,7 +274,7 @@ describe("applyDrawCard", () => {
       discardPile: [{ suit: "hearts", rank: "5" }],
     });
 
-    const next = applyDrawCard(state, "p1");
+    const next = apply(state, { type: "DRAW_CARD", playerId: "p1" });
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.currentPlayerIndex).toBe(1);
   });
@@ -290,7 +289,7 @@ describe("applyDrawCard", () => {
       currentPlayerIndex: 0,
     });
 
-    const next = applyDrawCard(state, "p2");
+    const next = apply(state, { type: "DRAW_CARD", playerId: "p2" });
     expect(next).toBe(state);
   });
 });
@@ -391,7 +390,7 @@ describe("CrazyEightsBot", () => {
 
 describe("full round simulation", () => {
   it("plays a round to completion with bot vs bot", () => {
-    const state = dealGame("sim", ["p1", "p2"], [true, true]);
+    const state = deal("sim", ["p1", "p2"], [true, true]);
     const bot = new CrazyEightsBot();
 
     let s = state;
@@ -400,12 +399,7 @@ describe("full round simulation", () => {
 
     while (s.status === "in_progress" && turns < maxTurns) {
       const current = s.players[s.currentPlayerIndex];
-      const action = bot.getNextMove(s, current.id);
-      if (action.type === "PLAY_CARD") {
-        s = applyPlayCard(s, action.playerId, action.cardIndex, action.declaredSuit);
-      } else {
-        s = applyDrawCard(s, action.playerId);
-      }
+      s = apply(s, bot.getNextMove(s, current.id));
       turns++;
     }
 

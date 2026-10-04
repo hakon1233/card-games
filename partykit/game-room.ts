@@ -1,12 +1,8 @@
 import type * as Party from "partykit/server";
-import {
-  dealGame,
-  applyAction as ceApply,
-  publicStateFor as cePublicStateFor,
-} from "@/lib/games/crazy-eights";
-import type { CrazyEightsState, CrazyEightsAction } from "@/lib/games/crazy-eights";
-import { dealGoFish, applyAsk, publicStateFor } from "@/lib/games/go-fish";
-import type { GoFishGameState, GoFishAskAction } from "@/lib/games/go-fish";
+import * as crazyEights from "@/lib/games/crazy-eights";
+import type { CrazyEightsState, CrazyEightsAction, CrazyEightsPlayerView } from "@/lib/games/crazy-eights";
+import * as goFish from "@/lib/games/go-fish";
+import type { GoFishGameState, GoFishAskAction, GoFishPlayerView } from "@/lib/games/go-fish";
 import { verifyRoomToken, type RoomGameType } from "@/lib/room-token";
 import { RANKS, SUITS } from "@/lib/games/deck-utils";
 
@@ -57,10 +53,10 @@ type ClientMessage = JoinMsg | StartMsg | CeActionMsg | GfActionMsg;
 type LobbyStateMsg = { type: "LOBBY_STATE"; state: LobbyState };
 type CeStateMsg = {
   type: "CE_STATE";
-  state: ReturnType<typeof cePublicStateFor>;
+  state: CrazyEightsPlayerView;
   myIndex: number;
 };
-type GfStateMsg = { type: "GF_STATE"; state: ReturnType<typeof publicStateFor> };
+type GfStateMsg = { type: "GF_STATE"; state: GoFishPlayerView };
 type ErrorMsg = { type: "ERROR"; message: string };
 type ServerMessage = LobbyStateMsg | CeStateMsg | GfStateMsg | ErrorMsg;
 
@@ -177,14 +173,14 @@ export default class GameRoom implements Party.Server {
     const hostId = this.state.hostId;
 
     if (this.state.gameType === "crazy_eights") {
-      const gameState = dealGame(
+      const gameState = crazyEights.deal(
         this.room.id,
         players.map((p) => p.userId),
         players.map(() => false),
       );
       this.state = { phase: "crazy_eights", hostId, players, gameState };
     } else {
-      const gameState = dealGoFish(
+      const gameState = goFish.deal(
         this.room.id,
         players.map((p) => ({ id: p.userId, name: p.displayName, isBot: false })),
       );
@@ -201,7 +197,7 @@ export default class GameRoom implements Party.Server {
     const cs = sender.state as ConnState | null;
     if (cs?.userId !== payload.playerId) return; // only act for yourself
 
-    this.state.gameState = ceApply(this.state.gameState, payload);
+    this.state.gameState = crazyEights.apply(this.state.gameState, payload);
     await this.persist();
     this.broadcastAll();
   }
@@ -212,7 +208,7 @@ export default class GameRoom implements Party.Server {
     const cs = sender.state as ConnState | null;
     if (cs?.userId !== payload.playerId) return;
 
-    this.state.gameState = applyAsk(this.state.gameState, payload);
+    this.state.gameState = goFish.apply(this.state.gameState, payload);
     await this.persist();
     this.broadcastAll();
   }
@@ -237,11 +233,11 @@ export default class GameRoom implements Party.Server {
     } else if (this.state.phase === "crazy_eights") {
       msg = {
         type: "CE_STATE",
-        state: cePublicStateFor(this.state.gameState, userId),
+        state: crazyEights.playerView(this.state.gameState, userId),
         myIndex: this.state.players.findIndex((p) => p.userId === userId),
       };
     } else {
-      msg = { type: "GF_STATE", state: publicStateFor(this.state.gameState, userId) };
+      msg = { type: "GF_STATE", state: goFish.playerView(this.state.gameState, userId) };
     }
 
     conn.send(JSON.stringify(msg));

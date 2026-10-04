@@ -16,13 +16,13 @@ That shapes the whole codebase:
 
 - **Game rules are pure functions.** Every game lives in `lib/games/` with no I/O,
   no React and no network calls — scoring and legal-move predicates throughout, plus
-  a `(state, action) -> state` reducer for the games played over the network
-  (`applyAction` for Crazy Eights, `applyAsk` for Go Fish). `yaniv.ts` is 588 lines
-  of rules and nothing else.
+  one rules-engine interface every game shares (`lib/games/engine.ts`): `deal`, an
+  `apply(state, action) -> state` reducer, `playerView` and `activePlayer`.
+  `yaniv.ts` is 600-odd lines of rules and nothing else.
 - **The server is authoritative.** `partykit/game-room.ts` owns the real state.
   Clients send *intents* (`{type: "ask", rank: "7"}`), never state. The room
   validates each action against the same pure reducer and broadcasts the result.
-- **Each player gets a redacted view.** `publicStateFor(playerId)` projects the
+- **Each player gets a redacted view.** `playerView(state, playerId)` projects the
   full state down to what that player is allowed to see — opponents' hands become
   counts, the deck becomes a number. The secret state never leaves the server.
 

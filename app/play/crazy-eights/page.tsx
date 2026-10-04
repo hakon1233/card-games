@@ -14,9 +14,8 @@ import {
 import { CardDeckControl, useCardDeck } from "@/components/game/card-deck-control";
 import { scaleAnimationDuration } from "@/lib/animation-preferences";
 import {
-  dealGame,
-  applyPlayCard,
-  applyDrawCard,
+  deal,
+  apply,
   isPlayable,
   topCard,
   effectiveSuit,
@@ -119,12 +118,7 @@ export default function CrazyEightsPage() {
       if (!cur || cur.status !== "in_progress") return;
       const seat = cur.players[cur.currentPlayerIndex];
       if (!seat?.isBot) return;
-      const move = bot.getNextMove(cur, seat.id);
-      const next =
-        move.type === "PLAY_CARD"
-          ? applyPlayCard(cur, move.playerId, move.cardIndex, move.declaredSuit)
-          : applyDrawCard(cur, move.playerId);
-      commitState(next);
+      commitState(apply(cur, bot.getNextMove(cur, seat.id)));
     }, delay);
 
     return () => clearTimeout(timer);
@@ -135,7 +129,7 @@ export default function CrazyEightsPage() {
     resultRecordedRef.current = false;
     setPendingEight(null);
     setGameState(
-      dealGame(
+      deal(
         `crazy-eights-${Date.now()}`,
         defs.map((d) => d.id),
         defs.map((d) => d.isBot),
@@ -155,14 +149,14 @@ export default function CrazyEightsPage() {
       return;
     }
     setPendingEight(null);
-    commitState(applyPlayCard(s, PLAYER_ID, index, declaredSuit));
+    commitState(apply(s, { type: "PLAY_CARD", playerId: PLAYER_ID, cardIndex: index, declaredSuit }));
   }, [commitState]);
 
   const humanDraw = useCallback(() => {
     const s = gameStateRef.current;
     if (!s) return;
     if (s.players[s.currentPlayerIndex]?.id !== PLAYER_ID) return;
-    commitState(applyDrawCard(s, PLAYER_ID));
+    commitState(apply(s, { type: "DRAW_CARD", playerId: PLAYER_ID }));
   }, [commitState]);
 
   // ── Settings / pre-game screen ────────────────────────────────────────────

@@ -34,8 +34,8 @@ export interface BlackjackAction {
   playerId: string;
 }
 
-/** State safe to broadcast to all clients — dealer hole card hidden during play */
-export type BlackjackPublicState = Omit<BlackjackState, "deck">;
+/** What the player may see: no draw pile; the dealer's hole card stays face-down (hidden). */
+export type BlackjackPlayerView = Omit<BlackjackState, "deck">;
 
 export function createDeck(): Card[] {
   return shuffle(buildDeck());
@@ -81,7 +81,7 @@ function drawCard(deck: Card[]): { card: Card; remaining: Card[] } {
  * Deal the initial state. Always returns turn "player" with 48 cards remaining.
  * Blackjack detection is the caller's responsibility.
  */
-export function dealInitialState(
+function dealInitialState(
   gameId: string,
   playerId: string,
   rng: Rng = Math.random,
@@ -103,8 +103,8 @@ export function dealInitialState(
   };
 }
 
-/** Start a new game, with immediate blackjack resolution when applicable. */
-export function startGame(gameId: string, playerId: string, rng: Rng = Math.random): BlackjackState {
+/** Deal a new game, settling naturals at once. */
+export function deal(gameId: string, playerId: string, rng: Rng = Math.random): BlackjackState {
   const state = dealInitialState(gameId, playerId, rng);
   const playerBJ = isBlackjack(state.playerHand.cards);
   const revealedDealer = state.dealerHand.map((c) => ({ ...c, hidden: false }));
@@ -121,7 +121,7 @@ export function startGame(gameId: string, playerId: string, rng: Rng = Math.rand
   return { ...state, dealerHand: revealedDealer, status: "dealer_win", turn: "over", result: "dealer_win" };
 }
 
-export function applyPlayerHit(state: BlackjackState): BlackjackState {
+function applyPlayerHit(state: BlackjackState): BlackjackState {
   if (state.turn !== "player") return state;
 
   const { card, remaining } = drawCard(state.deck);
@@ -146,7 +146,7 @@ export function applyPlayerHit(state: BlackjackState): BlackjackState {
   };
 }
 
-export function applyDealerTurn(state: BlackjackState): BlackjackState {
+function applyDealerTurn(state: BlackjackState): BlackjackState {
   let deck = state.deck;
 
   // Reveal the hole card BEFORE deciding to draw: the dealer must stand on
@@ -176,16 +176,26 @@ export function applyDealerTurn(state: BlackjackState): BlackjackState {
   return { ...state, dealerHand: dealerCards, deck, turn: "over", status: "push", result: "push" };
 }
 
-export function applyAction(
+export function apply(
   state: BlackjackState,
   action: BlackjackAction,
   rng: Rng = Math.random,
 ): BlackjackState {
   if (action.type === "START") {
-    return startGame(state.gameId, action.playerId, rng);
+    return deal(state.gameId, action.playerId, rng);
   }
   if (state.turn === "over") return state;
   if (action.type === "HIT") return applyPlayerHit(state);
   if (action.type === "STAND") return applyDealerTurn({ ...state, turn: "dealer" });
   return state;
+}
+
+export function activePlayer(state: BlackjackState): string | null {
+  return state.turn === "player" ? state.playerHand.playerId : null;
+}
+
+/** One seat, so the view is the same for any player id. */
+export function playerView(state: BlackjackState): BlackjackPlayerView {
+  const { gameId, status, playerHand, dealerHand, turn, result } = state;
+  return { gameId, status, playerHand, dealerHand, turn, result };
 }

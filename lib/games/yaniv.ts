@@ -76,6 +76,13 @@ export interface YanivGameState {
   quickDrawWindow: YanivQuickDrawWindow | null;
 }
 
+/** What one player may see: own hand, opponents' hand sizes, draw-pile size. */
+export type YanivPlayerView = Omit<YanivGameState, "deck" | "players"> & {
+  deckSize: number;
+  players: (Omit<YanivPlayer, "hand"> & { handSize: number })[];
+  ownHand: Card[];
+};
+
 export interface YanivStanding {
   rank: number;
   playerId: string;
@@ -226,7 +233,7 @@ export function canAddToSelection(selected: Card[], card: Card): boolean {
   return false;
 }
 
-export function dealGame(
+export function deal(
   gameId: string,
   playerDefs: { id: string; name: string; isBot: boolean }[],
   settings: YanivSettings = DEFAULT_YANIV_SETTINGS,
@@ -401,7 +408,7 @@ function advanceToNextPlayer(players: YanivPlayer[], fromIdx: number): number {
   return nextIdx;
 }
 
-export function applyAction(
+export function apply(
   state: YanivGameState,
   action: YanivAction,
   rng: Rng = Math.random,
@@ -591,4 +598,18 @@ export function applyAction(
   }
 
   return state;
+}
+
+export function activePlayer(state: YanivGameState): string | null {
+  return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;
+}
+
+export function playerView(state: YanivGameState, forPlayerId: string): YanivPlayerView {
+  const { deck, players, ...shared } = state;
+  return {
+    ...shared,
+    deckSize: deck.length,
+    ownHand: players.find((p) => p.id === forPlayerId)?.hand ?? [],
+    players: players.map(({ hand, ...p }) => ({ ...p, handSize: hand.length })),
+  };
 }

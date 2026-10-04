@@ -27,8 +27,8 @@ import { CardHand } from "@/components/game/card-hand";
 import { PlayingCard } from "@/components/game/card";
 import { scaleAnimationDuration } from "@/lib/animation-preferences";
 import {
-  dealGame,
-  applyAction,
+  deal,
+  apply,
   canCallYaniv,
   yanivCardValue,
   describeSelection,
@@ -228,7 +228,7 @@ function runBotLoop(state: YanivGameState): YanivGameState {
     s.players[s.currentPlayerIndex]?.isBot &&
     guard < 20
   ) {
-    s = applyAction(s, bot.getNextMove(s, s.players[s.currentPlayerIndex].id));
+    s = apply(s, bot.getNextMove(s, s.players[s.currentPlayerIndex].id));
     guard++;
   }
   return s;
@@ -405,7 +405,7 @@ export default function YanivPage() {
       const botId = s.players[s.currentPlayerIndex].id;
       const action = bot.getNextMove(s, botId);
       const beforeAction = s;
-      s = applyAction(s, action);
+      s = apply(s, action);
       applyActionFeedback(action, beforeAction, s);
       guard++;
     }
@@ -494,7 +494,7 @@ export default function YanivPage() {
         clearInterval(interval);
         const s = gameStateRef.current;
         if (s?.quickDrawWindow) {
-          dispatch(applyAction(s, { type: "QUICK_DRAW_EXPIRE" }), { type: "QUICK_DRAW_EXPIRE" }, s);
+          dispatch(apply(s, { type: "QUICK_DRAW_EXPIRE" }), { type: "QUICK_DRAW_EXPIRE" }, s);
         }
       }
     }, 50);
@@ -516,7 +516,7 @@ export default function YanivPage() {
       const s = gameStateRef.current;
       if (!s?.quickDrawWindow) return;
       const action = { type: "QUICK_DRAW_STEAL" as const, playerId: botId };
-      dispatch(applyAction(s, action), action, s);
+      dispatch(apply(s, action), action, s);
     }, delay);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -544,7 +544,7 @@ export default function YanivPage() {
       discardIndices: [hi],
       drawFromDiscard: false,
     };
-    dispatch(applyAction(s, action), action, s);
+    dispatch(apply(s, action), action, s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -556,7 +556,7 @@ export default function YanivPage() {
   const startGame = useCallback(() => {
     const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
     saveSettings({ ...settings, numBots, lowTimeSound, idlePulses, nextUpPreview });
-    const initial = dealGame(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
+    const initial = deal(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
     setGameState(runBotLoop(initial));
     setSelected([]);
     setRoundsWon(0);
@@ -573,7 +573,7 @@ export default function YanivPage() {
   function callYaniv() {
     if (!gameState) return;
     const action = { type: "CALL_YANIV" as const, playerId: PLAYER_ID };
-    dispatch(applyAction(gameState, action), action, gameState);
+    dispatch(apply(gameState, action), action, gameState);
   }
 
   function discardAndDraw(drawFromDiscard: boolean, drawDiscardIndex?: number) {
@@ -585,18 +585,18 @@ export default function YanivPage() {
       drawFromDiscard,
       drawDiscardIndex,
     };
-    dispatch(applyAction(gameState, action), action, gameState);
+    dispatch(apply(gameState, action), action, gameState);
   }
 
   function stealFromDiscard() {
     if (!gameState?.quickDrawWindow) return;
     const action = { type: "QUICK_DRAW_STEAL" as const, playerId: PLAYER_ID };
-    dispatch(applyAction(gameState, action), action, gameState);
+    dispatch(apply(gameState, action), action, gameState);
   }
 
   function nextRound() {
     if (!gameState) return;
-    const s = runBotLoop(applyAction(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
+    const s = runBotLoop(apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
     setGameState(s);
     setSelected([]);
     setActionBadges({});

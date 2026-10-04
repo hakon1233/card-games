@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { applyAction, type YanivAction } from "@/lib/games/yaniv";
+import { apply, type YanivAction } from "@/lib/games/yaniv";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import { getYanivGame, setYanivGame } from "@/lib/yaniv-store";
 
@@ -17,7 +17,7 @@ export async function POST(
   }
 
   const action: YanivAction = await request.json();
-  state = applyAction(state, action);
+  state = apply(state, action);
 
   // Run bot turns until it's the human player's turn or the game/round ends
   const humanId = state.players.find((p) => !p.isBot)?.id;
@@ -28,7 +28,7 @@ export async function POST(
   ) {
     const botId = state.players[state.currentPlayerIndex].id;
     const botAction = bot.getNextMove(state, botId);
-    state = applyAction(state, botAction);
+    state = apply(state, botAction);
   }
 
   setYanivGame(gameId, state);

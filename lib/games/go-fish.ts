@@ -48,7 +48,7 @@ export interface GoFishGameState extends BaseGameState {
   winners: string[]; // playerIds; may be >1 on tie
 }
 
-export type GoFishPublicState = Omit<GoFishGameState, "deck" | "players"> & {
+export type GoFishPlayerView = Omit<GoFishGameState, "deck" | "players"> & {
   deckSize: number;
   players: (Omit<GoFishPlayer, "hand" | "knownOpponentCards"> & { handSize: number })[];
   ownHand: Card[];
@@ -60,7 +60,7 @@ export type GoFishClientMessage =
   | { type: "ASK"; playerId: string; targetPlayerId: string; rank: Rank };
 
 export type GoFishServerMessage =
-  | { type: "STATE_UPDATE"; state: GoFishPublicState }
+  | { type: "STATE_UPDATE"; state: GoFishPlayerView }
   | { type: "PLAYER_JOINED"; playerId: string; playerName: string }
   | { type: "GAME_OVER"; winners: string[] };
 
@@ -134,7 +134,7 @@ function propagateBotKnowledge(
   });
 }
 
-export function dealGoFish(
+export function deal(
   gameId: string,
   playerDefs: { id: string; name: string; isBot: boolean }[],
   rng: Rng = Math.random,
@@ -166,10 +166,7 @@ export function dealGoFish(
   };
 }
 
-export function applyAsk(
-  state: GoFishGameState,
-  action: GoFishAskAction
-): GoFishGameState {
+export function apply(state: GoFishGameState, action: GoFishAction): GoFishGameState {
   if (state.status !== "in_progress") return state;
 
   const askingIndex = state.players.findIndex((p) => p.id === action.playerId);
@@ -251,7 +248,6 @@ export function applyAsk(
   return next;
 }
 
-/** Returns state safe to send to a specific player — hides other players' hands and deck. */
 /** A card drawn on a plain "Go Fish" stays private to the player who drew it. */
 function eventSeenBy(event: GoFishEvent | null, forPlayerId: string): GoFishEvent | null {
   if (!event || event.outcome !== "go_fish" || event.askingPlayerId === forPlayerId) {
@@ -260,10 +256,12 @@ function eventSeenBy(event: GoFishEvent | null, forPlayerId: string): GoFishEven
   return { ...event, drew: null };
 }
 
-export function publicStateFor(
-  state: GoFishGameState,
-  forPlayerId: string
-): GoFishPublicState {
+export function activePlayer(state: GoFishGameState): string | null {
+  return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;
+}
+
+/** What one player may see: other players' hands and the draw pile are reduced to sizes. */
+export function playerView(state: GoFishGameState, forPlayerId: string): GoFishPlayerView {
   const ownPlayer = state.players.find((p) => p.id === forPlayerId);
   return {
     gameId: state.gameId,

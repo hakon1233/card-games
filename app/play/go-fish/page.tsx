@@ -8,8 +8,8 @@ import { PlayingCard } from "@/components/game/card";
 import { Button } from "@/components/ui/button";
 import { RANKS } from "@/lib/games/deck-utils";
 import {
-  dealGoFish,
-  applyAsk,
+  deal,
+  apply,
   type GoFishGameState,
   type GoFishPlayer,
   type GoFishEvent,
@@ -110,7 +110,7 @@ export default function GoFishPage() {
   const startGame = useCallback(() => {
     setSelectedRank(null);
     recordedRef.current = null;
-    setState(dealGoFish(`go-fish-${Date.now()}`, PLAYER_DEFS));
+    setState(deal(`go-fish-${Date.now()}`, PLAYER_DEFS));
   }, []);
 
   const human = state?.players.find((p) => p.id === HUMAN_ID);
@@ -120,7 +120,7 @@ export default function GoFishPage() {
   const rankGroups = useMemo(() => groupHandByRank(human), [human]);
 
   // Drive bot turns (and skip any empty-handed player) off the current state.
-  // Each applyAsk produces a fresh state object, so this effect re-runs and
+  // Each apply produces a fresh state object, so this effect re-runs and
   // schedules the next step until it is the human's turn or the game is over.
   useEffect(() => {
     if (!state || state.status !== "in_progress") return;
@@ -147,7 +147,7 @@ export default function GoFishPage() {
         if (!s || s.status !== "in_progress") return s;
         const mover = s.players[s.currentPlayerIndex];
         if (mover.id === HUMAN_ID || mover.hand.length === 0) return s;
-        return applyAsk(s, bot.getNextMove(s, mover.id));
+        return apply(s, bot.getNextMove(s, mover.id));
       });
     }, BOT_TURN_DELAY_MS);
 
@@ -171,7 +171,7 @@ export default function GoFishPage() {
   const ask = useCallback(
     (targetId: string) => {
       if (!state || !selectedRank || !isHumanTurn) return;
-      const next = applyAsk(state, {
+      const next = apply(state, {
         type: "ASK",
         playerId: HUMAN_ID,
         targetPlayerId: targetId,
