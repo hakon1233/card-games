@@ -219,13 +219,15 @@ export default class GameRoom implements Party.Server {
 
   // ─── Broadcast helpers ───────────────────────────────────────────────────────
 
+  /** Only sockets that joined with a valid room token ever receive room state. */
   private broadcastAll() {
     for (const conn of this.room.getConnections<ConnState>()) {
-      this.sendStateTo(conn, (conn.state as ConnState | null)?.userId ?? null);
+      const userId = (conn.state as ConnState | null)?.userId;
+      if (userId) this.sendStateTo(conn, userId);
     }
   }
 
-  private sendStateTo(conn: Party.Connection, userId: string | null) {
+  private sendStateTo(conn: Party.Connection, userId: string) {
     if (!this.state) return;
 
     let msg: ServerMessage;
@@ -233,20 +235,13 @@ export default class GameRoom implements Party.Server {
     if (this.state.phase === "lobby") {
       msg = { type: "LOBBY_STATE", state: this.state };
     } else if (this.state.phase === "crazy_eights") {
-      const myIndex = userId
-        ? this.state.players.findIndex((p) => p.userId === userId)
-        : -1;
       msg = {
         type: "CE_STATE",
-        state: cePublicStateFor(this.state.gameState, userId ?? ""),
-        myIndex,
+        state: cePublicStateFor(this.state.gameState, userId),
+        myIndex: this.state.players.findIndex((p) => p.userId === userId),
       };
     } else {
-      // go_fish — send personalised public state
-      const pub = userId
-        ? publicStateFor(this.state.gameState, userId)
-        : publicStateFor(this.state.gameState, "");
-      msg = { type: "GF_STATE", state: pub };
+      msg = { type: "GF_STATE", state: publicStateFor(this.state.gameState, userId) };
     }
 
     conn.send(JSON.stringify(msg));

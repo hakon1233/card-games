@@ -112,12 +112,17 @@ describe("joining a room", () => {
     }
   });
 
-  it("sends nothing to a socket that has not joined", async () => {
+  it("sends nothing to a socket that has not joined, through lobby and game", async () => {
     const r = makeRoom("crazy_eights");
-    await r.join("alice");
     const lurker = await r.connect();
+    const forger = await r.connect();
+    await r.send(forger, { type: "JOIN", token: await r.tokenFor("eve", { secret: "wrong" }) });
+    const alice = await r.join("alice");
+    await r.join("bob");
+    await r.send(alice, { type: "START" });
 
     expect(lurker.sent).toEqual([]);
+    expect(forger.sent).toEqual([{ type: "ERROR", message: "Invalid room token" }]);
   });
 
   it("cannot be created or reset over HTTP", async () => {
