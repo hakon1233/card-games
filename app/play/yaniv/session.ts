@@ -79,29 +79,6 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   }
 
   useEffect(() => {
-    if (gameState || typeof window === "undefined") return;
-    const qaGameId = new URLSearchParams(window.location.search).get("qaGameId");
-    if (!qaGameId) return;
-
-    let cancelled = false;
-    fetch(`/api/yaniv/${qaGameId}/action`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`QA fixture load failed: ${res.status}`))))
-      .then(({ state }) => {
-        if (cancelled) return;
-        setGameState(state);
-        setSelected([]);
-        setRoundsWon(0);
-        setRoundsLost(0);
-        resetGame();
-      })
-      .catch((error) => console.error(error));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [gameState, resetGame]);
-
-  useEffect(() => {
     if (!qdWindowKey) {
       queueMicrotask(() => setQdTimeLeft(null));
       return;

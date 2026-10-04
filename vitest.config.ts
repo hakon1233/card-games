@@ -9,9 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // *.test.mjs files are node:test / Playwright scripts with their own npm
-    // scripts (test:yaniv-rule-gates); vitest must not collect
-    // them. Real vitest suites under tests/e2e/*.test.ts still run.
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.test.mjs"],
+    // tests/e2e holds Playwright specs, run by `pnpm test:e2e`.
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e/**"],
   },
 });
