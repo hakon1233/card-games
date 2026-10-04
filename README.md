@@ -51,7 +51,6 @@ Supabase ── auth + session (@supabase/ssr), used only for identity
 | `lib/games/` | Pure rules + scoring, one module per game |
 | `partykit/` | Authoritative real-time room server |
 | `tests/` | Unit tests and scripted end-to-end probes |
-| `scripts/` | Deploy with smoke-test and rollback |
 
 ## Running it
 
@@ -69,23 +68,12 @@ without any external service.
 
 ```bash
 pnpm test                 # 230 unit tests over the game rules
-pnpm test:yaniv-edge      # edge-case probe against the room server
-
-pnpm build                # the deploy-script tests need a production build first
-pnpm test:deploy:yaniv    # deploy script's own test suite
 ```
 
 The unit suite covers scoring, legal-move gating, turn order, deck handling and the
 card-sorting and scoreboard helpers. `tests/e2e/` holds Playwright probes that drive a
 running instance through the real rule paths in a browser — point them at any
 deployment with `LIVE_BASE_URL` (they default to `http://127.0.0.1:3001`).
-
-## Deploying
-
-`scripts/deploy-yaniv.sh` builds **outside** the served directory, promotes the
-finished build into place only once it is complete, smoke-tests the restarted
-service, and rolls back automatically if the smoke test fails. The script has its
-own test suite (`pnpm test:deploy:yaniv`) and a `--dry-run` mode.
 
 ## Status
 

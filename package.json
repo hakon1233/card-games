@@ -14,12 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy:yaniv": "bash scripts/deploy-yaniv.sh",
-    "deploy:yaniv:dry-run": "bash scripts/deploy-yaniv.sh --dry-run",
-    "test:deploy:yaniv": "bash scripts/deploy-yaniv.test.sh",
-    "test:yaniv-edge": "node scripts/yaniv-edge-server.test.mjs",
-    "test:yaniv-rule-gates": "node tests/e2e/yaniv-rule-gates.mjs",
-    "prepare": "sh scripts/install-git-hooks.sh"
+    "test:yaniv-rule-gates": "node tests/e2e/yaniv-rule-gates.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
