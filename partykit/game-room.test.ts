@@ -2,6 +2,8 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import type * as Party from "partykit/server";
 import GameRoom from "./game-room";
 import { signRoomToken, type RoomGameType } from "@/lib/room-token";
+import type { GoFishGameState, GoFishPlayer } from "@/lib/games/go-fish";
+import type { Card } from "@/lib/games/types";
 
 const SECRET = "a-room-token-secret-of-32-chars!!";
 const ROOM = "ROOM01";
@@ -47,6 +49,7 @@ function makeRoom(gameType: RoomGameType, hostId = "alice") {
   return {
     server,
     send,
+    store,
     tokenFor(userId: string, opts: { room?: string; secret?: string } = {}) {
       return signRoomToken(
         { room: opts.room ?? ROOM, userId, displayName: userId.toUpperCase(), hostId, gameType },
@@ -250,5 +253,45 @@ describe("Go Fish room", () => {
     });
 
     expect([alice.sent.length, bob.sent.length]).toEqual(sentBefore);
+  });
+
+  it("passes the turn over a player whose hand is empty, so the game moves on", async () => {
+    const card = (rank: Card["rank"], suit: Card["suit"] = "spades"): Card => ({ rank, suit });
+    const seat = (id: string, hand: Card[]): GoFishPlayer => ({
+      id, name: id.toUpperCase(), isBot: false, hand, books: [], knownOpponentCards: {},
+    });
+    const gameState: GoFishGameState = {
+      gameId: ROOM,
+      status: "in_progress",
+      players: [seat("alice", [card("A")]), seat("bob", []), seat("carol", [card("K")])],
+      deck: [card("2"), card("3")],
+      currentPlayerIndex: 0,
+      lastEvent: null,
+      winners: [],
+    };
+    const r = makeRoom("go_fish");
+    r.store.set("state", {
+      phase: "go_fish",
+      hostId: "alice",
+      players: ["alice", "bob", "carol"].map((userId) => ({ userId, displayName: userId.toUpperCase(), connected: false })),
+      gameState,
+    });
+    await r.server.onStart();
+    const alice = await r.join("alice");
+    await r.join("bob");
+    const carol = await r.join("carol");
+
+    await r.send(alice, {
+      type: "GF_ACTION",
+      payload: { type: "ASK", playerId: "alice", targetPlayerId: "carol", rank: "A" },
+    });
+    const sent = carol.sent.length;
+    await r.send(carol, {
+      type: "GF_ACTION",
+      payload: { type: "ASK", playerId: "carol", targetPlayerId: "alice", rank: "K" },
+    });
+
+    expect(carol.sent.length).toBe(sent + 1);
+    expect((carol.last().state as View).lastEvent?.outcome).toBe("go_fish");
   });
 });

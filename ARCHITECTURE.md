@@ -43,8 +43,10 @@ flowchart LR
 
 ## House rules worth knowing
 
-- Go Fish: a player with an empty hand doesn't draw a new one; their turn is skipped (the game page
-  does the skipping, after a short pause) and the game ends when the draw pile runs out.
+- Go Fish: a player with an empty hand doesn't draw a new one; the rules engine passes the turn to
+  the next player who holds cards, so the active player always has a card to ask with. The game
+  ends when the draw pile runs out, or as soon as every hand is empty, whatever the draw pile still
+  holds.
 - Yaniv: when your turn clock runs out, the table discards your highest card and draws from the
   draw pile for you (`timeoutMove` in `lib/games/yaniv.ts`).
 

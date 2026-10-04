@@ -29,7 +29,6 @@ const PLAYER_DEFS = [
 
 // Pacing for bot turns so a human can follow the table chatter.
 const BOT_TURN_DELAY_MS = 950;
-const SKIP_DELAY_MS = 700;
 
 const bot = new GoFishBot();
 const botFor = (playerId: string) => (playerId === HUMAN_ID ? undefined : bot);
@@ -86,10 +85,6 @@ function describeEvent(state: GoFishGameState, event: GoFishEvent | null): strin
   }
 }
 
-function nextIndex(state: GoFishGameState): number {
-  return (state.currentPlayerIndex + 1) % state.players.length;
-}
-
 function buildStandings(state: GoFishGameState): StandingRow[] {
   return [...state.players]
     .map((p) => ({ p, books: p.books.length }))
@@ -121,25 +116,12 @@ export default function GoFishPage() {
   const isOver = state?.status === "over";
   const rankGroups = useMemo(() => groupHandByRank(human), [human]);
 
-  // Drive bot turns (and skip any empty-handed player) off the current state.
-  // Each apply produces a fresh state object, so this effect re-runs and
-  // schedules the next step until it is the human's turn or the game is over.
+  // Drive bot turns off the current state. Each apply produces a fresh state
+  // object, so this effect re-runs and schedules the next bot move until it is
+  // the human's turn or the game is over. The engine passes the turn over
+  // empty-handed players, so the active player always holds cards.
   useEffect(() => {
     if (!state || state.status !== "in_progress") return;
-    const active = state.players[state.currentPlayerIndex];
-
-    // A player with no cards can't ask (the engine has no draw-to-refill move).
-    // Skip their turn — deck depletion still ends the game. Matches the engine
-    // test loop's manual advance for empty hands.
-    if (active.hand.length === 0) {
-      const timer = setTimeout(() => {
-        setState((s) =>
-          s ? { ...s, currentPlayerIndex: nextIndex(s), lastEvent: null } : s,
-        );
-      }, SKIP_DELAY_MS);
-      return () => clearTimeout(timer);
-    }
-
     const turn = botTurn({ apply, activePlayer }, state, botFor);
     if (!turn) return; // wait for the human to act
     const timer = setTimeout(() => setState(turn.next), BOT_TURN_DELAY_MS);

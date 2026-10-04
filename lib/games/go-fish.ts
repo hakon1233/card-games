@@ -76,6 +76,18 @@ function computeWinners(players: GoFishPlayer[]): string[] {
   return players.filter((p) => p.books.length === max).map((p) => p.id);
 }
 
+/**
+ * The seat that asks next: `from` itself if that player holds cards, otherwise the next seat
+ * round the table that does; null when every hand is empty and nobody can ask.
+ */
+function nextAsker(players: GoFishPlayer[], from: number): number | null {
+  for (let step = 0; step < players.length; step++) {
+    const index = (from + step) % players.length;
+    if (players[index].hand.length > 0) return index;
+  }
+  return null;
+}
+
 function isOver(state: GoFishGameState): boolean {
   return state.deck.length === 0 || totalBooks(state.players) === 13;
 }
@@ -221,16 +233,18 @@ export function apply(state: GoFishGameState, action: GoFishAction): GoFishGameS
 
   players = propagateBotKnowledge(players, event);
 
+  // House rule: an empty hand draws no new one; its turn passes to the next player with cards.
+  const nextIndex = nextAsker(players, nextPlayerIndex);
   const next: GoFishGameState = {
     ...state,
     players,
     deck,
-    currentPlayerIndex: nextPlayerIndex,
+    currentPlayerIndex: nextIndex ?? nextPlayerIndex,
     lastEvent: event,
     winners: [],
   };
 
-  if (isOver(next)) {
+  if (nextIndex === null || isOver(next)) {
     return { ...next, status: "over", winners: computeWinners(next.players) };
   }
 
@@ -246,8 +260,10 @@ function eventSeenBy(event: GoFishEvent | null, forPlayerId: string): GoFishEven
 }
 
 /**
- * Who asks next. House rule: a player whose hand is empty has nothing to ask with and does not
- * draw a new hand; the table skips their turn, and the game ends when the draw pile runs out.
+ * Who asks next; never a player whose hand is empty. House rule: an empty hand has nothing to
+ * ask with and draws no new one, so `apply` passes the turn to the next player who holds cards.
+ * The game ends when the draw pile runs out, when all 13 books are down, or when every hand is
+ * empty (whatever the draw pile still holds).
  */
 export function activePlayer(state: GoFishGameState): string | null {
   return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;

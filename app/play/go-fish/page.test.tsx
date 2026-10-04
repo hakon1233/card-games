@@ -79,7 +79,7 @@ describe("Go Fish page", () => {
           act(() => fireEvent.click(askBtn));
         }
       } else {
-        // Bot turn or empty-hand skip — advance the scheduled timeout.
+        // Bot turn — advance the scheduled timeout.
         act(() => {
           vi.advanceTimersByTime(1000);
         });

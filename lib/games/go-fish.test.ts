@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   deal,
   apply,
+  activePlayer,
   extractBooks,
   playerView,
   type GoFishGameState,
@@ -197,6 +198,47 @@ describe("apply — go_fish", () => {
 
     expect(next.lastEvent?.drew).toBeNull();
     expect(next.currentPlayerIndex).toBe(1);
+  });
+});
+
+// ── House rule: an empty hand sits out ────────────────────────────────────────
+
+describe("empty hands", () => {
+  it("passes the turn over a player whose hand is empty", () => {
+    const p1 = makePlayer("p1", [card("A")]);
+    const p2 = makePlayer("p2", []);
+    const p3 = makePlayer("p3", [card("K")]);
+    const state = stateWith([p1, p2, p3], [card("2"), card("3")]);
+
+    const next = apply(state, { type: "ASK", playerId: "p1", targetPlayerId: "p3", rank: "A" });
+
+    expect(next.lastEvent?.outcome).toBe("go_fish");
+    expect(next.status).toBe("in_progress");
+    expect(activePlayer(next)).toBe("p3");
+  });
+
+  it("passes the turn on when the asker's book empties their hand, without drawing them a new one", () => {
+    const p1 = makePlayer("p1", [card("A", "hearts"), card("A", "diamonds"), card("A", "clubs")]);
+    const p2 = makePlayer("p2", [card("A", "spades"), card("K")]);
+    const state = stateWith([p1, p2], [card("2"), card("3")]);
+
+    const next = apply(state, { type: "ASK", playerId: "p1", targetPlayerId: "p2", rank: "A" });
+
+    expect(next.players[0].hand).toEqual([]);
+    expect(next.deck).toHaveLength(2);
+    expect(activePlayer(next)).toBe("p2");
+  });
+
+  it("ends the game when every hand is empty, even with cards left in the draw pile", () => {
+    const p1 = makePlayer("p1", [card("A", "hearts"), card("A", "diamonds"), card("A", "clubs")], ["K"]);
+    const p2 = makePlayer("p2", [card("A", "spades")]);
+    const state = stateWith([p1, p2], [card("2"), card("3")]);
+
+    const next = apply(state, { type: "ASK", playerId: "p1", targetPlayerId: "p2", rank: "A" });
+
+    expect(next.status).toBe("over");
+    expect(next.winners).toEqual(["p1"]);
+    expect(activePlayer(next)).toBeNull();
   });
 });
 
@@ -428,16 +470,6 @@ describe("full game simulation", () => {
 
     while (state.status === "in_progress" && turns < MAX_TURNS) {
       const current = state.players[state.currentPlayerIndex];
-      if (current.hand.length === 0) {
-        // No valid move — advance manually (edge: empty hand, deck empty)
-        state = {
-          ...state,
-          currentPlayerIndex:
-            (state.currentPlayerIndex + 1) % state.players.length,
-        };
-        turns++;
-        continue;
-      }
       const move = bot.getNextMove(state, current.id);
       state = apply(state, move);
       turns++;
