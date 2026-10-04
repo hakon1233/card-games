@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Four browser card games against bots (Yaniv, Blackjack, Crazy Eights, Go Fish) plus multiplayer
 rooms that stop at the lobby. Domain words: `CONTEXT.md`. Module map and data flow:
-`ARCHITECTURE.md`.
+`ARCHITECTURE.md`. Decisions: `docs/adr/`.
 
 ## Commands
 
