@@ -1,6 +1,12 @@
 import type { createClient } from "./server";
 import { isRoomGameType, type RoomGameType } from "@/lib/room-token";
 
+/** How each room game is named on screen. */
+export const ROOM_GAME_NAMES: Record<RoomGameType, string> = {
+  crazy_eights: "Crazy Eights",
+  go_fish: "Go Fish",
+};
+
 export type Room = {
   code: string;
   gameType: RoomGameType;

@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import PartySocket from "partysocket";
 import { BrandLogo } from "@/components/brand-logo";
 import type { LobbyState, ServerMessage } from "@/partykit/game-room";
-
-const GAME_LABELS: Record<string, string> = {
-  crazy_eights: "Crazy Eights",
-  go_fish: "Go Fish",
-};
+import { ROOM_GAME_NAMES } from "@/lib/supabase/rooms";
 
 interface Props {
   code: string;
@@ -72,7 +68,7 @@ export function LobbyClient({ code, userId, token, hostId, partyHost }: Props) {
   const isHost = userId === hostId;
   const connectedCount = lobby?.players.filter((p) => p.connected).length ?? 0;
   const canStart = isHost && connectedCount >= 2;
-  const gameLabel = lobby ? GAME_LABELS[lobby.gameType] ?? lobby.gameType : "";
+  const gameLabel = lobby ? ROOM_GAME_NAMES[lobby.gameType] : "";
 
   return (
     <div className="w-full max-w-md">

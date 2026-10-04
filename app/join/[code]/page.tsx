@@ -1,13 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { findRoom } from "@/lib/supabase/rooms";
-import type { RoomGameType } from "@/lib/room-token";
-
-const GAME_LABELS: Record<RoomGameType, string> = {
-  crazy_eights: "Crazy Eights",
-  go_fish: "Go Fish",
-};
+import { findRoom, ROOM_GAME_NAMES } from "@/lib/supabase/rooms";
 
 export default async function JoinPage({
   params,
@@ -21,7 +15,7 @@ export default async function JoinPage({
 
   if (!room) notFound();
 
-  const gameLabel = GAME_LABELS[room.gameType];
+  const gameLabel = ROOM_GAME_NAMES[room.gameType];
   const nextPath = `/rooms/${room.code}`;
 
   return (
