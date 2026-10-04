@@ -180,6 +180,9 @@ export default function GoFishPage() {
   }
 
   const opponents = state.players.filter((p) => p.id !== HUMAN_ID);
+  // Asking an empty hand is always Go Fish, so steer you away from it — unless
+  // every opponent is out of cards and it is the only ask left.
+  const someOpponentHoldsCards = opponents.some((p) => p.hand.length > 0);
   const statusLine = describeEvent(state, state.lastEvent);
   const winnerName = state.winners.includes(HUMAN_ID)
     ? "You"
@@ -356,7 +359,11 @@ export default function GoFishPage() {
               <Button
                 key={opp.id}
                 onClick={() => ask(opp.id)}
-                disabled={!isHumanTurn || !selectedRank || opp.hand.length === 0}
+                disabled={
+                  !isHumanTurn ||
+                  !selectedRank ||
+                  (opp.hand.length === 0 && someOpponentHoldsCards)
+                }
                 variant={selectedRank ? "default" : "outline"}
                 className="h-11 flex-1"
               >

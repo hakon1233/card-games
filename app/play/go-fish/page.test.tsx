@@ -41,6 +41,52 @@ function seedRandom(seed: number) {
 }
 
 /**
+ * Deal a seeded game and drive it: when it's your turn pick the first rank you
+ * hold and ask the first opponent you may ask; otherwise let the bot timers
+ * fire. Returns the end screen's rematch button, or null if the game never got
+ * there. Bounded well above a full game length.
+ */
+function playToEnd(seed: number): HTMLElement | null {
+  seedRandom(seed);
+  vi.useFakeTimers();
+
+  render(<GoFishPage />);
+
+  // Start screen → deal.
+  act(() => {
+    fireEvent.click(screen.getByRole("button", { name: /deal cards/i }));
+  });
+
+  // The human starts (currentPlayerIndex 0), so a rank button must be live.
+  const liveRankButton = () =>
+    screen
+      .queryAllByRole("button", { name: /^Ask for .+ — you hold/i })
+      .find((b) => !(b as HTMLButtonElement).disabled);
+  expect(liveRankButton()).toBeTruthy();
+
+  let rematch: HTMLElement | null = null;
+  for (let i = 0; i < 600 && !rematch; i++) {
+    const rank = liveRankButton();
+    if (rank) {
+      act(() => fireEvent.click(rank));
+      const askBtn = screen
+        .queryAllByRole("button", { name: /^Ask (Marlin|Pearl)/i })
+        .find((b) => !(b as HTMLButtonElement).disabled);
+      if (askBtn) {
+        act(() => fireEvent.click(askBtn));
+      }
+    } else {
+      // Bot turn — advance the scheduled timeout.
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+    }
+    rematch = screen.queryByRole("button", { name: /rematch/i });
+  }
+  return rematch;
+}
+
+/**
  * End-to-end UI smoke: the Go Fish route must deal, accept human
  * asks against the bots, let the bots play their turns, and reach a win
  * screen — proving the engine is actually wired into the page (not the old
@@ -48,47 +94,16 @@ function seedRandom(seed: number) {
  */
 describe("Go Fish page", () => {
   it("plays a full game from deal to a win screen", () => {
-    seedRandom(20260920);
-    vi.useFakeTimers();
-
-    render(<GoFishPage />);
-
-    // Start screen → deal.
-    act(() => {
-      fireEvent.click(screen.getByRole("button", { name: /deal cards/i }));
-    });
-
-    // The human starts (currentPlayerIndex 0), so a rank button must be live.
-    const liveRankButton = () =>
-      screen
-        .queryAllByRole("button", { name: /^Ask for .+ — you hold/i })
-        .find((b) => !(b as HTMLButtonElement).disabled);
-    expect(liveRankButton()).toBeTruthy();
-
-    // Drive the game: when it's our turn pick a rank and ask an opponent;
-    // otherwise let the bot timers fire. Bounded well above a full game length.
-    let rematch: HTMLElement | null = null;
-    for (let i = 0; i < 600 && !rematch; i++) {
-      const rank = liveRankButton();
-      if (rank) {
-        act(() => fireEvent.click(rank));
-        const askBtn = screen
-          .queryAllByRole("button", { name: /^Ask (Marlin|Pearl)/i })
-          .find((b) => !(b as HTMLButtonElement).disabled);
-        if (askBtn) {
-          act(() => fireEvent.click(askBtn));
-        }
-      } else {
-        // Bot turn — advance the scheduled timeout.
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
-      }
-      rematch = screen.queryByRole("button", { name: /rematch/i });
-    }
+    const rematch = playToEnd(20260920);
 
     // Game reached its end screen with a declared winner.
     expect(rematch).toBeTruthy();
     expect(screen.getAllByText(/you win!|you tied!|wins/i).length).toBeGreaterThan(0);
+  });
+
+  it("lets you ask an empty-handed opponent when no opponent holds cards", () => {
+    // This seed deals a game in which Marlin and Pearl both run out of cards
+    // while you still hold some and the pond is not dry.
+    expect(playToEnd(4)).toBeTruthy();
   });
 });
