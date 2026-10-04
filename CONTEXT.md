@@ -127,7 +127,5 @@ The server-signed proof of who a player is, which a room requires before it lets
 
 - **"Bust"** means over 21 in Blackjack, but the Yaniv scoreboard code also says "busted" for
   eliminated. Canonical: bust = Blackjack only; eliminated = Yaniv.
-- **"Lobby"** is a room's waiting phase and also the name of an unlinked `/lobby` page that starts a
-  server-hosted Blackjack game.
 - **"Session"** is used for the running win/loss tally on a game page and for the Supabase sign-in
   session.
