@@ -600,8 +600,11 @@ export function apply(
   return state;
 }
 
+/** Nobody is active while a Quick Draw window is open: it ends by a steal or by the clock, not by a turn. */
 export function activePlayer(state: YanivGameState): string | null {
-  return state.status === "in_progress" ? state.players[state.currentPlayerIndex].id : null;
+  return state.status === "in_progress" && !state.quickDrawWindow
+    ? state.players[state.currentPlayerIndex].id
+    : null;
 }
 
 export function playerView(state: YanivGameState, forPlayerId: string): YanivPlayerView {
