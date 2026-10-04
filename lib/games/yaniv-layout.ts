@@ -1,6 +1,6 @@
 export type YanivTableFormFactor = "portrait" | "standard" | "widescreen";
 
-export interface YanivRingSeatLayout {
+interface YanivRingSeatLayout {
   id: string;
   xPct: number;
   yPct: number;

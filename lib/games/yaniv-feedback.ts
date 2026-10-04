@@ -1,7 +1,7 @@
 export type YanivFeedbackTone = "safe" | "score" | "penalty";
-export type YanivFeedbackIntensity = "low" | "medium" | "strong";
+type YanivFeedbackIntensity = "low" | "medium" | "strong";
 
-export interface YanivScoreCascadePlayer {
+interface YanivScoreCascadePlayer {
   id: string;
   name: string;
   scoreBefore: number;

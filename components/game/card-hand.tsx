@@ -30,7 +30,7 @@ const LIFT_HEADROOM = 14;
 // Each profile scales the per-card rotation, the lift curve, and the inter-card
 // gap that decides how far cards spread when there is room. `standard` is
 // identity so the long-established baseline layout is byte-for-byte untouched.
-export type HandFormFactor = "portrait" | "standard" | "widescreen";
+type HandFormFactor = "portrait" | "standard" | "widescreen";
 
 const ARC_PROFILES: Record<HandFormFactor, { rotation: number; lift: number; gap: number }> = {
   portrait: { rotation: 0.7, lift: 0.7, gap: HAND_GAP },

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { House, RotateCcw, Trophy } from "lucide-react";
 
-export interface SessionRow {
+interface SessionRow {
   label: string;
   value: string | number;
 }

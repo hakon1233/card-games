@@ -2,7 +2,7 @@ import { buildDeck, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
 import type { Card, Rank } from "./types";
 
-export type BlackjackStatus =
+type BlackjackStatus =
   | "waiting"
   | "in_progress"
   | "player_bust"
@@ -11,7 +11,7 @@ export type BlackjackStatus =
   | "dealer_win"
   | "push";
 
-export interface BlackjackHand {
+interface BlackjackHand {
   playerId: string;
   isBot: boolean;
   cards: Card[];

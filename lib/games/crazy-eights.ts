@@ -2,9 +2,9 @@ import type { Card, Suit } from "./types";
 import { buildDeck, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
 
-export type CrazyEightsStatus = "waiting" | "in_progress" | "round_over";
+type CrazyEightsStatus = "waiting" | "in_progress" | "round_over";
 
-export interface CrazyEightsPlayer {
+interface CrazyEightsPlayer {
   id: string;
   isBot: boolean;
   hand: Card[];

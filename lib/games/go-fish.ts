@@ -12,7 +12,7 @@ export interface GoFishPlayer {
   knownOpponentCards: Record<string, Rank[]>;
 }
 
-export type GoFishStatus = "waiting" | "in_progress" | "over";
+type GoFishStatus = "waiting" | "in_progress" | "over";
 
 export interface GoFishAskAction {
   type: "ASK";
@@ -23,7 +23,7 @@ export interface GoFishAskAction {
 
 export type GoFishAction = GoFishAskAction;
 
-export type AskOutcome =
+type AskOutcome =
   | "gave_cards"    // target had the rank; all matching cards transferred; asker goes again
   | "go_fish"       // target didn't have it; drew from deck (no rank match); turn passes
   | "go_fish_lucky"; // target didn't have it; drew matching rank; asker goes again

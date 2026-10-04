@@ -2,7 +2,7 @@ import type { Card, Rank } from "./types";
 import { buildDeck, shuffle } from "./deck-utils";
 import type { Rng } from "./engine";
 
-export type YanivStatus = "in_progress" | "round_over" | "game_over";
+type YanivStatus = "in_progress" | "round_over" | "game_over";
 
 export interface YanivSettings {
   yanivThreshold: number;
@@ -25,7 +25,7 @@ export interface YanivPlayer {
   eliminated: boolean;
 }
 
-export interface YanivRoundResult {
+interface YanivRoundResult {
   callerId: string;
   assaf: boolean;
   handTotals: Record<string, number>;
@@ -144,7 +144,7 @@ export function isValidDiscard(cards: Card[]): boolean {
   return true;
 }
 
-export type SelectionKind = "empty" | "single" | "pair" | "set" | "run" | "invalid";
+type SelectionKind = "empty" | "single" | "pair" | "set" | "run" | "invalid";
 
 export interface SelectionDescription {
   /** Whether the current selection is a legal discard. */

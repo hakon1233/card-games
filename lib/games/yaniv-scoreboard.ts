@@ -1,6 +1,6 @@
 import type { YanivGameState } from "./yaniv";
 
-export type YanivScoreThresholdState = "safe" | "warning" | "busted";
+type YanivScoreThresholdState = "safe" | "warning" | "busted";
 
 export interface YanivScoreboardRow {
   id: string;
