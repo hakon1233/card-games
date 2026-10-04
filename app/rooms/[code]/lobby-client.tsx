@@ -3,26 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import PartySocket from "partysocket";
 import { BrandLogo } from "@/components/brand-logo";
+import type { LobbyState, ServerMessage } from "@/partykit/game-room";
 
 const GAME_LABELS: Record<string, string> = {
   crazy_eights: "Crazy Eights",
   go_fish: "Go Fish",
 };
-
-type LobbyPlayer = { userId: string; displayName: string; connected: boolean };
-
-type LobbyState = {
-  phase: "lobby";
-  hostId: string;
-  gameType: "crazy_eights" | "go_fish";
-  players: LobbyPlayer[];
-};
-
-type ServerMessage =
-  | { type: "LOBBY_STATE"; state: LobbyState }
-  | { type: "CE_STATE" }
-  | { type: "GF_STATE" }
-  | { type: "ERROR"; message: string };
 
 interface Props {
   code: string;

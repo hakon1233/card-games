@@ -7,17 +7,13 @@ import type { GoFishGameState, GoFishAskAction, GoFishPlayerView } from "@/lib/g
 import { verifyRoomToken, type RoomGameType } from "@/lib/room-token";
 import { RANKS, SUITS } from "@/lib/games/deck-utils";
 
-// ─── Lobby player entry ───────────────────────────────────────────────────────
-
 type LobbyPlayer = {
   userId: string;
   displayName: string;
   connected: boolean;
 };
 
-// ─── Persisted room state ─────────────────────────────────────────────────────
-
-type LobbyState = {
+export type LobbyState = {
   phase: "lobby";
   hostId: string;
   gameType: RoomGameType;
@@ -40,16 +36,12 @@ type GoFishRoomState = {
 
 type RoomState = LobbyState | CrazyEightsRoomState | GoFishRoomState;
 
-// ─── Client → Server messages ─────────────────────────────────────────────────
-
 /** `token` is a signed room token (lib/room-token.ts) minted by the Next.js server. */
 type JoinMsg = { type: "JOIN"; token: unknown };
 type StartMsg = { type: "START" };
 type CeActionMsg = { type: "CE_ACTION"; payload: CrazyEightsAction };
 type GfActionMsg = { type: "GF_ACTION"; payload: GoFishAskAction };
 type ClientMessage = JoinMsg | StartMsg | CeActionMsg | GfActionMsg;
-
-// ─── Server → Client messages ─────────────────────────────────────────────────
 
 type LobbyStateMsg = { type: "LOBBY_STATE"; state: LobbyState };
 type CeStateMsg = {
@@ -59,9 +51,8 @@ type CeStateMsg = {
 };
 type GfStateMsg = { type: "GF_STATE"; state: GoFishPlayerView };
 type ErrorMsg = { type: "ERROR"; message: string };
-type ServerMessage = LobbyStateMsg | CeStateMsg | GfStateMsg | ErrorMsg;
-
-// ─── Per-connection state ─────────────────────────────────────────────────────
+/** Everything the room sends a joined client. */
+export type ServerMessage = LobbyStateMsg | CeStateMsg | GfStateMsg | ErrorMsg;
 
 type ConnState = { userId: string };
 
@@ -111,8 +102,6 @@ export default class GameRoom implements Party.Server {
   async onRequest(): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
-
-  // ─── Handlers ───────────────────────────────────────────────────────────────
 
   private async handleJoin(msg: JoinMsg, sender: Party.Connection<ConnState>) {
     const secret = this.room.env.ROOM_TOKEN_SECRET;
@@ -219,8 +208,6 @@ export default class GameRoom implements Party.Server {
     await this.persist();
     this.broadcastAll();
   }
-
-  // ─── Broadcast helpers ───────────────────────────────────────────────────────
 
   /** Only sockets that joined with a valid room token ever receive room state. */
   private broadcastAll() {

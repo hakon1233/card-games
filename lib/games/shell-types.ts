@@ -6,8 +6,8 @@ export interface ShellCard {
   faceUp: boolean;
 }
 
-export function toShellCard(card: Card, faceUp = true): ShellCard {
-  return { suit: card.suit, rank: card.rank, faceUp };
+export function toShellCard(card: Card): ShellCard {
+  return { suit: card.suit, rank: card.rank, faceUp: true };
 }
 
 export interface SeatScore {
