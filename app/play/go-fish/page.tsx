@@ -17,12 +17,11 @@ import {
 } from "@/lib/games/go-fish";
 import { GoFishBot } from "@/lib/bots/go-fish-bot";
 import { botTurn } from "@/lib/games/bot-turns";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import type { Rank } from "@/lib/games/types";
 
-const HUMAN_ID = "you";
-
 const PLAYER_DEFS = [
-  { id: HUMAN_ID, name: "You", isBot: false },
+  { id: HUMAN_PLAYER_ID, name: "You", isBot: false },
   { id: "bot-marlin", name: "Marlin", isBot: true },
   { id: "bot-pearl", name: "Pearl", isBot: true },
 ];
@@ -31,7 +30,7 @@ const PLAYER_DEFS = [
 const BOT_TURN_DELAY_MS = 950;
 
 const bot = new GoFishBot();
-const botFor = (playerId: string) => (playerId === HUMAN_ID ? undefined : bot);
+const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
 
 interface RankGroup {
   rank: Rank;
@@ -58,8 +57,8 @@ function playerName(state: GoFishGameState, id: string): string {
 /** Human-readable summary of the most recent ask, from the human's vantage. */
 function describeEvent(state: GoFishGameState, event: GoFishEvent | null): string {
   if (!event) return "";
-  const askerIsYou = event.askingPlayerId === HUMAN_ID;
-  const targetIsYou = event.targetPlayerId === HUMAN_ID;
+  const askerIsYou = event.askingPlayerId === HUMAN_PLAYER_ID;
+  const targetIsYou = event.targetPlayerId === HUMAN_PLAYER_ID;
   const asker = askerIsYou ? "You" : playerName(state, event.askingPlayerId);
   const target = targetIsYou ? "you" : playerName(state, event.targetPlayerId);
   const rank = event.rank;
@@ -91,7 +90,7 @@ function buildStandings(state: GoFishGameState): StandingRow[] {
     .sort((a, b) => b.books - a.books)
     .map(({ p, books }, i) => ({
       rank: i + 1,
-      name: p.id === HUMAN_ID ? "You" : p.name,
+      name: p.id === HUMAN_PLAYER_ID ? "You" : p.name,
       score: books,
       isWinner: state.winners.includes(p.id),
     }));
@@ -110,9 +109,9 @@ export default function GoFishPage() {
     setState(deal(`go-fish-${Date.now()}`, PLAYER_DEFS));
   }, []);
 
-  const human = state?.players.find((p) => p.id === HUMAN_ID);
+  const human = state?.players.find((p) => p.id === HUMAN_PLAYER_ID);
   const current = state ? state.players[state.currentPlayerIndex] : undefined;
-  const isHumanTurn = state?.status === "in_progress" && current?.id === HUMAN_ID;
+  const isHumanTurn = state?.status === "in_progress" && current?.id === HUMAN_PLAYER_ID;
   const isOver = state?.status === "over";
   const rankGroups = useMemo(() => groupHandByRank(human), [human]);
 
@@ -133,7 +132,7 @@ export default function GoFishPage() {
     if (!state || state.status !== "over") return;
     if (recordedRef.current === state.gameId) return;
     recordedRef.current = state.gameId;
-    const youWon = state.winners.includes(HUMAN_ID);
+    const youWon = state.winners.includes(HUMAN_PLAYER_ID);
     setSession((s) => ({
       wins: s.wins + (youWon ? 1 : 0),
       losses: s.losses + (youWon ? 0 : 1),
@@ -145,7 +144,7 @@ export default function GoFishPage() {
       if (!state || !selectedRank || !isHumanTurn) return;
       const next = apply(state, {
         type: "ASK",
-        playerId: HUMAN_ID,
+        playerId: HUMAN_PLAYER_ID,
         targetPlayerId: targetId,
         rank: selectedRank,
       });
@@ -179,15 +178,15 @@ export default function GoFishPage() {
     );
   }
 
-  const opponents = state.players.filter((p) => p.id !== HUMAN_ID);
+  const opponents = state.players.filter((p) => p.id !== HUMAN_PLAYER_ID);
   // Asking an empty hand is always Go Fish, so steer you away from it — unless
   // every opponent is out of cards and it is the only ask left.
   const someOpponentHoldsCards = opponents.some((p) => p.hand.length > 0);
   const statusLine = describeEvent(state, state.lastEvent);
-  const winnerName = state.winners.includes(HUMAN_ID)
+  const winnerName = state.winners.includes(HUMAN_PLAYER_ID)
     ? "You"
     : playerName(state, state.winners[0] ?? "");
-  const headline = state.winners.includes(HUMAN_ID)
+  const headline = state.winners.includes(HUMAN_PLAYER_ID)
     ? state.winners.length > 1
       ? "You tied!"
       : "You win!"

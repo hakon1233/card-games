@@ -1,3 +1,6 @@
+/** The seat id of the human at a single-player table, where everyone else is a bot. */
+export const HUMAN_PLAYER_ID = "player-1";
+
 /** A source of randomness in [0, 1), like Math.random. Tests pass a seeded one. */
 export type Rng = () => number;
 

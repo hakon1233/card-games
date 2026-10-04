@@ -15,8 +15,8 @@ import {
   type BlackjackState,
 } from "@/lib/games/blackjack";
 import { blackjackToShell, type BlackjackSession } from "@/lib/games/blackjack-to-shell";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 
-const PLAYER_ID = "player-1";
 const PLAYER_NAME = "You";
 
 function blackjackHeadline(state: BlackjackState): { headline: string; subline?: string } {
@@ -76,21 +76,21 @@ export default function BlackjackPage() {
 
   // deal settles naturals at the deal, so a game can be over at once.
   const startGame = useCallback(() => {
-    const next = deal(`game-${Date.now()}`, PLAYER_ID);
+    const next = deal(`game-${Date.now()}`, HUMAN_PLAYER_ID);
     setGameState(next);
     if (next.turn === "over") recordResult(next.result);
   }, [recordResult]);
 
   const hit = useCallback(() => {
     if (!gameState) return;
-    const next = apply(gameState, { type: "HIT", playerId: PLAYER_ID });
+    const next = apply(gameState, { type: "HIT", playerId: HUMAN_PLAYER_ID });
     setGameState(next);
     if (next.turn === "over") recordResult(next.result);
   }, [gameState, recordResult]);
 
   const stand = useCallback(() => {
     if (!gameState) return;
-    const next = apply(gameState, { type: "STAND", playerId: PLAYER_ID });
+    const next = apply(gameState, { type: "STAND", playerId: HUMAN_PLAYER_ID });
     setGameState(next);
     recordResult(next.result);
   }, [gameState, recordResult]);

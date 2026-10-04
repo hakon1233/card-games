@@ -25,17 +25,17 @@ import {
 } from "@/lib/games/crazy-eights";
 import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
 import { botTurn } from "@/lib/games/bot-turns";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import type { Suit } from "@/lib/games/types";
 import { SUITS } from "@/lib/games/deck-utils";
 import { toShellCard } from "@/lib/games/shell-types";
 
-const PLAYER_ID = "player-1";
 const PLAYER_NAME = "You";
 // Base pause between bot moves so plays are watchable; scaled by the
 // animation-speed preference (reduced collapses it to near-instant).
 const BOT_TURN_MS = 850;
 const bot = new CrazyEightsBot();
-const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
+const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
 
 const SUIT_LABEL: Record<Suit, string> = {
   hearts: "Hearts",
@@ -45,7 +45,7 @@ const SUIT_LABEL: Record<Suit, string> = {
 };
 
 function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
-  const defs = [{ id: PLAYER_ID, isBot: false }];
+  const defs = [{ id: HUMAN_PLAYER_ID, isBot: false }];
   for (let i = 1; i <= numBots; i++) {
     defs.push({ id: `bot-${i}`, isBot: true });
   }
@@ -84,7 +84,7 @@ export default function CrazyEightsPage() {
     setGameState(next);
     if (next.status === "round_over" && next.winnerId && !resultRecordedRef.current) {
       resultRecordedRef.current = true;
-      if (next.winnerId === PLAYER_ID) setWins((w) => w + 1);
+      if (next.winnerId === HUMAN_PLAYER_ID) setWins((w) => w + 1);
       else setLosses((l) => l + 1);
     }
   }, []);
@@ -118,8 +118,8 @@ export default function CrazyEightsPage() {
   const humanPlay = useCallback((index: number, declaredSuit?: Suit) => {
     const s = gameStateRef.current;
     if (!s) return;
-    if (s.players[s.currentPlayerIndex]?.id !== PLAYER_ID) return;
-    const human = s.players.find((p) => p.id === PLAYER_ID);
+    if (s.players[s.currentPlayerIndex]?.id !== HUMAN_PLAYER_ID) return;
+    const human = s.players.find((p) => p.id === HUMAN_PLAYER_ID);
     const card = human?.hand[index];
     if (!card || !isPlayable(card, s)) return;
     if (card.rank === "8" && !declaredSuit) {
@@ -127,14 +127,14 @@ export default function CrazyEightsPage() {
       return;
     }
     setPendingEight(null);
-    commitState(apply(s, { type: "PLAY_CARD", playerId: PLAYER_ID, cardIndex: index, declaredSuit }));
+    commitState(apply(s, { type: "PLAY_CARD", playerId: HUMAN_PLAYER_ID, cardIndex: index, declaredSuit }));
   }, [commitState]);
 
   const humanDraw = useCallback(() => {
     const s = gameStateRef.current;
     if (!s) return;
-    if (s.players[s.currentPlayerIndex]?.id !== PLAYER_ID) return;
-    commitState(apply(s, { type: "DRAW_CARD", playerId: PLAYER_ID }));
+    if (s.players[s.currentPlayerIndex]?.id !== HUMAN_PLAYER_ID) return;
+    commitState(apply(s, { type: "DRAW_CARD", playerId: HUMAN_PLAYER_ID }));
   }, [commitState]);
 
   // ── Settings / pre-game screen ────────────────────────────────────────────
@@ -196,10 +196,10 @@ export default function CrazyEightsPage() {
   }
 
   // ── In-game derived view ──────────────────────────────────────────────────
-  const human = gameState.players.find((p) => p.id === PLAYER_ID)!;
-  const opponents = gameState.players.filter((p) => p.id !== PLAYER_ID);
+  const human = gameState.players.find((p) => p.id === HUMAN_PLAYER_ID)!;
+  const opponents = gameState.players.filter((p) => p.id !== HUMAN_PLAYER_ID);
   const activeSeat = gameState.players[gameState.currentPlayerIndex];
-  const isMyTurn = gameState.status === "in_progress" && activeSeat?.id === PLAYER_ID;
+  const isMyTurn = gameState.status === "in_progress" && activeSeat?.id === HUMAN_PLAYER_ID;
   const isBotTurn = gameState.status === "in_progress" && !!activeSeat?.isBot;
   const isRoundOver = gameState.status === "round_over";
 
@@ -216,7 +216,7 @@ export default function CrazyEightsPage() {
   });
 
   const winnerName =
-    gameState.winnerId === PLAYER_ID
+    gameState.winnerId === HUMAN_PLAYER_ID
       ? PLAYER_NAME
       : gameState.winnerId
         ? botName(gameState.winnerId)
@@ -229,7 +229,7 @@ export default function CrazyEightsPage() {
     : isBotTurn
       ? `${botName(activeSeat?.id ?? "")} is thinking…`
       : isRoundOver
-        ? gameState.winnerId === PLAYER_ID
+        ? gameState.winnerId === HUMAN_PLAYER_ID
           ? "You win the round!"
           : `${winnerName ?? "A bot"} wins the round.`
         : "";
@@ -355,9 +355,9 @@ export default function CrazyEightsPage() {
       {/* Round over */}
       {isRoundOver && (
         <EndGameScreen
-          headline={gameState.winnerId === PLAYER_ID ? "You Win!" : "Round Over"}
+          headline={gameState.winnerId === HUMAN_PLAYER_ID ? "You Win!" : "Round Over"}
           subline={
-            gameState.winnerId === PLAYER_ID
+            gameState.winnerId === HUMAN_PLAYER_ID
               ? "You emptied your hand first."
               : `${winnerName ?? "A bot"} emptied their hand first.`
           }
@@ -367,7 +367,7 @@ export default function CrazyEightsPage() {
             { label: "Losses", value: losses },
           ]}
           finalScoreRows={gameState.players.map((p) => ({
-            label: p.id === PLAYER_ID ? PLAYER_NAME : botName(p.id),
+            label: p.id === HUMAN_PLAYER_ID ? PLAYER_NAME : botName(p.id),
             value: `${p.hand.length} card${p.hand.length === 1 ? "" : "s"} left`,
           }))}
           onPlayAgain={startGame}

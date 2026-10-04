@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import { apply, type YanivGameState } from "@/lib/games/yaniv";
 import {
   formatQuickDrawTime,
@@ -17,7 +18,7 @@ function headsUpState(): YanivGameState {
     status: "in_progress",
     players: [
       {
-        id: "player-1",
+        id: HUMAN_PLAYER_ID,
         name: "You",
         isBot: false,
         hand: [
@@ -61,11 +62,11 @@ function headsUpState(): YanivGameState {
 describe("getTurnClockKey", () => {
   it("changes when heads-up play returns to the same human index in the same round", () => {
     const firstHumanTurn = headsUpState();
-    const firstKey = getTurnClockKey(firstHumanTurn, "player-1");
+    const firstKey = getTurnClockKey(firstHumanTurn, HUMAN_PLAYER_ID);
 
     const afterHuman = apply(firstHumanTurn, {
       type: "DISCARD_AND_DRAW",
-      playerId: "player-1",
+      playerId: HUMAN_PLAYER_ID,
       discardIndices: [0],
       drawFromDiscard: false,
     });
@@ -78,7 +79,7 @@ describe("getTurnClockKey", () => {
 
     expect(backToHuman.currentPlayerIndex).toBe(firstHumanTurn.currentPlayerIndex);
     expect(backToHuman.round).toBe(firstHumanTurn.round);
-    expect(getTurnClockKey(backToHuman, "player-1")).not.toBe(firstKey);
+    expect(getTurnClockKey(backToHuman, HUMAN_PLAYER_ID)).not.toBe(firstKey);
   });
 });
 

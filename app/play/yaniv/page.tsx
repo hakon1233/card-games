@@ -6,12 +6,13 @@ import { useAnimationSpeed } from "@/components/game/animation-preferences-contr
 import { useCardDeck } from "@/components/game/card-deck-control";
 import { TableDisplaySettings } from "@/components/game/table-display-settings";
 import { EndGameScreen } from "@/components/game/end-game-screen";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import { describeSelection, getDiscardTopGroup, getFinalStandings } from "@/lib/games/yaniv";
 import { PlayerRing } from "./player-ring";
 import { RoundEndOverlay } from "./round-end";
 import { HandPanel } from "./hand-panel";
 import { useYanivSettings, YanivSettingsScreen } from "./settings";
-import { PLAYER_ID, QUICK_DRAW_MS, useYanivSession } from "./session";
+import { QUICK_DRAW_MS, useYanivSession } from "./session";
 import { formatQuickDrawTime, TurnClock } from "./turn-clock";
 
 export default function YanivPage() {
@@ -51,11 +52,11 @@ export default function YanivPage() {
   }
 
   // ── Game screen ──────────────────────────────────────────────────────────
-  const player = gameState.players.find((p) => p.id === PLAYER_ID)!;
+  const player = gameState.players.find((p) => p.id === HUMAN_PLAYER_ID)!;
   const isMyTurn =
     gameState.status === "in_progress" &&
     !gameState.quickDrawWindow &&
-    gameState.players[gameState.currentPlayerIndex]?.id === PLAYER_ID;
+    gameState.players[gameState.currentPlayerIndex]?.id === HUMAN_PLAYER_ID;
   const selectedCards = selected.map((i) => player.hand[i]).filter(Boolean);
   const selection = describeSelection(selectedCards);
   const canDiscard = isMyTurn && selection.valid;
@@ -115,7 +116,7 @@ export default function YanivPage() {
         >
           <PlayerRing
             players={gameState.players}
-            humanId={PLAYER_ID}
+            humanId={HUMAN_PLAYER_ID}
             currentPlayerIndex={gameState.currentPlayerIndex}
             turnClockActive={turnClockActive}
             idlePulses={idlePulses}
@@ -174,7 +175,7 @@ export default function YanivPage() {
       {isRoundOver && gameState.roundResult && roundOverlayReady && (
         <RoundEndOverlay
           state={gameState}
-          playerId={PLAYER_ID}
+          playerId={HUMAN_PLAYER_ID}
           onNextRound={session.nextRound}
           onChangeGame={() => router.push("/")}
         />
@@ -182,9 +183,9 @@ export default function YanivPage() {
 
       {isGameOver && (
         <EndGameScreen
-          headline={gameState.winnerId === PLAYER_ID ? "You Win!" : "Game Complete"}
+          headline={gameState.winnerId === HUMAN_PLAYER_ID ? "You Win!" : "Game Complete"}
           subline={
-            gameState.winnerId === PLAYER_ID
+            gameState.winnerId === HUMAN_PLAYER_ID
               ? "You outlasted the table."
               : `${winnerName ?? "The winner"} outlasted the table.`
           }

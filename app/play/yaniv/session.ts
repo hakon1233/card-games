@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnimationSpeed } from "@/lib/animation-preferences";
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import { playBotTurns } from "@/lib/games/bot-turns";
+import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
 import {
   deal,
   apply,
@@ -19,15 +20,14 @@ import {
 import { useYanivFeedback } from "./feedback";
 import { getTurnClockKey } from "./turn-clock";
 
-export const PLAYER_ID = "player-1";
 export const QUICK_DRAW_MS = 2000;
 const bot = new YanivBot();
-const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
+const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
 const yanivRules = { apply, activePlayer };
 
 function buildPlayerDefs(numBots: number) {
   const defs: { id: string; name: string; isBot: boolean }[] = [
-    { id: PLAYER_ID, name: "You", isBot: false },
+    { id: HUMAN_PLAYER_ID, name: "You", isBot: false },
   ];
   for (let i = 1; i <= numBots; i++) {
     defs.push({ id: `bot-${i}`, name: `Bot ${i}`, isBot: true });
@@ -71,7 +71,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
     if (s.status === "round_over" || s.status === "game_over") {
       const result = s.roundResult;
       if (result) {
-        const playerWon = result.callerId === PLAYER_ID && !result.assaf;
+        const playerWon = result.callerId === HUMAN_PLAYER_ID && !result.assaf;
         if (playerWon) setRoundsWon((n) => n + 1);
         else setRoundsLost((n) => n + 1);
       }
@@ -114,7 +114,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   useEffect(() => {
     if (!gameState?.quickDrawWindow) return;
     const win = gameState.quickDrawWindow;
-    if (win.discarderId !== PLAYER_ID) return;
+    if (win.discarderId !== HUMAN_PLAYER_ID) return;
     const stealingBot = gameState.players.find(
       (p) => p.isBot && bot.shouldQuickDraw(gameState, p.id),
     );
@@ -134,11 +134,11 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
   // ── Per-turn countdown clock ───────────────────────────────────────────────
   // Runs only while the human is the active player (bots resolve synchronously,
   // so they never "sit" on a turn). Resets whenever the active turn changes.
-  const turnKey = getTurnClockKey(gameState, PLAYER_ID);
+  const turnKey = getTurnClockKey(gameState, HUMAN_PLAYER_ID);
 
   const autoPlayTurnTimeout = useCallback(() => {
     const s = gameStateRef.current;
-    const action = s && timeoutMove(s, PLAYER_ID);
+    const action = s && timeoutMove(s, HUMAN_PLAYER_ID);
     if (!s || !action) return;
     dispatch(apply(s, action), action, s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +159,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
 
   function callYaniv() {
     if (!gameState) return;
-    const action = { type: "CALL_YANIV" as const, playerId: PLAYER_ID };
+    const action = { type: "CALL_YANIV" as const, playerId: HUMAN_PLAYER_ID };
     dispatch(apply(gameState, action), action, gameState);
   }
 
@@ -167,7 +167,7 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
     if (!gameState || selected.length === 0) return;
     const action = {
       type: "DISCARD_AND_DRAW" as const,
-      playerId: PLAYER_ID,
+      playerId: HUMAN_PLAYER_ID,
       discardIndices: selected,
       drawFromDiscard,
       drawDiscardIndex,
@@ -177,14 +177,14 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
 
   function stealFromDiscard() {
     if (!gameState?.quickDrawWindow) return;
-    const action = { type: "QUICK_DRAW_STEAL" as const, playerId: PLAYER_ID };
+    const action = { type: "QUICK_DRAW_STEAL" as const, playerId: HUMAN_PLAYER_ID };
     dispatch(apply(gameState, action), action, gameState);
   }
 
   function nextRound() {
     if (!gameState) return;
     feedback.resetRound();
-    dispatch(apply(gameState, { type: "NEXT_ROUND", playerId: PLAYER_ID }));
+    dispatch(apply(gameState, { type: "NEXT_ROUND", playerId: HUMAN_PLAYER_ID }));
   }
 
   function toggleCard(idx: number) {
