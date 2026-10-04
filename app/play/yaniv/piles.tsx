@@ -4,10 +4,10 @@
 
 import { useMemo } from "react";
 import { PlayingCard } from "@/components/game/card";
-import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
 import { toShellCard } from "@/lib/games/shell-types";
 import type { Card } from "@/lib/games/types";
 import { ContextTooltip } from "./context-tooltip";
+import { formatQuickDrawTime } from "./turn-clock";
 
 // ── QuickDrawPile ─────────────────────────────────────────────────────────
 

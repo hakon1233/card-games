@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { apply, type YanivGameState } from "./yaniv";
-import { getTurnClockKey } from "./turn-clock";
+import { apply, type YanivGameState } from "@/lib/games/yaniv";
+import {
+  formatQuickDrawTime,
+  getTurnClockKey,
+  getTurnTimerUrgency,
+  shouldPlayLowTimeCue,
+} from "./turn-clock";
 
 function card(suit: "hearts" | "diamonds" | "clubs" | "spades", rank: string) {
   return { suit, rank } as YanivGameState["players"][number]["hand"][number];
@@ -74,5 +79,32 @@ describe("getTurnClockKey", () => {
     expect(backToHuman.currentPlayerIndex).toBe(firstHumanTurn.currentPlayerIndex);
     expect(backToHuman.round).toBe(firstHumanTurn.round);
     expect(getTurnClockKey(backToHuman, "player-1")).not.toBe(firstKey);
+  });
+});
+
+describe("turn timer UI helpers", () => {
+  it("escalates urgency as the turn clock depletes", () => {
+    expect(getTurnTimerUrgency(0.8)).toBe("normal");
+    expect(getTurnTimerUrgency(0.4)).toBe("warning");
+    expect(getTurnTimerUrgency(0.2)).toBe("critical");
+  });
+
+  it("plays the low-time cue once when crossing the low-time threshold", () => {
+    expect(shouldPlayLowTimeCue({ previousMs: 6100, remainingMs: 5900, thresholdMs: 6000 })).toBe(true);
+    expect(shouldPlayLowTimeCue({ previousMs: 5900, remainingMs: 5800, thresholdMs: 6000 })).toBe(false);
+    expect(shouldPlayLowTimeCue({ previousMs: null, remainingMs: 5900, thresholdMs: 6000 })).toBe(false);
+  });
+});
+
+describe("formatQuickDrawTime", () => {
+  it("formats remaining quick-draw time in tenths of a second", () => {
+    expect(formatQuickDrawTime(2000)).toBe("2.0s");
+    expect(formatQuickDrawTime(1750)).toBe("1.8s");
+    expect(formatQuickDrawTime(550)).toBe("0.6s");
+  });
+
+  it("clamps expired quick-draw time to zero", () => {
+    expect(formatQuickDrawTime(0)).toBe("0.0s");
+    expect(formatQuickDrawTime(-250)).toBe("0.0s");
   });
 });

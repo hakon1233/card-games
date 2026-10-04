@@ -3,7 +3,7 @@
 // The turn clock: the countdown you have to act before a safe discard is played for you.
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getTurnTimerUrgency, shouldPlayLowTimeCue } from "@/lib/games/turn-timer-ui";
+import type { YanivGameState } from "@/lib/games/yaniv";
 
 // Soft per-turn clock (playtest default). Drives the co-located countdown ring
 // on the active player's avatar so "how long do they have" is answerable at a
@@ -11,6 +11,55 @@ import { getTurnTimerUrgency, shouldPlayLowTimeCue } from "@/lib/games/turn-time
 const TURN_SECONDS = 20;
 const TURN_MS = TURN_SECONDS * 1000;
 const LOW_TIME_CUE_MS = 6000;
+
+/** Changes whenever playerId gets a new turn to act on; null while it is not their turn. */
+export function getTurnClockKey(state: YanivGameState | null, playerId: string): string | null {
+  const activePlayer = state?.players[state.currentPlayerIndex];
+  if (
+    !state ||
+    state.status !== "in_progress" ||
+    state.quickDrawWindow ||
+    activePlayer?.id !== playerId
+  ) {
+    return null;
+  }
+
+  const handKey = activePlayer.hand.map((card) => `${card.suit}-${card.rank}`).join(",");
+  return [
+    state.round,
+    state.currentPlayerIndex,
+    activePlayer.id,
+    handKey,
+    state.deck.length,
+    state.discardPile.length,
+  ].join(":");
+}
+
+type TurnTimerUrgency = "normal" | "warning" | "critical";
+
+export function getTurnTimerUrgency(progress: number): TurnTimerUrgency {
+  const clamped = Math.max(0, Math.min(1, progress));
+  if (clamped <= 0.25) return "critical";
+  if (clamped <= 0.5) return "warning";
+  return "normal";
+}
+
+export function shouldPlayLowTimeCue({
+  previousMs,
+  remainingMs,
+  thresholdMs,
+}: {
+  previousMs: number | null;
+  remainingMs: number;
+  thresholdMs: number;
+}): boolean {
+  return previousMs !== null && previousMs > thresholdMs && remainingMs <= thresholdMs;
+}
+
+/** A Quick Draw window's time left, in tenths of a second. */
+export function formatQuickDrawTime(timeLeftMs: number): string {
+  return `${(Math.max(0, timeLeftMs) / 1000).toFixed(1)}s`;
+}
 
 // Per-turn countdown value broadcast (CAR-182). The active player's turn timer
 // ticks ~10×/second; the ticking `remaining` lives in <TurnCountdown> and is

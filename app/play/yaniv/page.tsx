@@ -35,10 +35,8 @@ import {
 import { YanivBot } from "@/lib/bots/yaniv-bot";
 import { playBotTurns } from "@/lib/games/bot-turns";
 import { buildYanivScoreCascade, type YanivFeedbackTone } from "@/lib/games/yaniv-feedback";
-import { formatQuickDrawTime } from "@/lib/games/quick-draw-ui";
 import { getYanivHandReadout } from "@/lib/games/yaniv-readout";
 import { getTurnPreviewName } from "@/lib/games/yaniv-turn-preview";
-import { getTurnClockKey } from "@/lib/games/turn-clock";
 import { toShellCard } from "@/lib/games/shell-types";
 import { ContextTooltip } from "./context-tooltip";
 import {
@@ -49,7 +47,7 @@ import {
 } from "./player-ring";
 import { RoundEndOverlay } from "./round-end";
 import { SelectionSummary, suitSymbol } from "./selection-summary";
-import { TurnCountdown } from "./turn-clock";
+import { formatQuickDrawTime, getTurnClockKey, TurnCountdown } from "./turn-clock";
 
 const PLAYER_ID = "player-1";
 const SETTINGS_KEY = "yaniv-settings";
