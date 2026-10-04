@@ -1,4 +1,4 @@
-import type { PublicGameState } from "./types";
+import type { BlackjackPublicState } from "./blackjack";
 import type { GameShellState, Seat, ShellCard } from "./shell-types";
 
 export interface BlackjackSession {
@@ -8,7 +8,7 @@ export interface BlackjackSession {
 }
 
 export function blackjackToShell(
-  state: PublicGameState | null,
+  state: BlackjackPublicState | null,
   playerName: string,
   session: BlackjackSession
 ): GameShellState {

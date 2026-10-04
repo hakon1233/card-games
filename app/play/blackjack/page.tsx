@@ -7,14 +7,19 @@ import { GameShell } from "@/components/game/shell";
 import { ScoreDisplay } from "@/components/game/score-display";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { Button } from "@/components/ui/button";
-import { startGame, applyAction, handValue, isBlackjack } from "@/lib/games/blackjack";
+import {
+  startGame,
+  applyAction,
+  handValue,
+  isBlackjack,
+  type BlackjackState,
+} from "@/lib/games/blackjack";
 import { blackjackToShell, type BlackjackSession } from "@/lib/games/blackjack-to-shell";
-import type { GameState } from "@/lib/games/types";
 
 const PLAYER_ID = "player-1";
 const PLAYER_NAME = "You";
 
-function blackjackHeadline(state: GameState): { headline: string; subline?: string } {
+function blackjackHeadline(state: BlackjackState): { headline: string; subline?: string } {
   switch (state.status) {
     case "player_bust":
       return { headline: "Dealer Wins", subline: "You busted" };
@@ -37,7 +42,7 @@ function blackjackHeadline(state: GameState): { headline: string; subline?: stri
 // Screen-reader cue that LEADS with the current turn/result so assistive tech
 // announces the outcome (not a stale visual state) after deal, hit, stand, bust,
 // dealer result, and rematch. Mirrors the Go Fish GAM-117 pattern (GAM-122).
-function blackjackLiveCue(state: GameState, playerValue: number | null): string {
+function blackjackLiveCue(state: BlackjackState, playerValue: number | null): string {
   switch (state.status) {
     case "player_bust":
       return "Bust — dealer wins. You went over 21.";
@@ -58,10 +63,10 @@ function blackjackLiveCue(state: GameState, playerValue: number | null): string 
 
 export default function BlackjackPage() {
   const router = useRouter();
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [gameState, setGameState] = useState<BlackjackState | null>(null);
   const [session, setSession] = useState<BlackjackSession>({ wins: 0, losses: 0, pushes: 0 });
 
-  const recordResult = useCallback((result: GameState["result"]) => {
+  const recordResult = useCallback((result: BlackjackState["result"]) => {
     setSession((s) => ({
       wins: s.wins + (result === "player_win" ? 1 : 0),
       losses: s.losses + (result === "dealer_win" ? 1 : 0),

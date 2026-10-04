@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { buildDeck, shuffle } from "@/lib/games/deck-utils";
 import {
-  buildDeck,
-  shuffle,
   cardValue,
   handValue,
   isBust,
@@ -10,9 +9,10 @@ import {
   applyPlayerHit,
   applyDealerTurn,
   applyAction,
+  type BlackjackState,
 } from "@/lib/games/blackjack";
 import { BlackjackBot } from "@/lib/bots/blackjack-bot";
-import type { Card, GameState } from "@/lib/games/types";
+import type { Card } from "@/lib/games/types";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ function stateWith(
   playerCards: Card[],
   dealerCards: Card[],
   deckExtra: Card[] = []
-): GameState {
+): BlackjackState {
   return {
     gameId: "test",
     status: "in_progress",
@@ -177,7 +177,7 @@ describe("applyPlayerHit", () => {
   });
 
   it("is a no-op when turn is not player", () => {
-    const state: GameState = { ...stateWith([card("5")], [card("K")]), turn: "over" };
+    const state: BlackjackState = { ...stateWith([card("5")], [card("K")]), turn: "over" };
     expect(applyPlayerHit(state)).toBe(state);
   });
 });
@@ -187,7 +187,7 @@ describe("applyPlayerHit", () => {
 describe("applyDealerTurn", () => {
   it("reveals hole card", () => {
     const dealerCards: Card[] = [card("K"), { ...card("7"), hidden: true }];
-    const state: GameState = {
+    const state: BlackjackState = {
       ...stateWith([card("K"), card("8")], dealerCards, [card("2"), card("3")]),
       turn: "dealer",
     };
@@ -199,7 +199,7 @@ describe("applyDealerTurn", () => {
     // Dealer has 12, deck has 3 then 5 → dealer draws once to 15, then 20
     const dealerCards: Card[] = [card("K"), { ...card("2"), hidden: true }];
     const deckCards: Card[] = [card("5"), card("3")]; // pop() from end: 3 first
-    const state: GameState = {
+    const state: BlackjackState = {
       ...stateWith([card("K"), card("8")], dealerCards, deckCards),
       turn: "dealer",
     };
@@ -211,7 +211,7 @@ describe("applyDealerTurn", () => {
     // Dealer: K(10) + 6(hidden) = 16 → must hit → draws 8 → total 24 (bust)
     const dealerCards: Card[] = [card("K"), { ...card("6"), hidden: true }];
     const deckCards: Card[] = [card("8")];
-    const state: GameState = {
+    const state: BlackjackState = {
       ...stateWith([card("K"), card("8")], dealerCards, deckCards),
       turn: "dealer",
     };
@@ -223,7 +223,7 @@ describe("applyDealerTurn", () => {
   it("higher dealer total gives dealer win", () => {
     // Player 18, dealer 20
     const dealerCards: Card[] = [card("K"), { ...card("K"), hidden: true }];
-    const state: GameState = {
+    const state: BlackjackState = {
       ...stateWith([card("K"), card("8")], dealerCards),
       turn: "dealer",
     };
@@ -233,7 +233,7 @@ describe("applyDealerTurn", () => {
 
   it("equal totals give push", () => {
     const dealerCards: Card[] = [card("K"), { ...card("8"), hidden: true }];
-    const state: GameState = {
+    const state: BlackjackState = {
       ...stateWith([card("K"), card("8")], dealerCards),
       turn: "dealer",
     };
@@ -258,7 +258,7 @@ describe("applyAction", () => {
   });
 
   it("is a no-op when game is over", () => {
-    const state: GameState = { ...stateWith([card("5")], [card("K")]), turn: "over" };
+    const state: BlackjackState = { ...stateWith([card("5")], [card("K")]), turn: "over" };
     expect(applyAction(state, { type: "HIT", playerId: "p1" })).toBe(state);
   });
 });

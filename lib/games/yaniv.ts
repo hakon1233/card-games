@@ -1,5 +1,5 @@
 import type { Card, Rank } from "./types";
-import { buildDeck, shuffle } from "./blackjack";
+import { buildDeck, shuffle } from "./deck-utils";
 
 export type YanivStatus = "in_progress" | "round_over" | "game_over";
 

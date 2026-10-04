@@ -1,5 +1,5 @@
 import { handValue, cardValue } from "@/lib/games/blackjack";
-import type { GameAction, GameState } from "@/lib/games/types";
+import type { BlackjackAction, BlackjackState } from "@/lib/games/blackjack";
 import type { BotPlayer } from "./types";
 
 /**
@@ -20,8 +20,8 @@ function shouldHit(playerTotal: number, dealerUpcard: number): boolean {
   return playerTotal < 17;
 }
 
-export class BlackjackBot implements BotPlayer<GameState, GameAction> {
-  getNextMove(state: GameState, playerId: string): GameAction {
+export class BlackjackBot implements BotPlayer<BlackjackState, BlackjackAction> {
+  getNextMove(state: BlackjackState, playerId: string): BlackjackAction {
     const hand = state.playerHand.cards;
     const playerTotal = handValue(hand);
     const dealerUpcard = state.dealerHand.find((c) => !c.hidden);

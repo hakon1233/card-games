@@ -3,22 +3,22 @@ import {
   applyAction,
   applyDealerTurn,
   applyPlayerHit,
-  buildDeck,
   cardValue,
   dealInitialState,
   handValue,
   isBlackjack,
   isBust,
-  shuffle,
   startGame,
-} from "./engine";
-import type { Card, GameState } from "../types";
+  type BlackjackState,
+} from "../blackjack";
+import { buildDeck, shuffle } from "../deck-utils";
+import type { Card } from "../types";
 
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
   return { rank, suit };
 }
 
-function makeState(overrides: Partial<GameState> = {}): GameState {
+function makeState(overrides: Partial<BlackjackState> = {}): BlackjackState {
   return {
     gameId: "test",
     status: "in_progress",
