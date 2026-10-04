@@ -4,14 +4,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
-import {
-  AnimationPreferencesControl,
-  useAnimationSpeed,
-} from "@/components/game/animation-preferences-control";
-import {
-  CardDeckControl,
-  useCardDeck,
-} from "@/components/game/card-deck-control";
+import { useAnimationSpeed } from "@/components/game/animation-preferences-control";
+import { useCardDeck } from "@/components/game/card-deck-control";
 import { TableDisplaySettings } from "@/components/game/table-display-settings";
 import { EndGameScreen } from "@/components/game/end-game-screen";
 import { CardHand } from "@/components/game/card-hand";
@@ -26,7 +20,6 @@ import {
   getDiscardTopGroup,
   canAddToSelection,
   getFinalStandings,
-  DEFAULT_YANIV_SETTINGS,
   type YanivGameState,
   type YanivPlayer,
   type YanivSettings,
@@ -47,30 +40,15 @@ import {
 } from "./player-ring";
 import { RoundEndOverlay } from "./round-end";
 import { SelectionSummary, suitSymbol } from "./selection-summary";
+import { useYanivSettings, YanivSettingsScreen } from "./settings";
 import { formatQuickDrawTime, getTurnClockKey, TurnCountdown } from "./turn-clock";
 
 const PLAYER_ID = "player-1";
-const SETTINGS_KEY = "yaniv-settings";
 const QUICK_DRAW_MS = 2000;
 const TURN_PREVIEW_MS = 1400;
 const bot = new YanivBot();
 const botFor = (playerId: string) => (playerId === PLAYER_ID ? undefined : bot);
 const yanivRules = { apply, activePlayer };
-
-type YanivLocalSettings = YanivSettings & {
-  numBots: number;
-  lowTimeSound: boolean;
-  idlePulses: boolean;
-  nextUpPreview: boolean;
-};
-
-const DEFAULT_LOCAL_SETTINGS: YanivLocalSettings = {
-  ...DEFAULT_YANIV_SETTINGS,
-  numBots: 1,
-  lowTimeSound: false,
-  idlePulses: true,
-  nextUpPreview: true,
-};
 
 function buildPlayerDefs(numBots: number) {
   const defs: { id: string; name: string; isBot: boolean }[] = [
@@ -82,24 +60,6 @@ function buildPlayerDefs(numBots: number) {
   return defs;
 }
 
-function loadSettings(): YanivLocalSettings {
-  if (typeof window === "undefined") return DEFAULT_LOCAL_SETTINGS;
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_LOCAL_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    // ignore
-  }
-  return DEFAULT_LOCAL_SETTINGS;
-}
-
-function saveSettings(s: YanivLocalSettings) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-  } catch {
-    // ignore
-  }
-}
 
 
 function playFeedbackCue(tone: YanivFeedbackTone) {
@@ -173,14 +133,13 @@ export default function YanivPage() {
   const previousTurnPlayerIdRef = useRef<string | null>(null);
   const turnPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [numBots, setNumBots] = useState(1);
-  const [yanivThreshold, setYanivThreshold] = useState(DEFAULT_YANIV_SETTINGS.yanivThreshold);
-  const [scoreLimit, setScoreLimit] = useState(DEFAULT_YANIV_SETTINGS.scoreLimit);
-  const [quickDraw, setQuickDraw] = useState(DEFAULT_YANIV_SETTINGS.quickDraw);
-  const [lowTimeSound, setLowTimeSound] = useState(DEFAULT_LOCAL_SETTINGS.lowTimeSound);
-  const [idlePulses, setIdlePulses] = useState(DEFAULT_LOCAL_SETTINGS.idlePulses);
-  const [nextUpPreview, setNextUpPreview] = useState(DEFAULT_LOCAL_SETTINGS.nextUpPreview);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const {
+    settings,
+    loaded: settingsLoaded,
+    change: changeSettings,
+    save: saveSettings,
+  } = useYanivSettings();
+  const { lowTimeSound, idlePulses, nextUpPreview } = settings;
   const [qdTimeLeft, setQdTimeLeft] = useState<number | null>(null);
   const [turnPreview, setTurnPreview] = useState<{ name: string; key: number } | null>(null);
   const [animationSpeed, setAnimationSpeed] = useAnimationSpeed();
@@ -325,20 +284,6 @@ export default function YanivPage() {
   }
 
   useEffect(() => {
-    const saved = loadSettings();
-    queueMicrotask(() => {
-      setNumBots(saved.numBots);
-      setYanivThreshold(saved.yanivThreshold);
-      setScoreLimit(saved.scoreLimit);
-      setQuickDraw(saved.quickDraw);
-      setLowTimeSound(saved.lowTimeSound);
-      setIdlePulses(saved.idlePulses);
-      setNextUpPreview(saved.nextUpPreview);
-      setSettingsLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
     if (gameState || typeof window === "undefined") return;
     const qaGameId = new URLSearchParams(window.location.search).get("qaGameId");
     if (!qaGameId) return;
@@ -456,9 +401,10 @@ export default function YanivPage() {
   // forwarded to it unchanged.
 
   const startGame = useCallback(() => {
-    const settings: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
-    saveSettings({ ...settings, numBots, lowTimeSound, idlePulses, nextUpPreview });
-    const initial = deal(`game-${Date.now()}`, buildPlayerDefs(numBots), settings);
+    const { yanivThreshold, scoreLimit, quickDraw, numBots } = settings;
+    const rules: YanivSettings = { yanivThreshold, scoreLimit, quickDraw };
+    saveSettings();
+    const initial = deal(`game-${Date.now()}`, buildPlayerDefs(numBots), rules);
     setGameState(playBotTurns(yanivRules, initial, botFor));
     setSelected([]);
     setRoundsWon(0);
@@ -470,7 +416,7 @@ export default function YanivPage() {
     previousTurnPlayerIdRef.current = null;
     setTurnPreview(null);
     if (turnPreviewTimerRef.current) clearTimeout(turnPreviewTimerRef.current);
-  }, [numBots, yanivThreshold, scoreLimit, quickDraw, lowTimeSound, idlePulses, nextUpPreview]);
+  }, [settings, saveSettings]);
 
   function callYaniv() {
     if (!gameState) return;
@@ -516,119 +462,16 @@ export default function YanivPage() {
   // ── Settings screen ──────────────────────────────────────────────────────
   if (!gameState) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
-        <BrandHeader title="Yaniv" backLabel="Back" />
-        <div className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-sm flex flex-col gap-6 rounded-lg border border-border bg-card/70 p-5 shadow-sm">
-            <div className="text-center">
-              <p className="pip-eyebrow text-xs">Yaniv table</p>
-              <h2 className="mt-2 font-heading text-2xl font-bold text-foreground">Game Settings</h2>
-            </div>
-
-            <SettingRow label="Number of Bots">
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setNumBots(n)}
-                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
-                      numBots === n
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </SettingRow>
-
-            <SettingRow label="Yaniv Call Threshold">
-              <div className="flex flex-wrap gap-2">
-                {Array.from({ length: 13 }, (_, i) => i + 3).map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setYanivThreshold(n)}
-                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
-                      yanivThreshold === n
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <p className="text-muted-foreground text-xs mt-1">Maximum hand total to call Yaniv</p>
-            </SettingRow>
-
-            <SettingRow label="Elimination Score">
-              <div className="flex gap-2">
-                {[100, 150, 200, 300].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setScoreLimit(n)}
-                    className={`px-3 h-9 rounded-lg text-sm font-semibold transition-colors ${
-                      scoreLimit === n
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <p className="text-muted-foreground text-xs mt-1">Score at which a player is eliminated</p>
-            </SettingRow>
-
-            <SettingRow label="Quick Draw">
-              <ToggleSwitch label="Quick Draw" checked={quickDraw} onChange={setQuickDraw} />
-              <p className="text-muted-foreground text-xs mt-1">2-second window to pick up discarded cards</p>
-            </SettingRow>
-
-            <SettingRow label="Animation Speed">
-              <AnimationPreferencesControl
-                value={animationSpeed}
-                onChange={setAnimationSpeed}
-              />
-              <p className="text-muted-foreground text-xs mt-1">
-                Fast play shortens table motion; reduced minimizes movement.
-              </p>
-            </SettingRow>
-
-            <SettingRow label="Card Colors">
-              <CardDeckControl value={cardDeck} onChange={setCardDeck} />
-              <p className="text-muted-foreground text-xs mt-1">
-                Four-color gives each suit its own color, so suits stay easy to tell
-                apart for colorblind players. Suit symbols always show too.
-              </p>
-            </SettingRow>
-
-            <div className="grid grid-cols-2 gap-3">
-              <SettingRow label="Low-Time Sound">
-                <ToggleSwitch label="Low-Time Sound" checked={lowTimeSound} onChange={setLowTimeSound} />
-              </SettingRow>
-
-              <SettingRow label="Idle Pulses">
-                <ToggleSwitch label="Idle Pulses" checked={idlePulses} onChange={setIdlePulses} />
-              </SettingRow>
-
-              <SettingRow label="Next-Up Preview">
-                <ToggleSwitch label="Next-Up Preview" checked={nextUpPreview} onChange={setNextUpPreview} />
-              </SettingRow>
-            </div>
-
-            <Button
-              onClick={startGame}
-              disabled={!settingsLoaded}
-              size="lg"
-              className="w-full h-12 text-base font-bold mt-2"
-            >
-              Start Game
-            </Button>
-          </div>
-        </div>
-      </div>
+      <YanivSettingsScreen
+        settings={settings}
+        onChange={changeSettings}
+        canStart={settingsLoaded}
+        onStart={startGame}
+        animationSpeed={animationSpeed}
+        onAnimationSpeedChange={setAnimationSpeed}
+        cardDeck={cardDeck}
+        onCardDeckChange={setCardDeck}
+      />
     );
   }
 
@@ -900,51 +743,5 @@ export default function YanivPage() {
         />
       )}
     </div>
-  );
-}
-
-
-// ── SettingRow ────────────────────────────────────────────────────────────
-
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="text-foreground text-sm font-medium">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-// ── ToggleSwitch ──────────────────────────────────────────────────────────
-// On/off switch with an accessible name. The `label` is applied as
-// `aria-label` so screen readers announce e.g. "Quick Draw, switch, on"
-// instead of a bare "switch" (WCAG 2.1 SC 4.1.2).
-
-function ToggleSwitch({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        checked ? "bg-primary" : "bg-input"
-      }`}
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-6" : "translate-x-1"
-        }`}
-      />
-    </button>
   );
 }
