@@ -141,6 +141,26 @@ describe("joining a room", () => {
   });
 });
 
+describe("untrusted messages", () => {
+  it("ignores malformed messages without failing or changing the game", async () => {
+    const { alice, send } = await startedGame("crazy_eights");
+    const before = alice.last();
+    for (const junk of [
+      { type: "CE_ACTION" },
+      { type: "CE_ACTION", payload: null },
+      { type: "CE_ACTION", payload: { type: "PLAY_CARD", playerId: "alice", cardIndex: "0" } },
+      { type: "CE_ACTION", payload: { type: "PLAY_CARD", playerId: "alice", cardIndex: 0, declaredSuit: "stars" } },
+      { type: "GF_ACTION", payload: { type: "ASK", playerId: "alice", targetPlayerId: "bob", rank: "Z" } },
+      { type: "NOPE" },
+      "not an object",
+    ]) {
+      await send(alice, junk);
+    }
+
+    expect(alice.last()).toBe(before);
+  });
+});
+
 describe("Crazy Eights room", () => {
   it("never sends a player an opponent's hand or the draw pile", async () => {
     const { alice, bob } = await startedGame("crazy_eights");

@@ -8,6 +8,7 @@ import type { CrazyEightsState, CrazyEightsAction } from "@/lib/games/crazy-eigh
 import { dealGoFish, applyAsk, publicStateFor } from "@/lib/games/go-fish";
 import type { GoFishGameState, GoFishAskAction } from "@/lib/games/go-fish";
 import { verifyRoomToken, type RoomGameType } from "@/lib/room-token";
+import { RANKS, SUITS } from "@/lib/games/deck-utils";
 
 // ─── Lobby player entry ───────────────────────────────────────────────────────
 
@@ -77,12 +78,8 @@ export default class GameRoom implements Party.Server {
   }
 
   async onMessage(raw: string, sender: Party.Connection) {
-    let msg: ClientMessage;
-    try {
-      msg = JSON.parse(raw) as ClientMessage;
-    } catch {
-      return;
-    }
+    const msg = parseClientMessage(raw);
+    if (!msg) return;
 
     switch (msg.type) {
       case "JOIN":
@@ -261,3 +258,63 @@ export default class GameRoom implements Party.Server {
 }
 
 GameRoom satisfies Party.Worker;
+
+/** Clients are untrusted: anything that is not a well-formed message is dropped. */
+function parseClientMessage(raw: string): ClientMessage | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(value)) return null;
+
+  switch (value.type) {
+    case "JOIN":
+      return { type: "JOIN", token: value.token };
+    case "START":
+      return { type: "START" };
+    case "CE_ACTION": {
+      const p = value.payload;
+      if (!isRecord(p) || typeof p.playerId !== "string") return null;
+      if (p.type === "DRAW_CARD") {
+        return { type: "CE_ACTION", payload: { type: "DRAW_CARD", playerId: p.playerId } };
+      }
+      const suit = SUITS.find((s) => s === p.declaredSuit);
+      if (
+        p.type !== "PLAY_CARD" ||
+        !Number.isInteger(p.cardIndex) ||
+        (p.declaredSuit !== undefined && !suit)
+      ) {
+        return null;
+      }
+      return {
+        type: "CE_ACTION",
+        payload: { type: "PLAY_CARD", playerId: p.playerId, cardIndex: Number(p.cardIndex), declaredSuit: suit },
+      };
+    }
+    case "GF_ACTION": {
+      const p = value.payload;
+      const rank = isRecord(p) ? RANKS.find((r) => r === p.rank) : undefined;
+      if (
+        !isRecord(p) ||
+        p.type !== "ASK" ||
+        typeof p.playerId !== "string" ||
+        typeof p.targetPlayerId !== "string" ||
+        !rank
+      ) {
+        return null;
+      }
+      return {
+        type: "GF_ACTION",
+        payload: { type: "ASK", playerId: p.playerId, targetPlayerId: p.targetPlayerId, rank },
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
