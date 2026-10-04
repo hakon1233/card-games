@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import type * as Party from "partykit/server";
 import GameRoom from "./game-room";
 import { signRoomToken, type RoomGameType } from "@/lib/room-token";
@@ -163,6 +163,21 @@ describe("untrusted messages", () => {
     }
 
     expect(alice.last()).toBe(before);
+  });
+});
+
+describe("shuffling", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("deals every room game from the cryptographic source, never Math.random", async () => {
+    for (const gameType of ["crazy_eights", "go_fish"] as const) {
+      const mathRandom = vi.spyOn(Math, "random");
+      const cryptoSource = vi.spyOn(crypto, "getRandomValues");
+      await startedGame(gameType);
+      expect(mathRandom).not.toHaveBeenCalled();
+      expect(cryptoSource).toHaveBeenCalled();
+      vi.restoreAllMocks();
+    }
   });
 });
 

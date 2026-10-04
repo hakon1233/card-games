@@ -1,6 +1,11 @@
 /** A source of randomness in [0, 1), like Math.random. Tests pass a seeded one. */
 export type Rng = () => number;
 
+/** An Rng drawn from the platform's cryptographic source, for shuffles nobody may predict. */
+export function cryptoRng(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+}
+
 /**
  * A deterministic Rng (mulberry32): the same seed gives the same stream on every
  * platform, so a seeded deal or a whole simulated game replays exactly.

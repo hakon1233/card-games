@@ -1,4 +1,5 @@
 import type * as Party from "partykit/server";
+import { cryptoRng } from "@/lib/games/engine";
 import * as crazyEights from "@/lib/games/crazy-eights";
 import type { CrazyEightsState, CrazyEightsAction, CrazyEightsPlayerView } from "@/lib/games/crazy-eights";
 import * as goFish from "@/lib/games/go-fish";
@@ -177,12 +178,14 @@ export default class GameRoom implements Party.Server {
         this.room.id,
         players.map((p) => p.userId),
         players.map(() => false),
+        cryptoRng,
       );
       this.state = { phase: "crazy_eights", hostId, players, gameState };
     } else {
       const gameState = goFish.deal(
         this.room.id,
         players.map((p) => ({ id: p.userId, name: p.displayName, isBot: false })),
+        cryptoRng,
       );
       this.state = { phase: "go_fish", hostId, players, gameState };
     }
@@ -197,7 +200,7 @@ export default class GameRoom implements Party.Server {
     const cs = sender.state as ConnState | null;
     if (cs?.userId !== payload.playerId) return; // only act for yourself
 
-    this.state.gameState = crazyEights.apply(this.state.gameState, payload);
+    this.state.gameState = crazyEights.apply(this.state.gameState, payload, cryptoRng);
     await this.persist();
     this.broadcastAll();
   }
