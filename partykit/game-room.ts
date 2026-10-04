@@ -1,5 +1,9 @@
 import type * as Party from "partykit/server";
-import { dealGame, applyAction as ceApply } from "@/lib/games/crazy-eights";
+import {
+  dealGame,
+  applyAction as ceApply,
+  publicStateFor as cePublicStateFor,
+} from "@/lib/games/crazy-eights";
 import type { CrazyEightsState, CrazyEightsAction } from "@/lib/games/crazy-eights";
 import { dealGoFish, applyAsk, publicStateFor } from "@/lib/games/go-fish";
 import type { GoFishGameState, GoFishAskAction } from "@/lib/games/go-fish";
@@ -48,7 +52,11 @@ type ClientMessage = JoinMsg | StartMsg | CeActionMsg | GfActionMsg;
 // ─── Server → Client messages ─────────────────────────────────────────────────
 
 type LobbyStateMsg = { type: "LOBBY_STATE"; state: LobbyState };
-type CeStateMsg = { type: "CE_STATE"; state: CrazyEightsState; myIndex: number };
+type CeStateMsg = {
+  type: "CE_STATE";
+  state: ReturnType<typeof cePublicStateFor>;
+  myIndex: number;
+};
 type GfStateMsg = { type: "GF_STATE"; state: ReturnType<typeof publicStateFor> };
 type ErrorMsg = { type: "ERROR"; message: string };
 type ServerMessage = LobbyStateMsg | CeStateMsg | GfStateMsg | ErrorMsg;
@@ -265,7 +273,11 @@ export default class GameRoom implements Party.Server {
       const myIndex = userId
         ? this.state.players.findIndex((p) => p.userId === userId)
         : -1;
-      msg = { type: "CE_STATE", state: this.state.gameState, myIndex };
+      msg = {
+        type: "CE_STATE",
+        state: cePublicStateFor(this.state.gameState, userId ?? ""),
+        myIndex,
+      };
     } else {
       // go_fish — send personalised public state
       const pub = userId

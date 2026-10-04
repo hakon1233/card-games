@@ -22,6 +22,13 @@ export interface CrazyEightsState extends BaseGameState {
   winnerId: string | null;
 }
 
+/** What one player may see: own hand, opponents' hand sizes, draw-pile size. */
+export type CrazyEightsPublicState = Omit<CrazyEightsState, "deck" | "players"> & {
+  deckSize: number;
+  players: (Omit<CrazyEightsPlayer, "hand"> & { handSize: number })[];
+  ownHand: Card[];
+};
+
 export type CrazyEightsAction =
   | { type: "PLAY_CARD"; playerId: string; cardIndex: number; declaredSuit?: Suit }
   | { type: "DRAW_CARD"; playerId: string };
@@ -183,4 +190,17 @@ export function applyAction(
     default:
       return state;
   }
+}
+
+export function publicStateFor(
+  state: CrazyEightsState,
+  forPlayerId: string,
+): CrazyEightsPublicState {
+  const { deck, players, ...shared } = state;
+  return {
+    ...shared,
+    deckSize: deck.length,
+    ownHand: players.find((p) => p.id === forPlayerId)?.hand ?? [],
+    players: players.map(({ hand, ...p }) => ({ ...p, handSize: hand.length })),
+  };
 }
