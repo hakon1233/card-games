@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ModeSelector } from "./mode-selector";
 
@@ -11,6 +11,8 @@ const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
+
+afterEach(cleanup);
 
 describe("ModeSelector", () => {
   it("moves focus into the open dialog and traps keyboard tabbing", async () => {
@@ -42,19 +44,26 @@ describe("ModeSelector", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Play Yaniv" });
     const close = screen.getByRole("button", { name: "Close" });
-    const playWithFriends = screen.getByRole("button", {
-      name: /Play with Friends/i,
-    });
+    const playVsBot = screen.getByRole("button", { name: /Play vs Bot/i });
 
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     expect(document.activeElement).toBe(close);
 
-    playWithFriends.focus();
+    playVsBot.focus();
     fireEvent.keyDown(document, { key: "Tab" });
     expect(document.activeElement).toBe(close);
 
     close.focus();
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(playWithFriends);
+    expect(document.activeElement).toBe(playVsBot);
+  });
+
+  it("offers only bot play until a multiplayer table exists", () => {
+    render(<ModeSelector open onClose={() => {}} gameSlug="go-fish" gameName="Go Fish" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Play vs Bot/i }));
+
+    expect(screen.queryByRole("button", { name: /Play with Friends/i })).toBeNull();
+    expect(push).toHaveBeenCalledWith("/play/go-fish");
   });
 });

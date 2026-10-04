@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Bot, Users, X } from "lucide-react";
+import { Bot, X } from "lucide-react";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -111,13 +111,6 @@ export function ModeSelector({
     onClose();
   }
 
-  function handlePlayFriends() {
-    router.push(
-      `/auth/sign-in?next=${encodeURIComponent(`/play/${gameSlug}?mode=friends`)}`
-    );
-    onClose();
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -160,19 +153,6 @@ export function ModeSelector({
               <div className="font-semibold leading-tight">Play vs Bot</div>
               <div className="text-xs font-normal opacity-70">
                 No sign-in required
-              </div>
-            </div>
-          </Button>
-          <Button
-            onClick={handlePlayFriends}
-            variant="outline"
-            className="h-14 w-full justify-start gap-3 rounded-xl px-4 text-base"
-          >
-            <Users className="size-5 shrink-0" />
-            <div className="text-left">
-              <div className="font-semibold leading-tight">Play with Friends</div>
-              <div className="text-xs font-normal opacity-70">
-                Sign in to invite friends
               </div>
             </div>
           </Button>
