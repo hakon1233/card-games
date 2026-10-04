@@ -59,6 +59,16 @@ type ConnState = { userId: string };
 export default class GameRoom implements Party.Server {
   private state: RoomState | null = null;
 
+  /**
+   * Refuse a socket opened from a page whose Origin is not in ALLOWED_ORIGINS (comma-separated,
+   * e.g. "https://cards.example.com"). Unset or blank allows every origin, for local dev.
+   */
+  static onBeforeConnect(req: Party.Request, lobby: Party.Lobby) {
+    return isAllowedOrigin(req.headers.get("Origin"), lobby.env.ALLOWED_ORIGINS)
+      ? req
+      : new Response("Origin not allowed", { status: 403 });
+  }
+
   constructor(readonly room: Party.Room) {}
 
   async onStart() {
@@ -232,6 +242,11 @@ export default class GameRoom implements Party.Server {
 }
 
 GameRoom satisfies Party.Worker;
+
+export function isAllowedOrigin(origin: string | null, allowedOrigins: unknown): boolean {
+  if (typeof allowedOrigins !== "string" || allowedOrigins.trim() === "") return true;
+  return origin !== null && allowedOrigins.split(",").some((allowed) => allowed.trim() === origin);
+}
 
 /** The longest client message the room reads; real ones (a room token, an action) are far smaller. */
 const MAX_MESSAGE_LENGTH = 4096;

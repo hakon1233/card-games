@@ -139,6 +139,21 @@ describe("joining a room", () => {
     expect(alice.last().type).toBe("LOBBY_STATE");
   });
 
+  it("refuses sockets from origins not on ALLOWED_ORIGINS, and allows all when it is unset", () => {
+    const connect = (origin: string, allowed?: string) => {
+      const req = new Request("https://rooms.example/parties/main/ROOM01", { headers: { Origin: origin } });
+      const lobby = { id: ROOM, env: allowed === undefined ? {} : { ALLOWED_ORIGINS: allowed } };
+      return GameRoom.onBeforeConnect(req as unknown as Party.Request, lobby as unknown as Party.Lobby);
+    };
+    const allowed = "https://cards.example, http://localhost:3000";
+
+    expect(connect("https://cards.example", allowed)).toBeInstanceOf(Request);
+    expect(connect("http://localhost:3000", allowed)).toBeInstanceOf(Request);
+    expect(connect("https://evil.example", allowed)).toMatchObject({ status: 403 });
+    expect(connect("https://evil.example")).toBeInstanceOf(Request);
+    expect(connect("https://evil.example", "")).toBeInstanceOf(Request);
+  });
+
   it("deals only the players still connected when the host starts", async () => {
     const r = makeRoom("go_fish");
     const alice = await r.join("alice");

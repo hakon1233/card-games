@@ -72,6 +72,9 @@ Engines take an `Rng` (`() => number`, like `Math.random`). Pages use the defaul
    malformed ones are dropped.
 5. When the host starts, only the players connected at that moment are dealt in; anyone who left
    the lobby is dropped from the game.
+6. A socket opened from a page whose Origin is not in `ALLOWED_ORIGINS` (comma-separated) is
+   refused with `403` before it connects. When the variable is unset every origin is allowed, so
+   local dev works without it.
 
 The multiplayer game table is not built yet: after the host starts, the lobby shows "Full game UI
 coming soon".
