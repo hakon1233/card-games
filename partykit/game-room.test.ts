@@ -88,3 +88,33 @@ describe("Crazy Eights room", () => {
     }
   });
 });
+
+describe("Go Fish room", () => {
+  type View = {
+    ownHand: Array<{ rank: string }>;
+    lastEvent: { outcome: string; drew: unknown } | null;
+  };
+
+  it("shows the card drawn on 'Go Fish' only to the player who drew it", async () => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const { alice, bob, send } = await startedGame("go_fish");
+      const aliceHand = (alice.last().state as View).ownHand;
+      const bobRanks = new Set((bob.last().state as View).ownHand.map((c) => c.rank));
+      const rank = aliceHand.find((c) => !bobRanks.has(c.rank))?.rank;
+      if (!rank) continue;
+
+      await send(alice, {
+        type: "GF_ACTION",
+        payload: { type: "ASK", playerId: "alice", targetPlayerId: "bob", rank },
+      });
+      const aliceView = alice.last().state as View;
+      const bobView = bob.last().state as View;
+      if (aliceView.lastEvent?.outcome !== "go_fish") continue;
+
+      expect(aliceView.lastEvent.drew).not.toBeNull();
+      expect(bobView.lastEvent?.drew).toBeNull();
+      return;
+    }
+    throw new Error("no plain 'Go Fish' outcome in 50 deals");
+  });
+});

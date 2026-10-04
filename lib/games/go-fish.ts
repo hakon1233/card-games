@@ -250,6 +250,14 @@ export function applyAsk(
 }
 
 /** Returns state safe to send to a specific player — hides other players' hands and deck. */
+/** A card drawn on a plain "Go Fish" stays private to the player who drew it. */
+function eventSeenBy(event: GoFishEvent | null, forPlayerId: string): GoFishEvent | null {
+  if (!event || event.outcome !== "go_fish" || event.askingPlayerId === forPlayerId) {
+    return event;
+  }
+  return { ...event, drew: null };
+}
+
 export function publicStateFor(
   state: GoFishGameState,
   forPlayerId: string
@@ -259,7 +267,7 @@ export function publicStateFor(
     gameId: state.gameId,
     status: state.status,
     currentPlayerIndex: state.currentPlayerIndex,
-    lastEvent: state.lastEvent,
+    lastEvent: eventSeenBy(state.lastEvent, forPlayerId),
     winners: state.winners,
     deckSize: state.deck.length,
     ownHand: ownPlayer?.hand ?? [],
