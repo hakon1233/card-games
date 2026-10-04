@@ -9,7 +9,10 @@ import {
   describeSelection,
   getFinalStandings,
   timeoutMove,
+  activePlayer,
+  type YanivGameState,
 } from "./yaniv";
+import { playBotTurns } from "./bot-turns";
 import { YanivBot } from "../bots/yaniv-bot";
 import { seededRng } from "./engine";
 
@@ -604,7 +607,8 @@ describe("full game simulation", () => {
     //
     // So one fixed-seed Rng feeds both the engine and the bot: every shuffle and
     // bot decision replays identically, and this particular deal is known to
-    // finish in 186 turns (bot-1 wins, player-1 eliminated). If future engine changes break that, this test fails loudly and
+    // finish in 620 turns (one player eliminated; the bot draws on the same Rng for its
+    // occasional unsticking discard, so the count moves whenever that logic does). If future engine changes break that, this test fails loudly and
     // deterministically — never flakily — and a new terminating seed can be picked.
     const rng = seededRng(43);
     const simBot = new YanivBot(rng);
@@ -620,7 +624,7 @@ describe("full game simulation", () => {
     );
 
     let turns = 0;
-    // Deterministic run lands at 186 turns; this is a generous safety bound that
+    // Deterministic run lands at 620 turns; this is a generous safety bound that
     // fails fast if determinism ever breaks rather than hanging CI.
     const MAX_TURNS = 800;
 
@@ -654,7 +658,7 @@ describe("full game simulation", () => {
     }
 
     expect(state.status).toBe("game_over");
-    expect(turns).toBe(186);
+    expect(turns).toBe(620);
     expect(state.winnerId).toBeTruthy();
     // At least one player must be eliminated
     expect(state.players.some((p) => p.eliminated)).toBe(true);
@@ -739,5 +743,41 @@ describe("the turn clock's default move", () => {
 
   it("has no move once the round is over", () => {
     expect(timeoutMove({ ...table(), status: "round_over" }, "you")).toBeNull();
+  });
+});
+
+describe("a table of bots", () => {
+  it("finishes a game whose low cards all end up in bots' hands (seed 1556 once played forever)", () => {
+    // Five bots, the human already out. Without the bots' unsticking discard this deal reaches a
+    // round where every bot waits on a low draw that the draw pile can no longer give.
+    const rng = seededRng(1556);
+    const tableBot = new YanivBot(seededRng(101556));
+    const botFor = (id: string) => (id === "player-1" ? undefined : tableBot);
+    const rules = { apply, activePlayer, fallbackMove: timeoutMove };
+    const dealt = deal(
+      "g",
+      [
+        { id: "player-1", name: "You", isBot: false },
+        ...[1, 2, 3, 4, 5].map((n) => ({ id: `bot-${n}`, name: "B", isBot: true })),
+      ],
+      { yanivThreshold: 7, scoreLimit: 100, quickDraw: false },
+      rng,
+    );
+    let state: YanivGameState = {
+      ...dealt,
+      players: dealt.players.map((p) =>
+        p.id === "player-1" ? { ...p, eliminated: true, hand: [], score: 999 } : p,
+      ),
+      currentPlayerIndex: 1,
+    };
+
+    for (let step = 0; step < 5000 && state.status !== "game_over"; step++) {
+      state =
+        state.status === "round_over"
+          ? apply(state, { type: "NEXT_ROUND", playerId: "player-1" }, rng)
+          : playBotTurns(rules, state, botFor, undefined, rng);
+    }
+
+    expect(state.status).toBe("game_over");
   });
 });

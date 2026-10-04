@@ -28,14 +28,23 @@ const SNAP_CALL_MAX = 3;
  */
 const CALL_PROBABILITY = 0.4;
 
+/**
+ * A bot that is one good draw from calling Yaniv keeps discarding the high card it just drew.
+ * If every low card sits in the bots' hands, the draw pile only ever deals high cards and a
+ * table of bots can play the round forever. So when it is in that spot and the discard pile
+ * offers nothing low, the bot sometimes discards its lowest card instead, putting a low card
+ * back into play.
+ */
+const UNSTICK_PROBABILITY = 0.2;
+
 export class YanivBot implements Bot<YanivGameState, YanivAction> {
   private readonly rng: () => number;
 
   /**
    * @param rng Injectable source of randomness in [0, 1). Defaults to
    * `Math.random`; tests pass a deterministic function to force the call/hold
-   * branch. Only the Yaniv-call decision is stochastic — move selection stays
-   * deterministic.
+   * branch. The Yaniv-call decision and the occasional unsticking discard draw
+   * on it; everything else is deterministic.
    */
   constructor(rng: () => number = Math.random) {
     this.rng = rng;
@@ -77,7 +86,10 @@ export class YanivBot implements Bot<YanivGameState, YanivAction> {
       return { type: "CALL_YANIV", playerId: botPlayerId };
     }
 
-    const bestDiscard = pickBestDiscard(hand);
+    let bestDiscard = pickBestDiscard(hand);
+    if (waitingOnALowDraw(state, hand, bestDiscard) && this.rng() < UNSTICK_PROBABILITY) {
+      bestDiscard = [lowestCardIndex(hand)];
+    }
     const drawFromDiscard = shouldDrawFromDiscard(state, bestDiscard);
 
     return {
@@ -201,4 +213,21 @@ function shouldDrawFromDiscard(state: YanivGameState, discardIndices: number[]):
 
   // Only take it if it's a low card (Ace, 2, or 3) AND lower than average discard
   return topValue <= 3 && topValue < discardedValue;
+}
+
+/**
+ * After the planned discard the hand would be at or under the Yaniv threshold, but the bot
+ * still has to draw, and the discard pile's top card is no help.
+ */
+function waitingOnALowDraw(state: YanivGameState, hand: Card[], discard: number[]): boolean {
+  const kept = hand.filter((_, i) => !discard.includes(i));
+  return handTotal(kept) <= state.settings.yanivThreshold && !shouldDrawFromDiscard(state, discard);
+}
+
+function lowestCardIndex(hand: Card[]): number {
+  let lowest = 0;
+  for (let i = 1; i < hand.length; i++) {
+    if (yanivCardValue(hand[i].rank) < yanivCardValue(hand[lowest].rank)) lowest = i;
+  }
+  return lowest;
 }
