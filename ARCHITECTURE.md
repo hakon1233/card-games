@@ -35,7 +35,7 @@ flowchart LR
 | Rules engines: `lib/games/{blackjack,crazy-eights,go-fish,yaniv}.ts` | `deal(…, rng?)`, `apply(state, action, rng?)`, `playerView(state, playerId)`, `activePlayer(state)` (`RulesEngine` in `lib/games/engine.ts`) | Legality, scoring, shuffles, turn order, per-game status |
 | Bot turns: `lib/games/bot-turns.ts` | `botTurn`, `playBotTurns` over any engine | Asking the active player's bot and applying its action, with a turn guard |
 | Bots: `lib/bots/*` | `getNextMove(state, playerId)` | Each bot's strategy (Yaniv's call pacing, Go Fish memory) |
-| Game pages: `app/play/<game>/` | React routes | Pacing, animation, the win/loss tally; Yaniv's table is split into session, feedback, settings and presentational modules |
+| Game pages: `app/play/<game>/` | React routes | Pacing, animation, the win/loss tally; the Yaniv and Crazy Eights pages are split into session, settings and presentational modules (Yaniv adds feedback) |
 | Room server: `partykit/game-room.ts` | PartyKit room; client messages `JOIN`, `START`, `CE_ACTION`, `GF_ACTION` | Lobby, host-only start, message parsing, per-player redaction, storage |
 | Room tokens: `lib/room-token.ts` | `signRoomToken`, `verifyRoomToken` | HMAC-SHA256 signing (WebCrypto), expiry, claim parsing |
 | Auth and data: `proxy.ts`, `app/actions/auth.ts`, `lib/supabase/*` | Supabase session refresh, sign-in/up actions, `findRoom(supabase, code)` | Cookie handling, safe post-sign-in redirects (`lib/redirect-path.ts`) |
@@ -83,6 +83,5 @@ coming soon".
   ignored, player views hide other hands and the draw pile, turn order ends when the game does).
 - **Room server**: `partykit/game-room.test.ts` against an in-memory stand-in for the PartyKit
   runtime (forged tokens, impersonation, redaction, malformed messages).
-- **Pages**: Testing Library tests drive the Yaniv, Go Fish and Blackjack pages through what the
-  player sees.
+- **Pages**: Testing Library tests drive all four game pages through what the player sees.
 - **End to end**: `tests/e2e/smoke.spec.ts` deals each game from the home page in headless Chromium.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandHeader } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -11,124 +11,25 @@ import {
   useAnimationSpeed,
 } from "@/components/game/animation-preferences-control";
 import { CardDeckControl, useCardDeck } from "@/components/game/card-deck-control";
-import { scaleAnimationDuration } from "@/lib/animation-preferences";
-import {
-  deal,
-  apply,
-  activePlayer,
-  isPlayable,
-  topCard,
-  effectiveSuit,
-  playableCards,
-  type CrazyEightsState,
-} from "@/lib/games/crazy-eights";
-import { CrazyEightsBot } from "@/lib/bots/crazy-eights-bot";
-import { botTurn } from "@/lib/games/bot-turns";
+import { isPlayable, topCard, effectiveSuit, playableCards } from "@/lib/games/crazy-eights";
 import { HUMAN_PLAYER_ID } from "@/lib/games/engine";
-import type { Suit } from "@/lib/games/types";
 import { toShellCard } from "@/lib/games/shell-types";
+import { botName, useCrazyEightsSession } from "./session";
 import { CrazyEightsSettingsScreen } from "./settings";
 import { OpponentSeat, Piles, SuitPicker } from "./table";
 
 const PLAYER_NAME = "You";
-// Base pause between bot moves so plays are watchable; scaled by the
-// animation-speed preference (reduced collapses it to near-instant).
-const BOT_TURN_MS = 850;
-const bot = new CrazyEightsBot();
-const botFor = (playerId: string) => (playerId === HUMAN_PLAYER_ID ? undefined : bot);
-
-function buildPlayerDefs(numBots: number): { id: string; isBot: boolean }[] {
-  const defs = [{ id: HUMAN_PLAYER_ID, isBot: false }];
-  for (let i = 1; i <= numBots; i++) {
-    defs.push({ id: `bot-${i}`, isBot: true });
-  }
-  return defs;
-}
-
-function botName(id: string): string {
-  const match = /^bot-(\d+)$/.exec(id);
-  return match ? `Bot ${match[1]}` : id;
-}
 
 export default function CrazyEightsPage() {
   const router = useRouter();
   const statusId = useId();
 
   const [numBots, setNumBots] = useState(1);
-  const [gameState, setGameState] = useState<CrazyEightsState | null>(null);
-  const [wins, setWins] = useState(0);
-  const [losses, setLosses] = useState(0);
-  const [pendingEight, setPendingEight] = useState<number | null>(null);
-
   const [animationSpeed, setAnimationSpeed] = useAnimationSpeed();
   const [cardDeck, setCardDeck] = useCardDeck();
-
-  const gameStateRef = useRef<CrazyEightsState | null>(null);
-  const resultRecordedRef = useRef(false);
-
-  useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
-  // Single funnel for every state transition. Records the round result into the
-  // session tally exactly once, at the moment the round ends — so recording
-  // never happens synchronously inside an effect body (cascading-render lint).
-  const commitState = useCallback((next: CrazyEightsState) => {
-    setGameState(next);
-    if (next.status === "round_over" && next.winnerId && !resultRecordedRef.current) {
-      resultRecordedRef.current = true;
-      if (next.winnerId === HUMAN_PLAYER_ID) setWins((w) => w + 1);
-      else setLosses((l) => l + 1);
-    }
-  }, []);
-
-  // ── Bot turn driver ───────────────────────────────────────────────────────
-  // After every state change, if the active seat is a bot, show its move after
-  // a pause. The new state re-runs this effect and steps the next bot — so a
-  // chain of bots resolves one visible move at a time. Any other state change
-  // first cancels the pending move.
-  useEffect(() => {
-    const turn = gameState && botTurn({ apply, activePlayer }, gameState, botFor);
-    if (!turn) return;
-    const delay = scaleAnimationDuration(BOT_TURN_MS, animationSpeed);
-    const timer = setTimeout(() => commitState(turn.next), delay);
-    return () => clearTimeout(timer);
-  }, [gameState, animationSpeed, commitState]);
-
-  const startGame = useCallback(() => {
-    const defs = buildPlayerDefs(numBots);
-    resultRecordedRef.current = false;
-    setPendingEight(null);
-    setGameState(
-      deal(
-        `crazy-eights-${Date.now()}`,
-        defs.map((d) => d.id),
-        defs.map((d) => d.isBot),
-      ),
-    );
-  }, [numBots]);
-
-  const humanPlay = useCallback((index: number, declaredSuit?: Suit) => {
-    const s = gameStateRef.current;
-    if (!s) return;
-    if (s.players[s.currentPlayerIndex]?.id !== HUMAN_PLAYER_ID) return;
-    const human = s.players.find((p) => p.id === HUMAN_PLAYER_ID);
-    const card = human?.hand[index];
-    if (!card || !isPlayable(card, s)) return;
-    if (card.rank === "8" && !declaredSuit) {
-      setPendingEight(index);
-      return;
-    }
-    setPendingEight(null);
-    commitState(apply(s, { type: "PLAY_CARD", playerId: HUMAN_PLAYER_ID, cardIndex: index, declaredSuit }));
-  }, [commitState]);
-
-  const humanDraw = useCallback(() => {
-    const s = gameStateRef.current;
-    if (!s) return;
-    if (s.players[s.currentPlayerIndex]?.id !== HUMAN_PLAYER_ID) return;
-    commitState(apply(s, { type: "DRAW_CARD", playerId: HUMAN_PLAYER_ID }));
-  }, [commitState]);
+  const { gameState, wins, losses, pendingEight, start, play, draw, cancelEight } =
+    useCrazyEightsSession(animationSpeed);
+  const startGame = () => start(numBots);
 
   // ── Settings / pre-game screen ────────────────────────────────────────────
   if (!gameState) {
@@ -218,7 +119,7 @@ export default function CrazyEightsPage() {
           <Piles
             drawCount={gameState.deck.length}
             canDraw={isMyTurn}
-            onDraw={humanDraw}
+            onDraw={draw}
             discardTop={discardTop}
             matchSuit={matchSuit}
             declared={declaredActive}
@@ -241,7 +142,7 @@ export default function CrazyEightsPage() {
               gameType="crazy_eights"
               selectedIndices={[]}
               disabledIndices={disabledIndices}
-              onCardClick={(_, i) => humanPlay(i)}
+              onCardClick={(_, i) => play(i)}
               cardClassName={(_, i) => {
                 if (!isMyTurn) return "cursor-default";
                 return playableSet.has(i)
@@ -256,7 +157,7 @@ export default function CrazyEightsPage() {
               </p>
               {isMyTurn && (
                 <Button
-                  onClick={humanDraw}
+                  onClick={draw}
                   variant={hasPlayable ? "outline" : "default"}
                   className="w-full"
                 >
@@ -271,8 +172,8 @@ export default function CrazyEightsPage() {
       {/* Suit picker for an eight */}
       {pendingEight !== null && (
         <SuitPicker
-          onPick={(suit) => humanPlay(pendingEight, suit)}
-          onCancel={() => setPendingEight(null)}
+          onPick={(suit) => play(pendingEight, suit)}
+          onCancel={cancelEight}
         />
       )}
 
