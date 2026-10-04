@@ -139,6 +139,23 @@ describe("joining a room", () => {
     expect(alice.last().type).toBe("LOBBY_STATE");
   });
 
+  it("deals only the players still connected when the host starts", async () => {
+    const r = makeRoom("go_fish");
+    const alice = await r.join("alice");
+    const bob = await r.join("bob");
+    const carol = await r.join("carol");
+    await r.server.onClose(carol as unknown as Parameters<GameRoom["onClose"]>[0]);
+    await r.send(alice, { type: "START" });
+
+    for (const conn of [alice, bob]) {
+      const state = conn.last().state as { players: Array<{ id: string; handSize: number }>; deckSize: number };
+      expect(state.players.map((p) => [p.id, p.handSize])).toEqual([["alice", 7], ["bob", 7]]);
+      expect(state.deckSize).toBe(52 - 2 * 7);
+    }
+    const back = await r.join("carol");
+    expect(back.last()).toEqual({ type: "ERROR", message: "Game already in progress" });
+  });
+
   it("only the host can start the game", async () => {
     const r = makeRoom("go_fish");
     await r.join("alice");
@@ -166,6 +183,16 @@ describe("untrusted messages", () => {
     }
 
     expect(alice.last()).toBe(before);
+  });
+});
+
+describe("oversized messages", () => {
+  it("drops a message over 4 KB, even a well-formed one", async () => {
+    const r = makeRoom("go_fish");
+    const conn = await r.connect();
+    await r.send(conn, { type: "JOIN", token: await r.tokenFor("alice"), padding: "x".repeat(4096) });
+
+    expect(conn.sent).toEqual([]);
   });
 });
 

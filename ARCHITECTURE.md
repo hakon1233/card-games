@@ -68,7 +68,10 @@ Engines take an `Rng` (`() => number`, like `Math.random`). Pages use the defaul
    gets `playerView` for themselves: their own hand, opponents' hand sizes, the draw pile's size.
    (Blackjack, which is never played in a room, flags the dealer's hole card face-down in its view
    rather than removing it.)
-4. Every client message is parsed before it reaches an engine; malformed ones are dropped.
+4. Every client message is parsed before it reaches an engine; oversized (over 4 KB) and
+   malformed ones are dropped.
+5. When the host starts, only the players connected at that moment are dealt in; anyone who left
+   the lobby is dropped from the game.
 
 The multiplayer game table is not built yet: after the host starts, the lobby shows "Full game UI
 coming soon".

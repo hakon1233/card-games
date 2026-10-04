@@ -150,14 +150,14 @@ export default class GameRoom implements Party.Server {
       return;
     }
 
-    const connected = this.state.players.filter((p) => p.connected);
-    if (connected.length < 2) {
+    // Only players connected now are dealt in; anyone who left the lobby is dropped from the game.
+    const players = this.state.players.filter((p) => p.connected);
+    if (players.length < 2) {
       const err: ErrorMsg = { type: "ERROR", message: "Need at least 2 players to start" };
       sender.send(JSON.stringify(err));
       return;
     }
 
-    const players = this.state.players;
     const hostId = this.state.hostId;
 
     if (this.state.gameType === "crazy_eights") {
@@ -233,8 +233,12 @@ export default class GameRoom implements Party.Server {
 
 GameRoom satisfies Party.Worker;
 
-/** Clients are untrusted: anything that is not a well-formed message is dropped. */
+/** The longest client message the room reads; real ones (a room token, an action) are far smaller. */
+const MAX_MESSAGE_LENGTH = 4096;
+
+/** Clients are untrusted: anything oversized or not a well-formed message is dropped. */
 function parseClientMessage(raw: string): ClientMessage | null {
+  if (raw.length > MAX_MESSAGE_LENGTH) return null;
   let value: unknown;
   try {
     value = JSON.parse(raw);
