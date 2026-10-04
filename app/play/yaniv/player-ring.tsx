@@ -5,14 +5,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card } from "@/lib/games/types";
 import type { YanivPlayer, YanivQuickDrawWindow } from "@/lib/games/yaniv";
-import type { YanivScoreCascadeEvent } from "@/lib/games/yaniv-feedback";
 import { getYanivRingLayout, type YanivTableFormFactor } from "@/lib/games/yaniv-layout";
 import { ContextTooltip } from "./context-tooltip";
+import type { ActionBadge, ScoreFeedback } from "./feedback";
 import { DeckVisual, DiscardPileGroup, QuickDrawPile } from "./piles";
 import { LiveTurnCountdownRing, LiveTurnSeconds } from "./turn-clock";
 
-export type ActionBadge = { text: string; variant: "drew" | "yaniv" | "stolen"; key: number };
-export type ScoreFeedback = YanivScoreCascadeEvent & { key: number };
 
 export function useYanivTableFormFactor(): YanivTableFormFactor {
   const [formFactor, setFormFactor] = useState<YanivTableFormFactor>("standard");
