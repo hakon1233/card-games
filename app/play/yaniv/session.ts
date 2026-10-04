@@ -11,7 +11,7 @@ import {
   deal,
   apply,
   activePlayer,
-  yanivCardValue,
+  timeoutMove,
   type YanivAction,
   type YanivGameState,
   type YanivSettings,
@@ -128,27 +128,14 @@ export function useYanivSession(animationSpeed: AnimationSpeed, nextUpPreview: b
 
   const autoPlayTurnTimeout = useCallback(() => {
     const s = gameStateRef.current;
-    if (!s || s.status !== "in_progress" || s.quickDrawWindow) return;
-    if (s.players[s.currentPlayerIndex]?.id !== PLAYER_ID) return;
-    const human = s.players.find((p) => p.id === PLAYER_ID);
-    if (!human || human.hand.length === 0) return;
-    // Safe default: drop the single highest-value card and draw from the deck.
-    let hi = 0;
-    for (let i = 1; i < human.hand.length; i++) {
-      if (yanivCardValue(human.hand[i].rank) > yanivCardValue(human.hand[hi].rank)) hi = i;
-    }
-    const action = {
-      type: "DISCARD_AND_DRAW" as const,
-      playerId: PLAYER_ID,
-      discardIndices: [hi],
-      drawFromDiscard: false,
-    };
+    const action = s && timeoutMove(s, PLAYER_ID);
+    if (!s || !action) return;
     dispatch(apply(s, action), action, s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The countdown itself (its interval, the low-time cue, calling autoPlayTurnTimeout at
-  // zero) runs in <TurnClock>, so its 10Hz tick re-renders only the ring — see.
+  // zero) runs in <TurnClock>, so its 10Hz tick re-renders only the ring.
 
   function start(table: YanivSettings & { numBots: number }) {
     const { yanivThreshold, scoreLimit, quickDraw, numBots } = table;

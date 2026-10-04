@@ -8,6 +8,7 @@ import {
   yanivCardValue,
   describeSelection,
   getFinalStandings,
+  timeoutMove,
 } from "./yaniv";
 import { YanivBot } from "../bots/yaniv-bot";
 import { seededRng } from "./engine";
@@ -700,5 +701,43 @@ describe("getFinalStandings", () => {
       eliminated: true,
       isWinner: false,
     });
+  });
+});
+
+describe("the turn clock's default move", () => {
+  const table = () => {
+    const state = deal(
+      "timeout",
+      [
+        { id: "you", name: "You", isBot: false },
+        { id: "bot", name: "Bot", isBot: true },
+      ],
+      { yanivThreshold: 7, scoreLimit: 200, quickDraw: false },
+      seededRng(3),
+    );
+    state.players[0].hand = [
+      { suit: "hearts", rank: "4" },
+      { suit: "clubs", rank: "K" },
+      { suit: "spades", rank: "9" },
+      { suit: "diamonds", rank: "Q" },
+    ];
+    return state;
+  };
+
+  it("discards the active player's highest card (the first of equals) and draws from the draw pile", () => {
+    expect(timeoutMove(table(), "you")).toEqual({
+      type: "DISCARD_AND_DRAW",
+      playerId: "you",
+      discardIndices: [1],
+      drawFromDiscard: false,
+    });
+  });
+
+  it("has no move for a player whose turn it is not", () => {
+    expect(timeoutMove(table(), "bot")).toBeNull();
+  });
+
+  it("has no move once the round is over", () => {
+    expect(timeoutMove({ ...table(), status: "round_over" }, "you")).toBeNull();
   });
 });
