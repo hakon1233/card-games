@@ -21,6 +21,10 @@ const FAN_LIFT_CURVE = 0.9;
 // Vertical headroom (px) reserved so selected/hovered cards can lift without
 // being clipped or shifting layout. Must cover the largest -translate-y used.
 const LIFT_HEADROOM = 14;
+// Room (px) beside and below the hand so the outer cards' rotated corners aren't clipped by
+// the scroll container.
+const FAN_SIDE_ROOM = 16;
+const FAN_FOOT_ROOM = 8;
 
 // The hand re-shapes — not just re-scales — across device form factors:
 //   • portrait   — a compact arc that stays low and thumb-reachable.
@@ -267,7 +271,7 @@ export function CardHand({
       <div
         ref={handRef}
         className="flex items-end overflow-x-auto overflow-y-hidden"
-        style={{ paddingTop: LIFT_HEADROOM }}
+        style={{ paddingTop: LIFT_HEADROOM, paddingInline: FAN_SIDE_ROOM, paddingBottom: FAN_FOOT_ROOM }}
       >
         {sortedCards.map(({ card, originalIndex }, i) => {
           const isSelected = selectedIndices.includes(originalIndex);
