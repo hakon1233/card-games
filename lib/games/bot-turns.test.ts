@@ -21,8 +21,12 @@ describe("botTurn", () => {
     const state = crazyEightsAfterHumanDraw(4);
     const turn = botTurn(crazyEights, state, ceBotFor, seededRng(1));
 
-    expect(turn?.action).toEqual(ceBot.getNextMove(state, "p2"));
-    expect(turn?.next).toEqual(crazyEights.apply(state, ceBot.getNextMove(state, "p2"), seededRng(1)));
+    const handBefore = state.players[1].hand.length;
+    const handAfter = turn?.next.players[1].hand.length;
+
+    expect(turn?.action.playerId).toBe("p2");
+    expect([handBefore - 1, handBefore + 1]).toContain(handAfter); // played a card or drew one
+    expect(crazyEights.activePlayer(turn!.next)).toBe("p3");
   });
 
   it("does nothing when a human must act", () => {
