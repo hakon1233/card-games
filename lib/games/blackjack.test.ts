@@ -11,6 +11,7 @@ import {
   startGame,
   type BlackjackState,
 } from "./blackjack";
+import { seededRng } from "./engine";
 import type { Card } from "./types";
 
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
@@ -102,15 +103,30 @@ describe("dealInitialState", () => {
 });
 
 describe("startGame", () => {
-  it("resolves blackjack immediately", () => {
-    let found = false;
-    for (let i = 0; i < 200; i++) {
-      const state = startGame("g1", "p1");
-      if (state.turn === "over") { found = true; break; }
-    }
-    // In a fair run we'll see it, but it's probabilistic — just confirm it can happen
-    // (don't fail if we don't hit it in 200 tries, probability is low enough)
-    void found;
+  // Seeds found by search: each deals the named natural(s).
+  it("settles a player natural at the deal as a win", () => {
+    const state = startGame("g1", "p1", seededRng(7));
+    expect(isBlackjack(state.playerHand.cards)).toBe(true);
+    expect(state).toMatchObject({ turn: "over", status: "player_win", result: "player_win" });
+    expect(state.dealerHand.every((c) => !c.hidden)).toBe(true);
+  });
+
+  it("settles a dealer natural at the deal as a loss", () => {
+    const state = startGame("g1", "p1", seededRng(1));
+    expect(isBlackjack(state.dealerHand)).toBe(true);
+    expect(state).toMatchObject({ turn: "over", status: "dealer_win", result: "dealer_win" });
+  });
+
+  it("settles two naturals at the deal as a push", () => {
+    const state = startGame("g1", "p1", seededRng(26));
+    expect(isBlackjack(state.playerHand.cards)).toBe(true);
+    expect(state).toMatchObject({ turn: "over", status: "push", result: "push" });
+  });
+
+  it("leaves a deal without a natural in progress with the hole card hidden", () => {
+    const state = startGame("g1", "p1", seededRng(2));
+    expect(state).toMatchObject({ turn: "player", status: "in_progress" });
+    expect(state.dealerHand.filter((c) => c.hidden)).toHaveLength(1);
   });
 });
 

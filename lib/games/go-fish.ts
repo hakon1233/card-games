@@ -1,4 +1,5 @@
 import { buildDeck, RANKS, shuffle } from "./deck-utils";
+import type { Rng } from "./engine";
 import type { BaseGameState, Card, Rank } from "./types";
 
 export interface GoFishPlayer {
@@ -135,10 +136,11 @@ function propagateBotKnowledge(
 
 export function dealGoFish(
   gameId: string,
-  playerDefs: { id: string; name: string; isBot: boolean }[]
+  playerDefs: { id: string; name: string; isBot: boolean }[],
+  rng: Rng = Math.random,
 ): GoFishGameState {
   const handSize = playerDefs.length >= 4 ? 5 : 7;
-  const deck = shuffle(buildDeck());
+  const deck = shuffle(buildDeck(), rng);
 
   const players: GoFishPlayer[] = playerDefs.map((p) => ({
     ...p,

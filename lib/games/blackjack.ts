@@ -1,4 +1,5 @@
 import { buildDeck, shuffle } from "./deck-utils";
+import type { Rng } from "./engine";
 import type { BaseGameState, Card, Rank } from "./types";
 
 export type BlackjackStatus =
@@ -80,8 +81,12 @@ function drawCard(deck: Card[]): { card: Card; remaining: Card[] } {
  * Deal the initial state. Always returns turn "player" with 48 cards remaining.
  * Blackjack detection is the caller's responsibility.
  */
-export function dealInitialState(gameId: string, playerId: string): BlackjackState {
-  let deck = shuffle(buildDeck());
+export function dealInitialState(
+  gameId: string,
+  playerId: string,
+  rng: Rng = Math.random,
+): BlackjackState {
+  let deck = shuffle(buildDeck(), rng);
 
   const d1 = drawCard(deck); deck = d1.remaining;
   const d2 = drawCard(deck); deck = d2.remaining;
@@ -99,8 +104,8 @@ export function dealInitialState(gameId: string, playerId: string): BlackjackSta
 }
 
 /** Start a new game, with immediate blackjack resolution when applicable. */
-export function startGame(gameId: string, playerId: string): BlackjackState {
-  const state = dealInitialState(gameId, playerId);
+export function startGame(gameId: string, playerId: string, rng: Rng = Math.random): BlackjackState {
+  const state = dealInitialState(gameId, playerId, rng);
   const playerBJ = isBlackjack(state.playerHand.cards);
   const revealedDealer = state.dealerHand.map((c) => ({ ...c, hidden: false }));
   const dealerBJ = isBlackjack(revealedDealer);
@@ -171,9 +176,13 @@ export function applyDealerTurn(state: BlackjackState): BlackjackState {
   return { ...state, dealerHand: dealerCards, deck, turn: "over", status: "push", result: "push" };
 }
 
-export function applyAction(state: BlackjackState, action: BlackjackAction): BlackjackState {
+export function applyAction(
+  state: BlackjackState,
+  action: BlackjackAction,
+  rng: Rng = Math.random,
+): BlackjackState {
   if (action.type === "START") {
-    return startGame(state.gameId, action.playerId);
+    return startGame(state.gameId, action.playerId, rng);
   }
   if (state.turn === "over") return state;
   if (action.type === "HIT") return applyPlayerHit(state);

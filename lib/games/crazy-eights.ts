@@ -1,5 +1,6 @@
 import type { BaseGameState, Card, Suit } from "./types";
 import { buildDeck, shuffle } from "./deck-utils";
+import type { Rng } from "./engine";
 
 export type CrazyEightsStatus = "waiting" | "in_progress" | "round_over";
 
@@ -56,12 +57,13 @@ export function dealGame(
   gameId: string,
   playerIds: string[],
   botFlags: boolean[],
+  rng: Rng = Math.random,
 ): CrazyEightsState {
   if (playerIds.length < 2 || playerIds.length > 4) {
     throw new Error("Crazy Eights requires 2–4 players");
   }
 
-  let deck = shuffle(buildDeck());
+  let deck = shuffle(buildDeck(), rng);
   const handSize = 7;
 
   const players: CrazyEightsPlayer[] = playerIds.map((id, i) => ({
@@ -102,10 +104,10 @@ function nextPlayerIndex(state: CrazyEightsState): number {
   return (state.currentPlayerIndex + 1) % state.players.length;
 }
 
-function reshuffleDiscardIntoDeck(state: CrazyEightsState): CrazyEightsState {
+function reshuffleDiscardIntoDeck(state: CrazyEightsState, rng: Rng): CrazyEightsState {
   if (state.discardPile.length <= 1) return state;
   const top = topCard(state);
-  const reshuffled = shuffle(state.discardPile.slice(0, -1));
+  const reshuffled = shuffle(state.discardPile.slice(0, -1), rng);
   return { ...state, deck: [...state.deck, ...reshuffled], discardPile: [top] };
 }
 
@@ -148,13 +150,14 @@ export function applyPlayCard(
 export function applyDrawCard(
   state: CrazyEightsState,
   playerId: string,
+  rng: Rng = Math.random,
 ): CrazyEightsState {
   if (state.status !== "in_progress") return state;
 
   const playerIdx = state.players.findIndex((p) => p.id === playerId);
   if (playerIdx !== state.currentPlayerIndex) return state;
 
-  const s = state.deck.length === 0 ? reshuffleDiscardIntoDeck(state) : state;
+  const s = state.deck.length === 0 ? reshuffleDiscardIntoDeck(state, rng) : state;
 
   if (s.deck.length === 0) {
     // Nothing to draw — skip turn
@@ -179,6 +182,7 @@ export function applyDrawCard(
 export function applyAction(
   state: CrazyEightsState,
   action: CrazyEightsAction,
+  rng: Rng = Math.random,
 ): CrazyEightsState {
   if (state.status !== "in_progress") return state;
 
@@ -186,7 +190,7 @@ export function applyAction(
     case "PLAY_CARD":
       return applyPlayCard(state, action.playerId, action.cardIndex, action.declaredSuit);
     case "DRAW_CARD":
-      return applyDrawCard(state, action.playerId);
+      return applyDrawCard(state, action.playerId, rng);
     default:
       return state;
   }

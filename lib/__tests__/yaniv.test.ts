@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   dealGame,
   applyAction,
@@ -10,25 +10,9 @@ import {
   getFinalStandings,
 } from "../games/yaniv";
 import { YanivBot } from "../bots/yaniv-bot";
+import { seededRng } from "../games/engine";
 
 const bot = new YanivBot();
-
-/**
- * Small deterministic PRNG (mulberry32). Pure integer math, so it produces the
- * same [0,1) stream on every platform/Node version. Used by the full-game
- * simulation to make the deck shuffle and bot decisions reproducible — see the
- * comment on that test for why real randomness makes it flake / hang.
- */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 describe("yaniv card values", () => {
   it("scores Joker=0, A=1, face=10, pip=face value", () => {
@@ -605,12 +589,10 @@ describe("elimination at exact score limit (GAM-124)", () => {
 });
 
 describe("full game simulation", () => {
-  afterEach(() => vi.restoreAllMocks());
-
   it("completes a 3-player bot game within turn limit", () => {
     // This simulation only terminates reliably if the whole game is deterministic.
-    // Two things feed randomness into it: the deck shuffle (Math.random, via
-    // lib/games/deck-utils `shuffle`, reshuffled every round) and the bot's
+    // Two things feed randomness into it: the deck shuffle (reshuffled every
+    // round) and the bot's
     // Yaniv-call decision (GAM-154's CALL_PROBABILITY). Under real randomness ~8%
     // of deals drive this loop into a state that NEVER reaches game_over: the
     // scripted human below only ever discards a single card, so it keeps 5 cards
@@ -619,20 +601,22 @@ describe("full game simulation", () => {
     // either (verified empirically: raising MAX_TURNS or seeding only the bot does
     // NOT fix it; the loop still hangs past 100k turns on those deals).
     //
-    // So we pin Math.random to a fixed-seed PRNG. The bot is constructed *after*
-    // the stub on purpose — it captures Math.random by reference at construction,
-    // so the module-level `bot` (built at import time) would ignore the stub. With
-    // the stub in place every shuffle and bot decision replays identically, and
-    // this particular deal is known to finish in 186 turns (bot-1 wins, player-1
-    // eliminated). If future engine changes break that, this test fails loudly and
+    // So one fixed-seed Rng feeds both the engine and the bot: every shuffle and
+    // bot decision replays identically, and this particular deal is known to
+    // finish in 186 turns (bot-1 wins, player-1 eliminated). If future engine changes break that, this test fails loudly and
     // deterministically — never flakily — and a new terminating seed can be picked.
-    vi.spyOn(Math, "random").mockImplementation(mulberry32(43));
-    const simBot = new YanivBot();
+    const rng = seededRng(43);
+    const simBot = new YanivBot(rng);
 
-    let state = dealGame("sim-game", [
-      { id: "player-1", name: "You", isBot: false },
-      { id: "bot-1", name: "Bot 1", isBot: true },
-    ]);
+    let state = dealGame(
+      "sim-game",
+      [
+        { id: "player-1", name: "You", isBot: false },
+        { id: "bot-1", name: "Bot 1", isBot: true },
+      ],
+      undefined,
+      rng,
+    );
 
     let turns = 0;
     // Deterministic run lands at 186 turns; this is a generous safety bound that
@@ -641,16 +625,16 @@ describe("full game simulation", () => {
 
     while (state.status !== "game_over" && turns < MAX_TURNS) {
       if (state.status === "round_over") {
-        state = applyAction(state, { type: "NEXT_ROUND", playerId: "player-1" });
+        state = applyAction(state, { type: "NEXT_ROUND", playerId: "player-1" }, rng);
         continue;
       }
 
       const curr = state.players[state.currentPlayerIndex];
       if (curr.isBot) {
-        state = applyAction(state, simBot.getNextMove(state, curr.id));
+        state = applyAction(state, simBot.getNextMove(state, curr.id), rng);
       } else {
         if (canCallYaniv(state.players[0].hand)) {
-          state = applyAction(state, { type: "CALL_YANIV", playerId: "player-1" });
+          state = applyAction(state, { type: "CALL_YANIV", playerId: "player-1" }, rng);
         } else {
           let maxV = -1, maxIdx = 0;
           state.players[0].hand.forEach((c, i) => {
@@ -662,13 +646,14 @@ describe("full game simulation", () => {
             playerId: "player-1",
             discardIndices: [maxIdx],
             drawFromDiscard: false,
-          });
+          }, rng);
         }
       }
       turns++;
     }
 
     expect(state.status).toBe("game_over");
+    expect(turns).toBe(186);
     expect(state.winnerId).toBeTruthy();
     // At least one player must be eliminated
     expect(state.players.some((p) => p.eliminated)).toBe(true);

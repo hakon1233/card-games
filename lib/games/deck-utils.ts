@@ -1,3 +1,4 @@
+import type { Rng } from "./engine";
 import type { Card, Rank, Suit } from "./types";
 
 export const SUITS: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
@@ -13,10 +14,10 @@ export function buildDeck(): Card[] {
   return deck;
 }
 
-export function shuffle(deck: Card[]): Card[] {
+export function shuffle(deck: Card[], rng: Rng = Math.random): Card[] {
   const d = [...deck];
   for (let i = d.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
   }
   return d;

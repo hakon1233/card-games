@@ -1,5 +1,6 @@
 import type { Card, Rank } from "./types";
 import { buildDeck, shuffle } from "./deck-utils";
+import type { Rng } from "./engine";
 
 export type YanivStatus = "in_progress" | "round_over" | "game_over";
 
@@ -229,11 +230,12 @@ export function dealGame(
   gameId: string,
   playerDefs: { id: string; name: string; isBot: boolean }[],
   settings: YanivSettings = DEFAULT_YANIV_SETTINGS,
+  rng: Rng = Math.random,
 ): YanivGameState {
   if (playerDefs.length < 2 || playerDefs.length > 6) {
     throw new Error("Yaniv requires 2–6 players");
   }
-  const deck = shuffle(buildYanivDeck());
+  const deck = shuffle(buildYanivDeck(), rng);
   const handSize = 5;
 
   const players: YanivPlayer[] = playerDefs.map((p, i) => ({
@@ -346,11 +348,11 @@ function applyScore(state: YanivGameState, callerId: string): YanivGameState {
   };
 }
 
-export function startNextRound(state: YanivGameState): YanivGameState {
+export function startNextRound(state: YanivGameState, rng: Rng = Math.random): YanivGameState {
   if (state.status !== "round_over") return state;
 
   const activePlayers = state.players.filter((p) => !p.eliminated);
-  const deck = shuffle(buildYanivDeck());
+  const deck = shuffle(buildYanivDeck(), rng);
   const handSize = 5;
 
   let offset = 0;
@@ -399,9 +401,13 @@ function advanceToNextPlayer(players: YanivPlayer[], fromIdx: number): number {
   return nextIdx;
 }
 
-export function applyAction(state: YanivGameState, action: YanivAction): YanivGameState {
+export function applyAction(
+  state: YanivGameState,
+  action: YanivAction,
+  rng: Rng = Math.random,
+): YanivGameState {
   if (action.type === "NEXT_ROUND") {
-    return startNextRound(state);
+    return startNextRound(state, rng);
   }
 
   if (action.type === "QUICK_DRAW_STEAL") {
@@ -420,7 +426,7 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
     let discardPile = pileWithoutStolen;
     if (deck.length === 0) {
       const top = discardPile[discardPile.length - 1];
-      deck = shuffle(discardPile.slice(0, -1));
+      deck = shuffle(discardPile.slice(0, -1), rng);
       discardPile = top ? [top] : [];
     }
     if (deck.length === 0) return state;
@@ -471,7 +477,7 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
       // Draw from deck
       if (deck.length === 0) {
         const top = discardPile[discardPile.length - 1];
-        deck = shuffle(discardPile.slice(0, -1));
+        deck = shuffle(discardPile.slice(0, -1), rng);
         discardPile = top ? [top] : [];
       }
       if (deck.length === 0) return state;
@@ -558,7 +564,7 @@ export function applyAction(state: YanivGameState, action: YanivAction): YanivGa
       if (deck.length === 0) {
         // Reshuffle discard pile into deck, keep new top
         const top = discardPile[discardPile.length - 1];
-        deck = shuffle(discardPile.slice(0, -1));
+        deck = shuffle(discardPile.slice(0, -1), rng);
         discardPile = [top];
       }
 
