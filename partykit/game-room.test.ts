@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type * as Party from "partykit/server";
 import GameRoom from "./game-room";
+import { signRoomToken, type RoomGameType } from "@/lib/room-token";
+
+const SECRET = "test-room-secret";
+const ROOM = "ROOM01";
 
 // A local stand-in for the PartyKit runtime: in-memory storage and connections
 // that record what the room sends them.
@@ -20,12 +24,12 @@ class FakeConnection {
   }
 }
 
-function makeRoom(id = "ROOM01") {
+function makeRoom(gameType: RoomGameType, hostId = "alice") {
   const store = new Map<string, unknown>();
   const connections: FakeConnection[] = [];
   const room = {
-    id,
-    env: {},
+    id: ROOM,
+    env: { ROOM_TOKEN_SECRET: SECRET },
     storage: {
       get: async (key: string) => store.get(key),
       put: async (key: string, value: unknown) => {
@@ -36,38 +40,106 @@ function makeRoom(id = "ROOM01") {
   };
   const server = new GameRoom(room as unknown as Party.Room);
 
+  const send = async (conn: FakeConnection, msg: unknown) => {
+    await server.onMessage(JSON.stringify(msg), conn as unknown as Party.Connection);
+  };
+
   return {
     server,
-    async create(hostId: string, gameType: "crazy_eights" | "go_fish") {
-      await server.onRequest(
-        new Request("http://party/room", {
-          method: "POST",
-          body: JSON.stringify({ hostId, hostDisplayName: hostId, gameType }),
-        }) as unknown as Party.Request,
+    send,
+    tokenFor(userId: string, opts: { room?: string; secret?: string } = {}) {
+      return signRoomToken(
+        { room: opts.room ?? ROOM, userId, displayName: userId.toUpperCase(), hostId, gameType },
+        opts.secret ?? SECRET,
       );
     },
     async connect() {
       const conn = new FakeConnection(`c${connections.length}`);
       connections.push(conn);
-      await server.onConnect(conn as unknown as Party.Connection);
       return conn;
     },
-    async send(conn: FakeConnection, msg: unknown) {
-      await server.onMessage(JSON.stringify(msg), conn as unknown as Party.Connection);
+    async join(userId: string) {
+      const conn = await this.connect();
+      await send(conn, { type: "JOIN", token: await this.tokenFor(userId) });
+      return conn;
     },
   };
 }
 
-async function startedGame(gameType: "crazy_eights" | "go_fish") {
-  const r = makeRoom();
-  await r.create("alice", gameType);
-  const alice = await r.connect();
-  const bob = await r.connect();
-  await r.send(alice, { type: "JOIN", userId: "alice", displayName: "Alice" });
-  await r.send(bob, { type: "JOIN", userId: "bob", displayName: "Bob" });
+async function startedGame(gameType: RoomGameType) {
+  const r = makeRoom(gameType);
+  const alice = await r.join("alice");
+  const bob = await r.join("bob");
   await r.send(alice, { type: "START" });
   return { ...r, alice, bob };
 }
+
+type LobbyView = { hostId: string; players: Array<{ userId: string; displayName: string }> };
+
+describe("joining a room", () => {
+  it("the host's token opens the lobby with the signed game and host", async () => {
+    const r = makeRoom("go_fish");
+    const alice = await r.join("alice");
+
+    expect(alice.last().type).toBe("LOBBY_STATE");
+    const lobby = alice.last().state as LobbyView & { gameType: string };
+    expect(lobby.hostId).toBe("alice");
+    expect(lobby.gameType).toBe("go_fish");
+    expect(lobby.players.map((p) => [p.userId, p.displayName])).toEqual([["alice", "ALICE"]]);
+  });
+
+  it("a socket cannot join by claiming someone else's user id", async () => {
+    const r = makeRoom("crazy_eights");
+    const alice = await r.join("alice");
+    const mallory = await r.connect();
+    await r.send(mallory, { type: "JOIN", userId: "alice", displayName: "Alice" });
+
+    expect(mallory.last()).toEqual({ type: "ERROR", message: "Invalid room token" });
+    await r.send(mallory, { type: "START" });
+    expect((alice.last().state as LobbyView).players).toHaveLength(1);
+  });
+
+  it("rejects a token signed with another secret or for another room", async () => {
+    const r = makeRoom("crazy_eights");
+    await r.join("alice");
+    for (const token of [
+      await r.tokenFor("bob", { secret: "wrong-secret" }),
+      await r.tokenFor("bob", { room: "OTHER1" }),
+    ]) {
+      const conn = await r.connect();
+      await r.send(conn, { type: "JOIN", token });
+      expect(conn.last()).toEqual({ type: "ERROR", message: "Invalid room token" });
+    }
+  });
+
+  it("sends nothing to a socket that has not joined", async () => {
+    const r = makeRoom("crazy_eights");
+    await r.join("alice");
+    const lurker = await r.connect();
+
+    expect(lurker.sent).toEqual([]);
+  });
+
+  it("cannot be created or reset over HTTP", async () => {
+    const r = makeRoom("crazy_eights");
+    const alice = await r.join("alice");
+    const res = await r.server.onRequest();
+
+    expect(res.status).toBe(405);
+    const bob = await r.join("bob");
+    expect((bob.last().state as LobbyView).hostId).toBe("alice");
+    expect(alice.last().type).toBe("LOBBY_STATE");
+  });
+
+  it("only the host can start the game", async () => {
+    const r = makeRoom("go_fish");
+    await r.join("alice");
+    const bob = await r.join("bob");
+    await r.send(bob, { type: "START" });
+
+    expect(bob.last()).toEqual({ type: "ERROR", message: "Only the host can start the game" });
+  });
+});
 
 describe("Crazy Eights room", () => {
   it("never sends a player an opponent's hand or the draw pile", async () => {
@@ -116,5 +188,16 @@ describe("Go Fish room", () => {
       return;
     }
     throw new Error("no plain 'Go Fish' outcome in 50 deals");
+  });
+
+  it("a player cannot act for another player", async () => {
+    const { alice, bob, send } = await startedGame("go_fish");
+    const before = alice.last();
+    await send(bob, {
+      type: "GF_ACTION",
+      payload: { type: "ASK", playerId: "alice", targetPlayerId: "bob", rank: "A" },
+    });
+
+    expect(alice.last()).toBe(before);
   });
 });

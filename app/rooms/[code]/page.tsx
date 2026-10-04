@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { signRoomToken } from "@/lib/room-token";
 import { LobbyClient } from "./lobby-client";
 
 export default async function RoomPage({
@@ -37,12 +38,26 @@ export default async function RoomPage({
 
   const partyHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
 
+  // The room server trusts identity only from this server-signed token.
+  const secret = process.env.ROOM_TOKEN_SECRET;
+  if (!secret) throw new Error("ROOM_TOKEN_SECRET is not set");
+  const token = await signRoomToken(
+    {
+      room: room.code,
+      userId: user.id,
+      displayName,
+      hostId: room.host_id,
+      gameType: room.game_type,
+    },
+    secret,
+  );
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <LobbyClient
         code={room.code}
         userId={user.id}
-        displayName={displayName}
+        token={token}
         hostId={room.host_id}
         partyHost={partyHost}
       />

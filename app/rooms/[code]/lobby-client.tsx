@@ -27,12 +27,13 @@ type ServerMessage =
 interface Props {
   code: string;
   userId: string;
-  displayName: string;
+  /** Signed room token; the room server takes identity only from this. */
+  token: string;
   hostId: string;
   partyHost: string;
 }
 
-export function LobbyClient({ code, userId, displayName, hostId, partyHost }: Props) {
+export function LobbyClient({ code, userId, token, hostId, partyHost }: Props) {
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function LobbyClient({ code, userId, displayName, hostId, partyHost }: Pr
     socketRef.current = socket;
 
     socket.addEventListener("open", () => {
-      socket.send(JSON.stringify({ type: "JOIN", userId, displayName }));
+      socket.send(JSON.stringify({ type: "JOIN", token }));
     });
 
     socket.addEventListener("message", (event: MessageEvent) => {
@@ -60,7 +61,7 @@ export function LobbyClient({ code, userId, displayName, hostId, partyHost }: Pr
     return () => {
       socket.close();
     };
-  }, [code, userId, displayName, partyHost]);
+  }, [code, token, partyHost]);
 
   function handleStart() {
     socketRef.current?.send(JSON.stringify({ type: "START" }));

@@ -46,20 +46,5 @@ export async function POST(request: Request) {
     }
   }
 
-  // Initialise PartyKit room state
-  const partyHost = process.env.PARTYKIT_HOST ?? "localhost:1999";
-  const partyUrl = `http://${partyHost}/parties/main/${code}`;
-  await fetch(partyUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      hostId: user.id,
-      hostDisplayName: displayName,
-      gameType: body.gameType,
-    }),
-  }).catch(() => {
-    // PartyKit init failing is non-fatal — first player join will trigger onStart
-  });
-
   return NextResponse.json({ code }, { status: 201 });
 }

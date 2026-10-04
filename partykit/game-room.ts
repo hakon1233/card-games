@@ -7,6 +7,7 @@ import {
 import type { CrazyEightsState, CrazyEightsAction } from "@/lib/games/crazy-eights";
 import { dealGoFish, applyAsk, publicStateFor } from "@/lib/games/go-fish";
 import type { GoFishGameState, GoFishAskAction } from "@/lib/games/go-fish";
+import { verifyRoomToken, type RoomGameType } from "@/lib/room-token";
 
 // ─── Lobby player entry ───────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ type LobbyPlayer = {
 type LobbyState = {
   phase: "lobby";
   hostId: string;
-  gameType: "crazy_eights" | "go_fish";
+  gameType: RoomGameType;
   players: LobbyPlayer[];
 };
 
@@ -43,7 +44,8 @@ type RoomState = LobbyState | CrazyEightsRoomState | GoFishRoomState;
 
 // ─── Client → Server messages ─────────────────────────────────────────────────
 
-type JoinMsg = { type: "JOIN"; userId: string; displayName: string };
+/** `token` is a signed room token (lib/room-token.ts) minted by the Next.js server. */
+type JoinMsg = { type: "JOIN"; token: unknown };
 type StartMsg = { type: "START" };
 type CeActionMsg = { type: "CE_ACTION"; payload: CrazyEightsAction };
 type GfActionMsg = { type: "GF_ACTION"; payload: GoFishAskAction };
@@ -72,12 +74,6 @@ export default class GameRoom implements Party.Server {
 
   async onStart() {
     this.state = (await this.room.storage.get<RoomState>("state")) ?? null;
-  }
-
-  async onConnect(connection: Party.Connection) {
-    if (!this.state) return;
-    // New connections receive current state immediately (full lobby state or personalized game state)
-    this.sendStateTo(connection, null);
   }
 
   async onMessage(raw: string, sender: Party.Connection) {
@@ -117,66 +113,36 @@ export default class GameRoom implements Party.Server {
     }
   }
 
-  /** Called by the Next.js API route when creating a room */
-  async onRequest(req: Party.Request): Promise<Response> {
-    if (req.method === "POST") {
-      const body = (await req.json()) as {
-        hostId: string;
-        hostDisplayName: string;
-        gameType: "crazy_eights" | "go_fish";
-      };
-      this.state = {
-        phase: "lobby",
-        hostId: body.hostId,
-        gameType: body.gameType,
-        players: [{ userId: body.hostId, displayName: body.hostDisplayName, connected: false }],
-      };
-      await this.persist();
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (req.method === "GET") {
-      if (!this.state) {
-        return new Response(JSON.stringify(null), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      // Return public-safe lobby info
-      const safe = {
-        phase: this.state.phase,
-        hostId: this.state.hostId,
-        gameType: this.state.phase === "lobby" ? this.state.gameType : this.state.phase,
-        playerCount: this.state.players.length,
-        players: this.state.players.map((p) => ({
-          userId: p.userId,
-          displayName: p.displayName,
-          connected: p.connected,
-        })),
-      };
-      return new Response(JSON.stringify(safe), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
+  /** Rooms are created by the host's first JOIN, never over HTTP. */
+  async onRequest(): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   private async handleJoin(msg: JoinMsg, sender: Party.Connection) {
-    if (!this.state) return;
+    const secret = this.room.env.ROOM_TOKEN_SECRET;
+    const claims = await verifyRoomToken(
+      msg.token,
+      this.room.id,
+      typeof secret === "string" ? secret : "",
+    );
+    if (!claims) {
+      const err: ErrorMsg = { type: "ERROR", message: "Invalid room token" };
+      sender.send(JSON.stringify(err));
+      return;
+    }
+    const { userId, displayName } = claims;
 
-    const idx = this.state.players.findIndex((p) => p.userId === msg.userId);
+    // The room row (host, game) lives in Supabase; the token carries it signed.
+    this.state ??= { phase: "lobby", hostId: claims.hostId, gameType: claims.gameType, players: [] };
+
+    const idx = this.state.players.findIndex((p) => p.userId === userId);
     if (idx >= 0) {
       this.state.players[idx].connected = true;
-      this.state.players[idx].displayName = msg.displayName;
+      this.state.players[idx].displayName = displayName;
     } else if (this.state.phase === "lobby" && this.state.players.length < 4) {
-      this.state.players.push({ userId: msg.userId, displayName: msg.displayName, connected: true });
+      this.state.players.push({ userId, displayName, connected: true });
     } else if (this.state.phase !== "lobby") {
       // Game already started — reject if not an existing player
       const err: ErrorMsg = { type: "ERROR", message: "Game already in progress" };
@@ -188,7 +154,7 @@ export default class GameRoom implements Party.Server {
       return;
     }
 
-    sender.setState({ userId: msg.userId } satisfies ConnState);
+    sender.setState({ userId } satisfies ConnState);
     await this.persist();
     this.broadcastAll();
   }
