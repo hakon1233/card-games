@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { redirectPath } from "@/lib/redirect-path";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -10,7 +11,7 @@ export async function signUp(state: AuthState, formData: FormData): Promise<Auth
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const displayName = formData.get("displayName") as string;
-  const next = (formData.get("next") as string) || "/";
+  const next = redirectPath(formData.get("next"));
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -25,7 +26,7 @@ export async function signIn(state: AuthState, formData: FormData): Promise<Auth
   const supabase = await createClient();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const next = (formData.get("next") as string) || "/";
+  const next = redirectPath(formData.get("next"));
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
@@ -44,7 +45,7 @@ export async function signInWithGoogle(next: string = "/") {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(redirectPath(next))}`,
     },
   });
   if (error) return { error: error.message };
